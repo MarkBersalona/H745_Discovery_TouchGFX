@@ -1,0 +1,2 @@
+<?xml version="1.0" encoding="utf-8"?>
+<sessionSetup><partner><name>Partner0</name><workspace>$WS_PATH$</workspace><project>$PROJ_PATH$</project><config>STM32H745I_DISCO_CM7</config><numberOfCores>1</numberOfCores></partner><partner><name>Partner1</name><workspace>C:\Projects\git\pacman\at\stm32h745i_disco\STM32H745I_DISCO\EWARM\Project.eww</workspace><project>STM32H745I_DISCO_CM4</project><config>STM32H745I_DISCO_CM4</config><numberOfCores>1</numberOfCores><attachToRunningTarget>true</attachToRunningTarget></partner></sessionSetup>

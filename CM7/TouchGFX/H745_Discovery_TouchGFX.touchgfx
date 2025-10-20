@@ -1,0 +1,5022 @@
+{
+  "Application": {
+    "Screens": [
+      {
+        "Name": "screenMain",
+        "Components": [
+          {
+            "Type": "Box",
+            "Name": "boxMainBackground",
+            "Width": 480,
+            "Height": 272
+          },
+          {
+            "Type": "Box",
+            "Name": "boxMainTitleBackground",
+            "Width": 480,
+            "Height": 24,
+            "Color": {
+              "Red": 48,
+              "Green": 82,
+              "Blue": 33
+            }
+          },
+          {
+            "Type": "TextArea",
+            "Name": "textAreaZWaveSentinel",
+            "Width": 297,
+            "Height": 24,
+            "TextId": "__SingleUse_DZIZ",
+            "TextRotation": "0",
+            "Color": {
+              "Red": 255,
+              "Green": 255,
+              "Blue": 255
+            },
+            "AutoSize": true
+          },
+          {
+            "Type": "TextArea",
+            "Name": "textAreaTimestamp",
+            "X": 303,
+            "Width": 177,
+            "Height": 24,
+            "TextId": "__SingleUse_SU1R",
+            "TextRotation": "0",
+            "Color": {
+              "Red": 246,
+              "Green": 255
+            },
+            "AutoSize": true
+          },
+          {
+            "Type": "ButtonWithLabel",
+            "Name": "buttonWithLabelSettings",
+            "X": 12,
+            "Y": 225,
+            "Width": 100,
+            "Height": 36,
+            "Pressed": "__generated\\alternate_theme_images_widgets_button_regular_height_36_tiny_rounded_action.png",
+            "Released": "__generated\\alternate_theme_images_widgets_button_regular_height_36_tiny_rounded_action.png",
+            "TextId": "textID_buttonSettings",
+            "PressedColor": {
+              "Red": 255,
+              "Green": 255,
+              "Blue": 255
+            },
+            "TextRotation": "0"
+          },
+          {
+            "Type": "ButtonWithLabel",
+            "Name": "buttonWithLabelStandby",
+            "X": 12,
+            "Y": 163,
+            "Width": 100,
+            "Height": 36,
+            "Pressed": "__generated\\alternate_theme_images_widgets_button_regular_height_36_tiny_rounded_action.png",
+            "Released": "__generated\\alternate_theme_images_widgets_button_regular_height_36_tiny_rounded_action.png",
+            "TextId": "textID_buttonStandby",
+            "ReleasedColor": {
+              "Red": 71,
+              "Green": 42,
+              "Blue": 42
+            },
+            "PressedColor": {
+              "Red": 255,
+              "Green": 255,
+              "Blue": 255
+            },
+            "TextRotation": "0"
+          },
+          {
+            "Type": "Container",
+            "Name": "containerZonesAtAGlance",
+            "X": 132,
+            "Y": 61,
+            "Width": 330,
+            "Height": 150,
+            "Components": [
+              {
+                "Type": "FlexButton",
+                "Name": "flexButton1_1",
+                "X": 32,
+                "Width": 32,
+                "Height": 30,
+                "ButtonTrigger": {
+                  "Type": "ClickButtonTrigger"
+                },
+                "ButtonStyles": [
+                  {
+                    "Type": "BoxWithBorderButtonStyle",
+                    "Width": 32,
+                    "Height": 30,
+                    "LockToFlexButtonSize": true,
+                    "BorderSize": 5,
+                    "ColorReleased": {
+                      "Red": 255,
+                      "Green": 238
+                    },
+                    "ColorPressed": {
+                      "Green": 153,
+                      "Blue": 204
+                    },
+                    "ColorBorderReleased": {
+                      "Red": 207,
+                      "Green": 165
+                    },
+                    "ColorBorderPressed": {
+                      "Red": 51,
+                      "Green": 102,
+                      "Blue": 153
+                    }
+                  }
+                ]
+              },
+              {
+                "Type": "FlexButton",
+                "Name": "flexButton1_1_1",
+                "X": 266,
+                "Y": 60,
+                "Width": 32,
+                "Height": 30,
+                "ButtonTrigger": {
+                  "Type": "ClickButtonTrigger"
+                },
+                "ButtonStyles": [
+                  {
+                    "Type": "BoxWithBorderButtonStyle",
+                    "Width": 32,
+                    "Height": 30,
+                    "LockToFlexButtonSize": true,
+                    "BorderSize": 5,
+                    "ColorReleased": {
+                      "Red": 255,
+                      "Green": 238
+                    },
+                    "ColorPressed": {
+                      "Green": 153,
+                      "Blue": 204
+                    },
+                    "ColorBorderReleased": {
+                      "Red": 107,
+                      "Green": 107,
+                      "Blue": 107
+                    },
+                    "ColorBorderPressed": {
+                      "Red": 51,
+                      "Green": 102,
+                      "Blue": 153
+                    }
+                  }
+                ]
+              },
+              {
+                "Type": "FlexButton",
+                "Name": "flexButton1_1_2",
+                "X": 32,
+                "Y": 90,
+                "Width": 32,
+                "Height": 30,
+                "ButtonTrigger": {
+                  "Type": "ClickButtonTrigger"
+                },
+                "ButtonStyles": [
+                  {
+                    "Type": "BoxWithBorderButtonStyle",
+                    "Width": 32,
+                    "Height": 30,
+                    "LockToFlexButtonSize": true,
+                    "BorderSize": 5,
+                    "ColorReleased": {
+                      "Red": 255,
+                      "Green": 238
+                    },
+                    "ColorPressed": {
+                      "Green": 153,
+                      "Blue": 204
+                    },
+                    "ColorBorderReleased": {
+                      "Red": 99,
+                      "Green": 99,
+                      "Blue": 99
+                    },
+                    "ColorBorderPressed": {
+                      "Red": 51,
+                      "Green": 102,
+                      "Blue": 153
+                    }
+                  }
+                ]
+              },
+              {
+                "Type": "FlexButton",
+                "Name": "flexButton1_1_3",
+                "X": 64,
+                "Y": 90,
+                "Width": 32,
+                "Height": 30,
+                "ButtonTrigger": {
+                  "Type": "ClickButtonTrigger"
+                },
+                "ButtonStyles": [
+                  {
+                    "Type": "BoxWithBorderButtonStyle",
+                    "Width": 32,
+                    "Height": 30,
+                    "LockToFlexButtonSize": true,
+                    "BorderSize": 5,
+                    "ColorReleased": {
+                      "Red": 255,
+                      "Green": 238
+                    },
+                    "ColorPressed": {
+                      "Green": 153,
+                      "Blue": 204
+                    },
+                    "ColorBorderReleased": {
+                      "Red": 105,
+                      "Green": 105,
+                      "Blue": 105
+                    },
+                    "ColorBorderPressed": {
+                      "Red": 51,
+                      "Green": 102,
+                      "Blue": 153
+                    }
+                  }
+                ]
+              },
+              {
+                "Type": "FlexButton",
+                "Name": "flexButton1_9",
+                "X": 266,
+                "Width": 32,
+                "Height": 30,
+                "ButtonTrigger": {
+                  "Type": "ClickButtonTrigger"
+                },
+                "ButtonStyles": [
+                  {
+                    "Type": "BoxWithBorderButtonStyle",
+                    "Width": 32,
+                    "Height": 30,
+                    "LockToFlexButtonSize": true,
+                    "BorderSize": 5,
+                    "ColorPressed": {
+                      "Green": 153,
+                      "Blue": 204
+                    },
+                    "ColorBorderReleased": {
+                      "Red": 97,
+                      "Green": 97,
+                      "Blue": 97
+                    },
+                    "ColorBorderPressed": {
+                      "Red": 51,
+                      "Green": 102,
+                      "Blue": 153
+                    }
+                  }
+                ]
+              },
+              {
+                "Type": "FlexButton",
+                "Name": "flexButton1_8",
+                "X": 234,
+                "Width": 32,
+                "Height": 30,
+                "ButtonTrigger": {
+                  "Type": "ClickButtonTrigger"
+                },
+                "ButtonStyles": [
+                  {
+                    "Type": "BoxWithBorderButtonStyle",
+                    "Width": 32,
+                    "Height": 30,
+                    "LockToFlexButtonSize": true,
+                    "BorderSize": 5,
+                    "ColorReleased": {
+                      "Green": 255,
+                      "Blue": 8
+                    },
+                    "ColorPressed": {
+                      "Green": 153,
+                      "Blue": 204
+                    },
+                    "ColorBorderReleased": {
+                      "Red": 102,
+                      "Green": 102,
+                      "Blue": 102
+                    },
+                    "ColorBorderPressed": {
+                      "Red": 51,
+                      "Green": 102,
+                      "Blue": 153
+                    }
+                  }
+                ]
+              },
+              {
+                "Type": "FlexButton",
+                "Name": "flexButton1_6",
+                "X": 298,
+                "Width": 32,
+                "Height": 30,
+                "ButtonTrigger": {
+                  "Type": "ClickButtonTrigger"
+                },
+                "ButtonStyles": [
+                  {
+                    "Type": "BoxWithBorderButtonStyle",
+                    "Width": 32,
+                    "Height": 30,
+                    "LockToFlexButtonSize": true,
+                    "BorderSize": 5,
+                    "ColorPressed": {
+                      "Green": 153,
+                      "Blue": 204
+                    },
+                    "ColorBorderReleased": {
+                      "Red": 102,
+                      "Green": 102,
+                      "Blue": 102
+                    },
+                    "ColorBorderPressed": {
+                      "Red": 51,
+                      "Green": 102,
+                      "Blue": 153
+                    }
+                  }
+                ]
+              },
+              {
+                "Type": "FlexButton",
+                "Name": "flexButton1",
+                "X": 96,
+                "Width": 32,
+                "Height": 30,
+                "ButtonTrigger": {
+                  "Type": "ClickButtonTrigger"
+                },
+                "ButtonStyles": [
+                  {
+                    "Type": "BoxWithBorderButtonStyle",
+                    "Width": 32,
+                    "Height": 30,
+                    "LockToFlexButtonSize": true,
+                    "BorderSize": 5,
+                    "ColorReleased": {
+                      "Red": 255
+                    },
+                    "ColorPressed": {
+                      "Green": 153,
+                      "Blue": 204
+                    },
+                    "ColorBorderReleased": {
+                      "Red": 207,
+                      "Green": 145
+                    },
+                    "ColorBorderPressed": {
+                      "Red": 51,
+                      "Green": 102,
+                      "Blue": 153
+                    }
+                  }
+                ]
+              },
+              {
+                "Type": "FlexButton",
+                "Name": "flexButton1_2",
+                "X": 64,
+                "Width": 32,
+                "Height": 30,
+                "ButtonTrigger": {
+                  "Type": "ClickButtonTrigger"
+                },
+                "ButtonStyles": [
+                  {
+                    "Type": "BoxWithBorderButtonStyle",
+                    "Width": 32,
+                    "Height": 30,
+                    "LockToFlexButtonSize": true,
+                    "BorderSize": 5,
+                    "ColorReleased": {
+                      "Green": 255,
+                      "Blue": 8
+                    },
+                    "ColorPressed": {
+                      "Green": 153,
+                      "Blue": 204
+                    },
+                    "ColorBorderReleased": {
+                      "Red": 209,
+                      "Green": 164
+                    },
+                    "ColorBorderPressed": {
+                      "Red": 51,
+                      "Green": 102,
+                      "Blue": 153
+                    }
+                  }
+                ]
+              },
+              {
+                "Type": "FlexButton",
+                "Name": "flexButton1_2_1",
+                "X": 64,
+                "Y": 30,
+                "Width": 32,
+                "Height": 30,
+                "ButtonTrigger": {
+                  "Type": "ClickButtonTrigger"
+                },
+                "ButtonStyles": [
+                  {
+                    "Type": "BoxWithBorderButtonStyle",
+                    "Width": 32,
+                    "Height": 30,
+                    "LockToFlexButtonSize": true,
+                    "BorderSize": 5,
+                    "ColorReleased": {
+                      "Green": 255,
+                      "Blue": 8
+                    },
+                    "ColorPressed": {
+                      "Green": 153,
+                      "Blue": 204
+                    },
+                    "ColorBorderReleased": {
+                      "Red": 97,
+                      "Green": 97,
+                      "Blue": 97
+                    },
+                    "ColorBorderPressed": {
+                      "Red": 51,
+                      "Green": 102,
+                      "Blue": 153
+                    }
+                  }
+                ]
+              },
+              {
+                "Type": "FlexButton",
+                "Name": "flexButton1_2_1_1",
+                "X": 97,
+                "Y": 90,
+                "Width": 32,
+                "Height": 30,
+                "ButtonTrigger": {
+                  "Type": "ClickButtonTrigger"
+                },
+                "ButtonStyles": [
+                  {
+                    "Type": "BoxWithBorderButtonStyle",
+                    "Width": 32,
+                    "Height": 30,
+                    "LockToFlexButtonSize": true,
+                    "BorderSize": 5,
+                    "ColorReleased": {
+                      "Green": 255,
+                      "Blue": 8
+                    },
+                    "ColorPressed": {
+                      "Green": 153,
+                      "Blue": 204
+                    },
+                    "ColorBorderReleased": {
+                      "Red": 255,
+                      "Green": 255,
+                      "Blue": 255
+                    },
+                    "ColorBorderPressed": {
+                      "Red": 51,
+                      "Green": 102,
+                      "Blue": 153
+                    }
+                  }
+                ]
+              },
+              {
+                "Type": "FlexButton",
+                "Name": "flexButton1_2_1_2",
+                "X": 128,
+                "Y": 90,
+                "Width": 32,
+                "Height": 30,
+                "ButtonTrigger": {
+                  "Type": "ClickButtonTrigger"
+                },
+                "ButtonStyles": [
+                  {
+                    "Type": "BoxWithBorderButtonStyle",
+                    "Width": 32,
+                    "Height": 30,
+                    "LockToFlexButtonSize": true,
+                    "BorderSize": 5,
+                    "ColorReleased": {
+                      "Green": 255,
+                      "Blue": 8
+                    },
+                    "ColorPressed": {
+                      "Green": 153,
+                      "Blue": 204
+                    },
+                    "ColorBorderReleased": {
+                      "Red": 102,
+                      "Green": 102,
+                      "Blue": 102
+                    },
+                    "ColorBorderPressed": {
+                      "Red": 51,
+                      "Green": 102,
+                      "Blue": 153
+                    }
+                  }
+                ]
+              },
+              {
+                "Type": "FlexButton",
+                "Name": "flexButton1_2_1_3",
+                "X": 170,
+                "Y": 90,
+                "Width": 32,
+                "Height": 30,
+                "ButtonTrigger": {
+                  "Type": "ClickButtonTrigger"
+                },
+                "ButtonStyles": [
+                  {
+                    "Type": "BoxWithBorderButtonStyle",
+                    "Width": 32,
+                    "Height": 30,
+                    "LockToFlexButtonSize": true,
+                    "BorderSize": 5,
+                    "ColorReleased": {
+                      "Green": 255,
+                      "Blue": 8
+                    },
+                    "ColorPressed": {
+                      "Green": 153,
+                      "Blue": 204
+                    },
+                    "ColorBorderReleased": {
+                      "Red": 102,
+                      "Green": 102,
+                      "Blue": 102
+                    },
+                    "ColorBorderPressed": {
+                      "Red": 51,
+                      "Green": 102,
+                      "Blue": 153
+                    }
+                  }
+                ]
+              },
+              {
+                "Type": "FlexButton",
+                "Name": "flexButton1_2_1_4",
+                "X": 202,
+                "Y": 90,
+                "Width": 32,
+                "Height": 30,
+                "ButtonTrigger": {
+                  "Type": "ClickButtonTrigger"
+                },
+                "ButtonStyles": [
+                  {
+                    "Type": "BoxWithBorderButtonStyle",
+                    "Width": 32,
+                    "Height": 30,
+                    "LockToFlexButtonSize": true,
+                    "BorderSize": 5,
+                    "ColorReleased": {
+                      "Green": 255,
+                      "Blue": 8
+                    },
+                    "ColorPressed": {
+                      "Green": 153,
+                      "Blue": 204
+                    },
+                    "ColorBorderReleased": {
+                      "Red": 102,
+                      "Green": 102,
+                      "Blue": 102
+                    },
+                    "ColorBorderPressed": {
+                      "Red": 51,
+                      "Green": 102,
+                      "Blue": 153
+                    }
+                  }
+                ]
+              },
+              {
+                "Type": "FlexButton",
+                "Name": "flexButton1_2_1_5",
+                "X": 234,
+                "Y": 90,
+                "Width": 32,
+                "Height": 30,
+                "ButtonTrigger": {
+                  "Type": "ClickButtonTrigger"
+                },
+                "ButtonStyles": [
+                  {
+                    "Type": "BoxWithBorderButtonStyle",
+                    "Width": 32,
+                    "Height": 30,
+                    "LockToFlexButtonSize": true,
+                    "BorderSize": 5,
+                    "ColorReleased": {
+                      "Green": 255,
+                      "Blue": 8
+                    },
+                    "ColorPressed": {
+                      "Green": 153,
+                      "Blue": 204
+                    },
+                    "ColorBorderReleased": {
+                      "Red": 97,
+                      "Green": 97,
+                      "Blue": 97
+                    },
+                    "ColorBorderPressed": {
+                      "Red": 51,
+                      "Green": 102,
+                      "Blue": 153
+                    }
+                  }
+                ]
+              },
+              {
+                "Type": "FlexButton",
+                "Name": "flexButton1_2_1_6",
+                "X": 266,
+                "Y": 90,
+                "Width": 32,
+                "Height": 30,
+                "ButtonTrigger": {
+                  "Type": "ClickButtonTrigger"
+                },
+                "ButtonStyles": [
+                  {
+                    "Type": "BoxWithBorderButtonStyle",
+                    "Width": 32,
+                    "Height": 30,
+                    "LockToFlexButtonSize": true,
+                    "BorderSize": 5,
+                    "ColorReleased": {
+                      "Green": 255,
+                      "Blue": 8
+                    },
+                    "ColorPressed": {
+                      "Green": 153,
+                      "Blue": 204
+                    },
+                    "ColorBorderReleased": {
+                      "Red": 107,
+                      "Green": 107,
+                      "Blue": 107
+                    },
+                    "ColorBorderPressed": {
+                      "Red": 51,
+                      "Green": 102,
+                      "Blue": 153
+                    }
+                  }
+                ]
+              },
+              {
+                "Type": "FlexButton",
+                "Name": "flexButton1_2_2",
+                "X": 96,
+                "Y": 30,
+                "Width": 32,
+                "Height": 30,
+                "ButtonTrigger": {
+                  "Type": "ClickButtonTrigger"
+                },
+                "ButtonStyles": [
+                  {
+                    "Type": "BoxWithBorderButtonStyle",
+                    "Width": 32,
+                    "Height": 30,
+                    "LockToFlexButtonSize": true,
+                    "BorderSize": 5,
+                    "ColorReleased": {
+                      "Green": 255,
+                      "Blue": 8
+                    },
+                    "ColorPressed": {
+                      "Green": 153,
+                      "Blue": 204
+                    },
+                    "ColorBorderReleased": {
+                      "Red": 110,
+                      "Green": 110,
+                      "Blue": 110
+                    },
+                    "ColorBorderPressed": {
+                      "Red": 51,
+                      "Green": 102,
+                      "Blue": 153
+                    }
+                  }
+                ]
+              },
+              {
+                "Type": "FlexButton",
+                "Name": "flexButton1_2_3",
+                "X": 128,
+                "Y": 30,
+                "Width": 32,
+                "Height": 30,
+                "ButtonTrigger": {
+                  "Type": "ClickButtonTrigger"
+                },
+                "ButtonStyles": [
+                  {
+                    "Type": "BoxWithBorderButtonStyle",
+                    "Width": 32,
+                    "Height": 30,
+                    "LockToFlexButtonSize": true,
+                    "BorderSize": 5,
+                    "ColorReleased": {
+                      "Green": 255,
+                      "Blue": 8
+                    },
+                    "ColorPressed": {
+                      "Green": 153,
+                      "Blue": 204
+                    },
+                    "ColorBorderReleased": {
+                      "Red": 105,
+                      "Green": 105,
+                      "Blue": 105
+                    },
+                    "ColorBorderPressed": {
+                      "Red": 51,
+                      "Green": 102,
+                      "Blue": 153
+                    }
+                  }
+                ]
+              },
+              {
+                "Type": "FlexButton",
+                "Name": "flexButton1_2_3_1",
+                "X": 170,
+                "Y": 60,
+                "Width": 32,
+                "Height": 30,
+                "ButtonTrigger": {
+                  "Type": "ClickButtonTrigger"
+                },
+                "ButtonStyles": [
+                  {
+                    "Type": "BoxWithBorderButtonStyle",
+                    "Width": 32,
+                    "Height": 30,
+                    "LockToFlexButtonSize": true,
+                    "BorderSize": 5,
+                    "ColorReleased": {
+                      "Green": 255,
+                      "Blue": 8
+                    },
+                    "ColorPressed": {
+                      "Green": 153,
+                      "Blue": 204
+                    },
+                    "ColorBorderReleased": {
+                      "Red": 102,
+                      "Green": 102,
+                      "Blue": 102
+                    },
+                    "ColorBorderPressed": {
+                      "Red": 51,
+                      "Green": 102,
+                      "Blue": 153
+                    }
+                  }
+                ]
+              },
+              {
+                "Type": "FlexButton",
+                "Name": "flexButton1_2_3_2",
+                "X": 202,
+                "Y": 60,
+                "Width": 32,
+                "Height": 30,
+                "ButtonTrigger": {
+                  "Type": "ClickButtonTrigger"
+                },
+                "ButtonStyles": [
+                  {
+                    "Type": "BoxWithBorderButtonStyle",
+                    "Width": 32,
+                    "Height": 30,
+                    "LockToFlexButtonSize": true,
+                    "BorderSize": 5,
+                    "ColorReleased": {
+                      "Green": 255,
+                      "Blue": 8
+                    },
+                    "ColorPressed": {
+                      "Green": 153,
+                      "Blue": 204
+                    },
+                    "ColorBorderReleased": {
+                      "Red": 97,
+                      "Green": 97,
+                      "Blue": 97
+                    },
+                    "ColorBorderPressed": {
+                      "Red": 51,
+                      "Green": 102,
+                      "Blue": 153
+                    }
+                  }
+                ]
+              },
+              {
+                "Type": "FlexButton",
+                "Name": "flexButton1_2_3_3",
+                "X": 234,
+                "Y": 60,
+                "Width": 32,
+                "Height": 30,
+                "ButtonTrigger": {
+                  "Type": "ClickButtonTrigger"
+                },
+                "ButtonStyles": [
+                  {
+                    "Type": "BoxWithBorderButtonStyle",
+                    "Width": 32,
+                    "Height": 30,
+                    "LockToFlexButtonSize": true,
+                    "BorderSize": 5,
+                    "ColorReleased": {
+                      "Green": 255,
+                      "Blue": 8
+                    },
+                    "ColorPressed": {
+                      "Green": 153,
+                      "Blue": 204
+                    },
+                    "ColorBorderReleased": {
+                      "Red": 107,
+                      "Green": 107,
+                      "Blue": 107
+                    },
+                    "ColorBorderPressed": {
+                      "Red": 51,
+                      "Green": 102,
+                      "Blue": 153
+                    }
+                  }
+                ]
+              },
+              {
+                "Type": "FlexButton",
+                "Name": "flexButton1_2_4",
+                "X": 170,
+                "Y": 30,
+                "Width": 32,
+                "Height": 30,
+                "ButtonTrigger": {
+                  "Type": "ClickButtonTrigger"
+                },
+                "ButtonStyles": [
+                  {
+                    "Type": "BoxWithBorderButtonStyle",
+                    "Width": 32,
+                    "Height": 30,
+                    "LockToFlexButtonSize": true,
+                    "BorderSize": 5,
+                    "ColorReleased": {
+                      "Green": 255,
+                      "Blue": 8
+                    },
+                    "ColorPressed": {
+                      "Green": 153,
+                      "Blue": 204
+                    },
+                    "ColorBorderReleased": {
+                      "Red": 107,
+                      "Green": 107,
+                      "Blue": 107
+                    },
+                    "ColorBorderPressed": {
+                      "Red": 51,
+                      "Green": 102,
+                      "Blue": 153
+                    }
+                  }
+                ]
+              },
+              {
+                "Type": "FlexButton",
+                "Name": "flexButton1_2_5",
+                "X": 202,
+                "Y": 30,
+                "Width": 32,
+                "Height": 30,
+                "ButtonTrigger": {
+                  "Type": "ClickButtonTrigger"
+                },
+                "ButtonStyles": [
+                  {
+                    "Type": "BoxWithBorderButtonStyle",
+                    "Width": 32,
+                    "Height": 30,
+                    "LockToFlexButtonSize": true,
+                    "BorderSize": 5,
+                    "ColorReleased": {
+                      "Green": 255,
+                      "Blue": 8
+                    },
+                    "ColorPressed": {
+                      "Green": 153,
+                      "Blue": 204
+                    },
+                    "ColorBorderReleased": {
+                      "Red": 97,
+                      "Green": 97,
+                      "Blue": 97
+                    },
+                    "ColorBorderPressed": {
+                      "Red": 51,
+                      "Green": 102,
+                      "Blue": 153
+                    }
+                  }
+                ]
+              },
+              {
+                "Type": "FlexButton",
+                "Name": "flexButton1_2_6",
+                "X": 234,
+                "Y": 30,
+                "Width": 32,
+                "Height": 30,
+                "ButtonTrigger": {
+                  "Type": "ClickButtonTrigger"
+                },
+                "ButtonStyles": [
+                  {
+                    "Type": "BoxWithBorderButtonStyle",
+                    "Width": 32,
+                    "Height": 30,
+                    "LockToFlexButtonSize": true,
+                    "BorderSize": 5,
+                    "ColorReleased": {
+                      "Green": 255,
+                      "Blue": 8
+                    },
+                    "ColorPressed": {
+                      "Green": 153,
+                      "Blue": 204
+                    },
+                    "ColorBorderReleased": {
+                      "Red": 102,
+                      "Green": 102,
+                      "Blue": 102
+                    },
+                    "ColorBorderPressed": {
+                      "Red": 51,
+                      "Green": 102,
+                      "Blue": 153
+                    }
+                  }
+                ]
+              },
+              {
+                "Type": "FlexButton",
+                "Name": "flexButton1_2_7",
+                "X": 266,
+                "Y": 30,
+                "Width": 32,
+                "Height": 30,
+                "ButtonTrigger": {
+                  "Type": "ClickButtonTrigger"
+                },
+                "ButtonStyles": [
+                  {
+                    "Type": "BoxWithBorderButtonStyle",
+                    "Width": 32,
+                    "Height": 30,
+                    "LockToFlexButtonSize": true,
+                    "BorderSize": 5,
+                    "ColorReleased": {
+                      "Green": 255,
+                      "Blue": 8
+                    },
+                    "ColorPressed": {
+                      "Green": 153,
+                      "Blue": 204
+                    },
+                    "ColorBorderReleased": {
+                      "Red": 97,
+                      "Green": 97,
+                      "Blue": 97
+                    },
+                    "ColorBorderPressed": {
+                      "Red": 51,
+                      "Green": 102,
+                      "Blue": 153
+                    }
+                  }
+                ]
+              },
+              {
+                "Type": "FlexButton",
+                "Name": "flexButton1_3",
+                "Width": 32,
+                "Height": 30,
+                "ButtonTrigger": {
+                  "Type": "ClickButtonTrigger"
+                },
+                "ButtonStyles": [
+                  {
+                    "Type": "BoxWithBorderButtonStyle",
+                    "Width": 32,
+                    "Height": 30,
+                    "LockToFlexButtonSize": true,
+                    "BorderSize": 5,
+                    "ColorPressed": {
+                      "Red": 204,
+                      "Green": 156
+                    },
+                    "ColorBorderReleased": {
+                      "Red": 219,
+                      "Green": 190
+                    },
+                    "ColorBorderPressed": {
+                      "Red": 51,
+                      "Green": 102,
+                      "Blue": 153
+                    }
+                  }
+                ]
+              },
+              {
+                "Type": "FlexButton",
+                "Name": "flexButton1_4",
+                "X": 128,
+                "Width": 32,
+                "Height": 30,
+                "ButtonTrigger": {
+                  "Type": "ClickButtonTrigger"
+                },
+                "ButtonStyles": [
+                  {
+                    "Type": "BoxWithBorderButtonStyle",
+                    "Width": 32,
+                    "Height": 30,
+                    "LockToFlexButtonSize": true,
+                    "BorderSize": 5,
+                    "ColorReleased": {
+                      "Green": 255
+                    },
+                    "ColorPressed": {
+                      "Green": 153,
+                      "Blue": 204
+                    },
+                    "ColorBorderReleased": {
+                      "Red": 102,
+                      "Green": 102,
+                      "Blue": 102
+                    },
+                    "ColorBorderPressed": {
+                      "Red": 51,
+                      "Green": 102,
+                      "Blue": 153
+                    }
+                  }
+                ]
+              },
+              {
+                "Type": "FlexButton",
+                "Name": "flexButton1_5",
+                "X": 170,
+                "Width": 32,
+                "Height": 30,
+                "ButtonTrigger": {
+                  "Type": "ClickButtonTrigger"
+                },
+                "ButtonStyles": [
+                  {
+                    "Type": "BoxWithBorderButtonStyle",
+                    "Width": 32,
+                    "Height": 30,
+                    "LockToFlexButtonSize": true,
+                    "BorderSize": 5,
+                    "ColorReleased": {
+                      "Red": 255
+                    },
+                    "ColorPressed": {
+                      "Green": 153,
+                      "Blue": 204
+                    },
+                    "ColorBorderReleased": {
+                      "Red": 105,
+                      "Green": 105,
+                      "Blue": 105
+                    },
+                    "ColorBorderPressed": {
+                      "Red": 51,
+                      "Green": 102,
+                      "Blue": 153
+                    }
+                  }
+                ]
+              },
+              {
+                "Type": "FlexButton",
+                "Name": "flexButton1_7",
+                "X": 202,
+                "Width": 32,
+                "Height": 30,
+                "ButtonTrigger": {
+                  "Type": "ClickButtonTrigger"
+                },
+                "ButtonStyles": [
+                  {
+                    "Type": "BoxWithBorderButtonStyle",
+                    "Width": 32,
+                    "Height": 30,
+                    "LockToFlexButtonSize": true,
+                    "BorderSize": 5,
+                    "ColorReleased": {
+                      "Red": 77,
+                      "Green": 255
+                    },
+                    "ColorPressed": {
+                      "Green": 153,
+                      "Blue": 204
+                    },
+                    "ColorBorderReleased": {
+                      "Red": 97,
+                      "Green": 97,
+                      "Blue": 97
+                    },
+                    "ColorBorderPressed": {
+                      "Red": 51,
+                      "Green": 102,
+                      "Blue": 153
+                    }
+                  }
+                ]
+              },
+              {
+                "Type": "FlexButton",
+                "Name": "flexButton1_11",
+                "X": 32,
+                "Y": 30,
+                "Width": 32,
+                "Height": 30,
+                "ButtonTrigger": {
+                  "Type": "ClickButtonTrigger"
+                },
+                "ButtonStyles": [
+                  {
+                    "Type": "BoxWithBorderButtonStyle",
+                    "Width": 32,
+                    "Height": 30,
+                    "LockToFlexButtonSize": true,
+                    "BorderSize": 5,
+                    "ColorPressed": {
+                      "Green": 153,
+                      "Blue": 204
+                    },
+                    "ColorBorderReleased": {
+                      "Red": 102,
+                      "Green": 102,
+                      "Blue": 102
+                    },
+                    "ColorBorderPressed": {
+                      "Red": 51,
+                      "Green": 102,
+                      "Blue": 153
+                    }
+                  }
+                ]
+              },
+              {
+                "Type": "FlexButton",
+                "Name": "flexButton1_11_1",
+                "X": 128,
+                "Y": 60,
+                "Width": 32,
+                "Height": 30,
+                "ButtonTrigger": {
+                  "Type": "ClickButtonTrigger"
+                },
+                "ButtonStyles": [
+                  {
+                    "Type": "BoxWithBorderButtonStyle",
+                    "Width": 32,
+                    "Height": 30,
+                    "LockToFlexButtonSize": true,
+                    "BorderSize": 5,
+                    "ColorPressed": {
+                      "Green": 153,
+                      "Blue": 204
+                    },
+                    "ColorBorderReleased": {
+                      "Red": 97,
+                      "Green": 97,
+                      "Blue": 97
+                    },
+                    "ColorBorderPressed": {
+                      "Red": 51,
+                      "Green": 102,
+                      "Blue": 153
+                    }
+                  }
+                ]
+              },
+              {
+                "Type": "FlexButton",
+                "Name": "flexButton1_11_2",
+                "X": 32,
+                "Y": 60,
+                "Width": 32,
+                "Height": 30,
+                "ButtonTrigger": {
+                  "Type": "ClickButtonTrigger"
+                },
+                "ButtonStyles": [
+                  {
+                    "Type": "BoxWithBorderButtonStyle",
+                    "Width": 32,
+                    "Height": 30,
+                    "LockToFlexButtonSize": true,
+                    "BorderSize": 5,
+                    "ColorPressed": {
+                      "Green": 153,
+                      "Blue": 204
+                    },
+                    "ColorBorderReleased": {
+                      "Red": 112,
+                      "Green": 112,
+                      "Blue": 112
+                    },
+                    "ColorBorderPressed": {
+                      "Red": 51,
+                      "Green": 102,
+                      "Blue": 153
+                    }
+                  }
+                ]
+              },
+              {
+                "Type": "FlexButton",
+                "Name": "flexButton1_11_3",
+                "X": 64,
+                "Y": 60,
+                "Width": 32,
+                "Height": 30,
+                "ButtonTrigger": {
+                  "Type": "ClickButtonTrigger"
+                },
+                "ButtonStyles": [
+                  {
+                    "Type": "BoxWithBorderButtonStyle",
+                    "Width": 32,
+                    "Height": 30,
+                    "LockToFlexButtonSize": true,
+                    "BorderSize": 5,
+                    "ColorPressed": {
+                      "Green": 153,
+                      "Blue": 204
+                    },
+                    "ColorBorderReleased": {
+                      "Red": 107,
+                      "Green": 107,
+                      "Blue": 107
+                    },
+                    "ColorBorderPressed": {
+                      "Red": 51,
+                      "Green": 102,
+                      "Blue": 153
+                    }
+                  }
+                ]
+              },
+              {
+                "Type": "FlexButton",
+                "Name": "flexButton1_11_4",
+                "X": 96,
+                "Y": 60,
+                "Width": 32,
+                "Height": 30,
+                "ButtonTrigger": {
+                  "Type": "ClickButtonTrigger"
+                },
+                "ButtonStyles": [
+                  {
+                    "Type": "BoxWithBorderButtonStyle",
+                    "Width": 32,
+                    "Height": 30,
+                    "LockToFlexButtonSize": true,
+                    "BorderSize": 5,
+                    "ColorPressed": {
+                      "Green": 153,
+                      "Blue": 204
+                    },
+                    "ColorBorderReleased": {
+                      "Red": 105,
+                      "Green": 105,
+                      "Blue": 105
+                    },
+                    "ColorBorderPressed": {
+                      "Red": 51,
+                      "Green": 102,
+                      "Blue": 153
+                    }
+                  }
+                ]
+              },
+              {
+                "Type": "FlexButton",
+                "Name": "flexButton1_10",
+                "Y": 30,
+                "Width": 32,
+                "Height": 30,
+                "ButtonTrigger": {
+                  "Type": "ClickButtonTrigger"
+                },
+                "ButtonStyles": [
+                  {
+                    "Type": "BoxWithBorderButtonStyle",
+                    "Width": 32,
+                    "Height": 30,
+                    "LockToFlexButtonSize": true,
+                    "BorderSize": 5,
+                    "ColorPressed": {
+                      "Green": 153,
+                      "Blue": 204
+                    },
+                    "ColorBorderReleased": {
+                      "Red": 107,
+                      "Green": 107,
+                      "Blue": 107
+                    },
+                    "ColorBorderPressed": {
+                      "Red": 51,
+                      "Green": 102,
+                      "Blue": 153
+                    }
+                  }
+                ]
+              },
+              {
+                "Type": "FlexButton",
+                "Name": "flexButton1_10_1",
+                "Y": 60,
+                "Width": 32,
+                "Height": 30,
+                "ButtonTrigger": {
+                  "Type": "ClickButtonTrigger"
+                },
+                "ButtonStyles": [
+                  {
+                    "Type": "BoxWithBorderButtonStyle",
+                    "Width": 32,
+                    "Height": 30,
+                    "LockToFlexButtonSize": true,
+                    "BorderSize": 5,
+                    "ColorPressed": {
+                      "Green": 153,
+                      "Blue": 204
+                    },
+                    "ColorBorderReleased": {
+                      "Red": 107,
+                      "Green": 107,
+                      "Blue": 107
+                    },
+                    "ColorBorderPressed": {
+                      "Red": 51,
+                      "Green": 102,
+                      "Blue": 153
+                    }
+                  }
+                ]
+              },
+              {
+                "Type": "FlexButton",
+                "Name": "flexButton1_10_2",
+                "Y": 90,
+                "Width": 32,
+                "Height": 30,
+                "ButtonTrigger": {
+                  "Type": "ClickButtonTrigger"
+                },
+                "ButtonStyles": [
+                  {
+                    "Type": "BoxWithBorderButtonStyle",
+                    "Width": 32,
+                    "Height": 30,
+                    "LockToFlexButtonSize": true,
+                    "BorderSize": 5,
+                    "ColorPressed": {
+                      "Green": 153,
+                      "Blue": 204
+                    },
+                    "ColorBorderReleased": {
+                      "Red": 107,
+                      "Green": 107,
+                      "Blue": 107
+                    },
+                    "ColorBorderPressed": {
+                      "Red": 51,
+                      "Green": 102,
+                      "Blue": 153
+                    }
+                  }
+                ]
+              },
+              {
+                "Type": "FlexButton",
+                "Name": "flexButton1_10_3",
+                "Y": 120,
+                "Width": 32,
+                "Height": 30,
+                "ButtonTrigger": {
+                  "Type": "ClickButtonTrigger"
+                },
+                "ButtonStyles": [
+                  {
+                    "Type": "BoxWithBorderButtonStyle",
+                    "Width": 32,
+                    "Height": 30,
+                    "LockToFlexButtonSize": true,
+                    "BorderSize": 5,
+                    "ColorReleased": {
+                      "Red": 21,
+                      "Green": 255
+                    },
+                    "ColorPressed": {
+                      "Green": 153,
+                      "Blue": 204
+                    },
+                    "ColorBorderReleased": {
+                      "Red": 97,
+                      "Green": 97,
+                      "Blue": 97
+                    },
+                    "ColorBorderPressed": {
+                      "Red": 51,
+                      "Green": 102,
+                      "Blue": 153
+                    }
+                  }
+                ]
+              },
+              {
+                "Type": "FlexButton",
+                "Name": "flexButton1_10_3_1",
+                "X": 32,
+                "Y": 120,
+                "Width": 32,
+                "Height": 30,
+                "ButtonTrigger": {
+                  "Type": "ClickButtonTrigger"
+                },
+                "ButtonStyles": [
+                  {
+                    "Type": "BoxWithBorderButtonStyle",
+                    "Width": 32,
+                    "Height": 30,
+                    "LockToFlexButtonSize": true,
+                    "BorderSize": 5,
+                    "ColorReleased": {
+                      "Red": 51,
+                      "Green": 255
+                    },
+                    "ColorPressed": {
+                      "Green": 153,
+                      "Blue": 204
+                    },
+                    "ColorBorderReleased": {
+                      "Red": 107,
+                      "Green": 107,
+                      "Blue": 107
+                    },
+                    "ColorBorderPressed": {
+                      "Red": 51,
+                      "Green": 102,
+                      "Blue": 153
+                    }
+                  }
+                ]
+              },
+              {
+                "Type": "FlexButton",
+                "Name": "flexButton1_10_3_2",
+                "X": 64,
+                "Y": 120,
+                "Width": 32,
+                "Height": 30,
+                "ButtonTrigger": {
+                  "Type": "ClickButtonTrigger"
+                },
+                "ButtonStyles": [
+                  {
+                    "Type": "BoxWithBorderButtonStyle",
+                    "Width": 32,
+                    "Height": 30,
+                    "LockToFlexButtonSize": true,
+                    "BorderSize": 5,
+                    "ColorReleased": {
+                      "Red": 255,
+                      "Green": 234
+                    },
+                    "ColorPressed": {
+                      "Green": 153,
+                      "Blue": 204
+                    },
+                    "ColorBorderReleased": {
+                      "Red": 102,
+                      "Green": 102,
+                      "Blue": 102
+                    },
+                    "ColorBorderPressed": {
+                      "Red": 51,
+                      "Green": 102,
+                      "Blue": 153
+                    }
+                  }
+                ]
+              },
+              {
+                "Type": "FlexButton",
+                "Name": "flexButton1_10_3_3",
+                "X": 96,
+                "Y": 120,
+                "Width": 32,
+                "Height": 30,
+                "ButtonTrigger": {
+                  "Type": "ClickButtonTrigger"
+                },
+                "ButtonStyles": [
+                  {
+                    "Type": "BoxWithBorderButtonStyle",
+                    "Width": 32,
+                    "Height": 30,
+                    "LockToFlexButtonSize": true,
+                    "BorderSize": 5,
+                    "ColorReleased": {
+                      "Red": 106,
+                      "Green": 255
+                    },
+                    "ColorPressed": {
+                      "Green": 153,
+                      "Blue": 204
+                    },
+                    "ColorBorderReleased": {
+                      "Red": 110,
+                      "Green": 110,
+                      "Blue": 110
+                    },
+                    "ColorBorderPressed": {
+                      "Red": 51,
+                      "Green": 102,
+                      "Blue": 153
+                    }
+                  }
+                ]
+              },
+              {
+                "Type": "FlexButton",
+                "Name": "flexButton1_10_3_4",
+                "X": 128,
+                "Y": 120,
+                "Width": 32,
+                "Height": 30,
+                "ButtonTrigger": {
+                  "Type": "ClickButtonTrigger"
+                },
+                "ButtonStyles": [
+                  {
+                    "Type": "BoxWithBorderButtonStyle",
+                    "Width": 32,
+                    "Height": 30,
+                    "LockToFlexButtonSize": true,
+                    "BorderSize": 5,
+                    "ColorReleased": {
+                      "Red": 106,
+                      "Green": 255
+                    },
+                    "ColorPressed": {
+                      "Green": 153,
+                      "Blue": 204
+                    },
+                    "ColorBorderReleased": {
+                      "Red": 105,
+                      "Green": 105,
+                      "Blue": 105
+                    },
+                    "ColorBorderPressed": {
+                      "Red": 51,
+                      "Green": 102,
+                      "Blue": 153
+                    }
+                  }
+                ]
+              },
+              {
+                "Type": "FlexButton",
+                "Name": "flexButton1_10_3_5",
+                "X": 170,
+                "Y": 120,
+                "Width": 32,
+                "Height": 30,
+                "ButtonTrigger": {
+                  "Type": "ClickButtonTrigger"
+                },
+                "ButtonStyles": [
+                  {
+                    "Type": "BoxWithBorderButtonStyle",
+                    "Width": 32,
+                    "Height": 30,
+                    "LockToFlexButtonSize": true,
+                    "BorderSize": 5,
+                    "ColorPressed": {
+                      "Green": 153,
+                      "Blue": 204
+                    },
+                    "ColorBorderReleased": {
+                      "Red": 94,
+                      "Green": 94,
+                      "Blue": 94
+                    },
+                    "ColorBorderPressed": {
+                      "Red": 51,
+                      "Green": 102,
+                      "Blue": 153
+                    }
+                  }
+                ]
+              },
+              {
+                "Type": "FlexButton",
+                "Name": "flexButton1_10_3_6",
+                "X": 202,
+                "Y": 120,
+                "Width": 32,
+                "Height": 30,
+                "ButtonTrigger": {
+                  "Type": "ClickButtonTrigger"
+                },
+                "ButtonStyles": [
+                  {
+                    "Type": "BoxWithBorderButtonStyle",
+                    "Width": 32,
+                    "Height": 30,
+                    "LockToFlexButtonSize": true,
+                    "BorderSize": 5,
+                    "ColorReleased": {
+                      "Red": 110,
+                      "Green": 255
+                    },
+                    "ColorPressed": {
+                      "Green": 153,
+                      "Blue": 204
+                    },
+                    "ColorBorderReleased": {
+                      "Red": 102,
+                      "Green": 102,
+                      "Blue": 102
+                    },
+                    "ColorBorderPressed": {
+                      "Red": 51,
+                      "Green": 102,
+                      "Blue": 153
+                    }
+                  }
+                ]
+              },
+              {
+                "Type": "FlexButton",
+                "Name": "flexButton1_10_3_7",
+                "X": 234,
+                "Y": 120,
+                "Width": 32,
+                "Height": 30,
+                "ButtonTrigger": {
+                  "Type": "ClickButtonTrigger"
+                },
+                "ButtonStyles": [
+                  {
+                    "Type": "BoxWithBorderButtonStyle",
+                    "Width": 32,
+                    "Height": 30,
+                    "LockToFlexButtonSize": true,
+                    "BorderSize": 5,
+                    "ColorReleased": {
+                      "Red": 255
+                    },
+                    "ColorPressed": {
+                      "Green": 153,
+                      "Blue": 204
+                    },
+                    "ColorBorderReleased": {
+                      "Red": 102,
+                      "Green": 102,
+                      "Blue": 102
+                    },
+                    "ColorBorderPressed": {
+                      "Red": 51,
+                      "Green": 102,
+                      "Blue": 153
+                    }
+                  }
+                ]
+              },
+              {
+                "Type": "FlexButton",
+                "Name": "flexButton1_10_3_8",
+                "X": 266,
+                "Y": 120,
+                "Width": 32,
+                "Height": 30,
+                "ButtonTrigger": {
+                  "Type": "ClickButtonTrigger"
+                },
+                "ButtonStyles": [
+                  {
+                    "Type": "BoxWithBorderButtonStyle",
+                    "Width": 32,
+                    "Height": 30,
+                    "LockToFlexButtonSize": true,
+                    "BorderSize": 5,
+                    "ColorReleased": {
+                      "Red": 144,
+                      "Green": 255
+                    },
+                    "ColorPressed": {
+                      "Green": 153,
+                      "Blue": 204
+                    },
+                    "ColorBorderReleased": {
+                      "Red": 105,
+                      "Green": 105,
+                      "Blue": 105
+                    },
+                    "ColorBorderPressed": {
+                      "Red": 51,
+                      "Green": 102,
+                      "Blue": 153
+                    }
+                  }
+                ]
+              },
+              {
+                "Type": "FlexButton",
+                "Name": "flexButton1_10_3_9",
+                "X": 298,
+                "Y": 120,
+                "Width": 32,
+                "Height": 30,
+                "ButtonTrigger": {
+                  "Type": "ClickButtonTrigger"
+                },
+                "ButtonStyles": [
+                  {
+                    "Type": "BoxWithBorderButtonStyle",
+                    "Width": 32,
+                    "Height": 30,
+                    "LockToFlexButtonSize": true,
+                    "BorderSize": 5,
+                    "ColorReleased": {
+                      "Red": 255,
+                      "Blue": 8
+                    },
+                    "ColorPressed": {
+                      "Green": 153,
+                      "Blue": 204
+                    },
+                    "ColorBorderReleased": {
+                      "Red": 97,
+                      "Green": 97,
+                      "Blue": 97
+                    },
+                    "ColorBorderPressed": {
+                      "Red": 51,
+                      "Green": 102,
+                      "Blue": 153
+                    }
+                  }
+                ]
+              },
+              {
+                "Type": "FlexButton",
+                "Name": "flexButton1_10_3_10",
+                "X": 298,
+                "Y": 30,
+                "Width": 32,
+                "Height": 30,
+                "ButtonTrigger": {
+                  "Type": "ClickButtonTrigger"
+                },
+                "ButtonStyles": [
+                  {
+                    "Type": "BoxWithBorderButtonStyle",
+                    "Width": 32,
+                    "Height": 30,
+                    "LockToFlexButtonSize": true,
+                    "BorderSize": 5,
+                    "ColorPressed": {
+                      "Green": 153,
+                      "Blue": 204
+                    },
+                    "ColorBorderReleased": {
+                      "Red": 110,
+                      "Green": 110,
+                      "Blue": 110
+                    },
+                    "ColorBorderPressed": {
+                      "Red": 51,
+                      "Green": 102,
+                      "Blue": 153
+                    }
+                  }
+                ]
+              },
+              {
+                "Type": "FlexButton",
+                "Name": "flexButton1_10_3_11",
+                "X": 298,
+                "Y": 60,
+                "Width": 32,
+                "Height": 30,
+                "ButtonTrigger": {
+                  "Type": "ClickButtonTrigger"
+                },
+                "ButtonStyles": [
+                  {
+                    "Type": "BoxWithBorderButtonStyle",
+                    "Width": 32,
+                    "Height": 30,
+                    "LockToFlexButtonSize": true,
+                    "BorderSize": 5,
+                    "ColorPressed": {
+                      "Green": 153,
+                      "Blue": 204
+                    },
+                    "ColorBorderReleased": {
+                      "Red": 94,
+                      "Green": 94,
+                      "Blue": 94
+                    },
+                    "ColorBorderPressed": {
+                      "Red": 51,
+                      "Green": 102,
+                      "Blue": 153
+                    }
+                  }
+                ]
+              },
+              {
+                "Type": "FlexButton",
+                "Name": "flexButton1_10_3_12",
+                "X": 298,
+                "Y": 90,
+                "Width": 32,
+                "Height": 30,
+                "ButtonTrigger": {
+                  "Type": "ClickButtonTrigger"
+                },
+                "ButtonStyles": [
+                  {
+                    "Type": "BoxWithBorderButtonStyle",
+                    "Width": 32,
+                    "Height": 30,
+                    "LockToFlexButtonSize": true,
+                    "BorderSize": 5,
+                    "ColorPressed": {
+                      "Green": 153,
+                      "Blue": 204
+                    },
+                    "ColorBorderReleased": {
+                      "Red": 102,
+                      "Green": 102,
+                      "Blue": 102
+                    },
+                    "ColorBorderPressed": {
+                      "Red": 51,
+                      "Green": 102,
+                      "Blue": 153
+                    }
+                  }
+                ]
+              },
+              {
+                "Type": "TextArea",
+                "Name": "textAreaAlarm",
+                "X": 106,
+                "Y": 3,
+                "Width": 14,
+                "Height": 24,
+                "TextId": "__SingleUse_NN31",
+                "TextRotation": "0",
+                "AutoSize": true
+              },
+              {
+                "Type": "TextArea",
+                "Name": "textAreaAlarm_1",
+                "X": 179,
+                "Y": 3,
+                "Width": 14,
+                "Height": 24,
+                "TextId": "__SingleUse_8XLB",
+                "TextRotation": "0",
+                "AutoSize": true
+              },
+              {
+                "Type": "TextArea",
+                "Name": "textAreaAlarm_1_1",
+                "X": 243,
+                "Y": 120,
+                "Width": 14,
+                "Height": 24,
+                "TextId": "__SingleUse_4VK7",
+                "TextRotation": "0",
+                "AutoSize": true
+              },
+              {
+                "Type": "TextArea",
+                "Name": "textAreaAlarm_1_1_1",
+                "X": 307,
+                "Y": 123,
+                "Width": 14,
+                "Height": 24,
+                "TextId": "__SingleUse_KDTQ",
+                "TextRotation": "0",
+                "AutoSize": true
+              },
+              {
+                "Type": "TextArea",
+                "Name": "textAreaUnconnected",
+                "X": 44,
+                "Y": 3,
+                "Width": 11,
+                "Height": 24,
+                "TextId": "__SingleUse_MGXS",
+                "TextRotation": "0",
+                "AutoSize": true
+              },
+              {
+                "Type": "TextArea",
+                "Name": "textAreaUnconnected_1",
+                "X": 43,
+                "Y": 90,
+                "Width": 11,
+                "Height": 24,
+                "TextId": "__SingleUse_KQUG",
+                "TextRotation": "0",
+                "AutoSize": true
+              },
+              {
+                "Type": "TextArea",
+                "Name": "textAreaUnconnected_1_1",
+                "X": 76,
+                "Y": 90,
+                "Width": 11,
+                "Height": 24,
+                "TextId": "__SingleUse_YSCA",
+                "TextRotation": "0",
+                "AutoSize": true
+              },
+              {
+                "Type": "TextArea",
+                "Name": "textAreaUnconnected_1_1_1",
+                "X": 75,
+                "Y": 123,
+                "Width": 11,
+                "Height": 24,
+                "TextId": "__SingleUse_J9AJ",
+                "TextRotation": "0",
+                "AutoSize": true
+              },
+              {
+                "Type": "TextArea",
+                "Name": "textAreaUnconnected_1_1_1_1",
+                "X": 277,
+                "Y": 63,
+                "Width": 11,
+                "Height": 24,
+                "TextId": "__SingleUse_8JFP",
+                "TextRotation": "0",
+                "AutoSize": true
+              }
+            ]
+          },
+          {
+            "Type": "BoxProgress",
+            "Name": "boxProgressNiMH",
+            "X": 362,
+            "Y": 227,
+            "Width": 100,
+            "Height": 10,
+            "Color": {
+              "Green": 240,
+              "Blue": 255
+            },
+            "Direction": "Right",
+            "FileNameBackground": "__generated\\alternate_theme_images_widgets_boxprogress_normal_tiny.png",
+            "IndicatorPositionWidth": 57,
+            "IndicatorPositionHeight": 10,
+            "ProgressRangeMax": 100,
+            "ProgressInitialValue": 60
+          },
+          {
+            "Type": "BoxProgress",
+            "Name": "boxProgressLithium",
+            "X": 362,
+            "Y": 251,
+            "Width": 100,
+            "Height": 10,
+            "Color": {
+              "Green": 240,
+              "Blue": 255
+            },
+            "Direction": "Right",
+            "FileNameBackground": "__generated\\alternate_theme_images_widgets_boxprogress_normal_tiny.png",
+            "IndicatorPositionWidth": 150,
+            "IndicatorPositionHeight": 10,
+            "ProgressRangeMax": 100,
+            "ProgressInitialValue": 100
+          },
+          {
+            "Type": "TextArea",
+            "Name": "textAreaNiMH",
+            "X": 318,
+            "Y": 223,
+            "Width": 37,
+            "Height": 14,
+            "TextId": "__SingleUse_4T38",
+            "TextRotation": "0",
+            "Color": {
+              "Red": 255,
+              "Green": 255,
+              "Blue": 255
+            },
+            "AutoSize": true
+          },
+          {
+            "Type": "TextArea",
+            "Name": "textAreaLithium",
+            "X": 302,
+            "Y": 247,
+            "Width": 54,
+            "Height": 14,
+            "TextId": "__SingleUse_IOF1",
+            "TextRotation": "0",
+            "Color": {
+              "Red": 255,
+              "Green": 255,
+              "Blue": 255
+            },
+            "AutoSize": true
+          },
+          {
+            "Type": "TextArea",
+            "Name": "textAreaOnlineStatus",
+            "X": 125,
+            "Y": 218,
+            "Width": 87,
+            "Height": 24,
+            "TextId": "__SingleUse_WFLV",
+            "TextRotation": "0",
+            "Color": {
+              "Red": 255
+            },
+            "AutoSize": true
+          },
+          {
+            "Type": "TextArea",
+            "Name": "textAreaAlarmStatus",
+            "X": 125,
+            "Y": 242,
+            "Width": 156,
+            "Height": 24,
+            "TextId": "textID_AlarmStatus",
+            "TextRotation": "0",
+            "Color": {
+              "Red": 98,
+              "Green": 255
+            },
+            "AutoSize": true
+          },
+          {
+            "Type": "TextArea",
+            "Name": "textAreaStatus",
+            "Y": 24,
+            "Width": 480,
+            "Height": 25,
+            "TextId": "textID_textAreaStatus",
+            "TextRotation": "0",
+            "Color": {
+              "Red": 255,
+              "Green": 234
+            }
+          },
+          {
+            "Type": "Container",
+            "Name": "containerCurrentZoneButton",
+            "X": 12,
+            "Y": 61,
+            "Width": 100,
+            "Height": 37,
+            "Components": [
+              {
+                "Type": "Button",
+                "Name": "buttonGoZone",
+                "Width": 100,
+                "Height": 36,
+                "Pressed": "__generated\\alternate_theme_images_widgets_button_regular_height_36_tiny_round_pressed.png",
+                "Released": "__generated\\alternate_theme_images_widgets_button_regular_height_36_tiny_round_action.png",
+                "Preset": "alternate_theme\\presets\\button\\regular\\height_36\\tiny_round_action.json"
+              },
+              {
+                "Type": "TextArea",
+                "Name": "textAreaCurrentZone",
+                "X": 10,
+                "Y": 6,
+                "Width": 84,
+                "Height": 24,
+                "TextId": "__SingleUse_UAK8",
+                "TextRotation": "0",
+                "Wildcard1": {
+                  "TextId": "__SingleUse_M1Y5",
+                  "UseBuffer": true,
+                  "BufferSize": 10
+                }
+              }
+            ]
+          },
+          {
+            "Type": "ButtonWithLabel",
+            "Name": "buttonWithLabelAck",
+            "X": 12,
+            "Y": 121,
+            "Width": 100,
+            "Height": 36,
+            "Pressed": "__generated\\alternate_theme_images_widgets_button_regular_height_36_tiny_rounded_pressed.png",
+            "Released": "__generated\\alternate_theme_images_widgets_button_regular_height_36_tiny_rounded_action.png",
+            "TextId": "texttID_buttonAck",
+            "PressedColor": {
+              "Red": 255,
+              "Green": 255,
+              "Blue": 255
+            },
+            "TextRotation": "0",
+            "Preset": "alternate_theme\\presets\\button\\regular\\height_36\\tiny_rounded_action.json"
+          }
+        ],
+        "Interactions": [
+          {
+            "InteractionName": "InteractionGotoNew",
+            "Trigger": {
+              "Type": "TriggerClicked",
+              "TriggerComponent": "buttonGoZone"
+            },
+            "Action": {
+              "Type": "ActionGotoScreen",
+              "ScreenTransitionType": "ScreenTransitionCover",
+              "ScreenTransitionDirection": "West",
+              "ActionComponent": "ScreenNew"
+            }
+          },
+          {
+            "InteractionName": "InteractionStandby",
+            "Trigger": {
+              "Type": "TriggerClicked",
+              "TriggerComponent": "buttonWithLabelStandby"
+            },
+            "Action": {
+              "Type": "ActionGotoScreen",
+              "ScreenTransitionType": "ScreenTransitionCover",
+              "ScreenTransitionDirection": "West",
+              "ActionComponent": "ScreenStandby"
+            }
+          },
+          {
+            "InteractionName": "InteractionSettings",
+            "Trigger": {
+              "Type": "TriggerClicked",
+              "TriggerComponent": "buttonWithLabelSettings"
+            },
+            "Action": {
+              "Type": "ActionGotoScreen",
+              "ScreenTransitionType": "ScreenTransitionCover",
+              "ScreenTransitionDirection": "West",
+              "ActionComponent": "ScreenSettings1"
+            }
+          },
+          {
+            "InteractionName": "InteractionSensorUnassigned",
+            "Trigger": {
+              "Type": "TriggerClicked",
+              "TriggerComponent": "flexButton1_3"
+            },
+            "Action": {
+              "Type": "ActionSetText",
+              "TextId": "textID_interactionSensorUnassigned",
+              "ActionComponent": "textAreaStatus"
+            }
+          },
+          {
+            "InteractionName": "InteractionSensorUnconnected",
+            "Trigger": {
+              "Type": "TriggerClicked",
+              "TriggerComponent": "flexButton1_1"
+            },
+            "Action": {
+              "Type": "ActionSetText",
+              "TextId": "textID_interactionSensorUnconnected",
+              "ActionComponent": "textAreaStatus"
+            }
+          },
+          {
+            "InteractionName": "InteractionSensorOK",
+            "Trigger": {
+              "Type": "TriggerClicked",
+              "TriggerComponent": "flexButton1_2"
+            },
+            "Action": {
+              "Type": "ActionSetText",
+              "TextId": "textID_interactionSensorOK",
+              "ActionComponent": "textAreaStatus"
+            }
+          },
+          {
+            "InteractionName": "InteractionSensorAlarm",
+            "Trigger": {
+              "Type": "TriggerClicked",
+              "TriggerComponent": "flexButton1"
+            },
+            "Action": {
+              "Type": "ActionSetText",
+              "TextId": "textID_interactionSensorAlarm",
+              "ActionComponent": "textAreaStatus"
+            }
+          },
+          {
+            "InteractionName": "InteractionAlarmAck",
+            "Trigger": {
+              "Type": "TriggerClicked",
+              "TriggerComponent": "buttonWithLabelAck"
+            },
+            "Action": {
+              "Type": "ActionSetText",
+              "TextId": "textID_AlarmAckStatus",
+              "ActionComponent": "textAreaStatus"
+            }
+          }
+        ]
+      },
+      {
+        "Name": "ScreenNew",
+        "Components": [
+          {
+            "Type": "Box",
+            "Name": "boxNewBackground",
+            "Width": 480,
+            "Height": 272,
+            "Color": {
+              "Red": 255,
+              "Green": 255,
+              "Blue": 255
+            }
+          },
+          {
+            "Type": "ButtonWithLabel",
+            "Name": "buttonWithLabelReturnMain",
+            "X": 236,
+            "Y": 227,
+            "Width": 214,
+            "Height": 36,
+            "Pressed": "__generated\\alternate_theme_images_widgets_button_regular_height_36_medium_round_pressed.png",
+            "Released": "__generated\\alternate_theme_images_widgets_button_regular_height_36_medium_round_action.png",
+            "TextId": "textID_buttonReturnHome",
+            "PressedColor": {
+              "Red": 255,
+              "Green": 255,
+              "Blue": 255
+            },
+            "TextRotation": "0",
+            "Preset": "alternate_theme\\presets\\button\\regular\\height_36\\medium_round_action.json"
+          },
+          {
+            "Type": "Box",
+            "Name": "boxMainTitleBackground",
+            "Width": 480,
+            "Height": 24,
+            "Color": {
+              "Red": 48,
+              "Green": 82,
+              "Blue": 33
+            }
+          },
+          {
+            "Type": "TextArea",
+            "Name": "textAreaTestNew",
+            "X": 312,
+            "Width": 168,
+            "Height": 24,
+            "TextId": "__SingleUse_OMKY",
+            "TextRotation": "0",
+            "Color": {
+              "Red": 246,
+              "Green": 255
+            }
+          },
+          {
+            "Type": "TextArea",
+            "Name": "textAreaZWaveSentinel_1",
+            "Width": 297,
+            "Height": 24,
+            "TextId": "__SingleUse_XNAF",
+            "TextRotation": "0",
+            "Color": {
+              "Red": 255,
+              "Green": 255,
+              "Blue": 255
+            },
+            "AutoSize": true
+          },
+          {
+            "Type": "TextArea",
+            "Name": "textAreaZoneNumber",
+            "X": 190,
+            "Y": 124,
+            "Width": 100,
+            "Height": 24,
+            "TextId": "textID_ZoneNumber",
+            "TextRotation": "0",
+            "Wildcard1": {
+              "TextId": "textID_ZoneNumberWildcard",
+              "UseBuffer": true,
+              "BufferSize": 10
+            }
+          },
+          {
+            "Type": "ButtonWithIcon",
+            "Name": "buttonWithIconPlus",
+            "X": 380,
+            "Y": 118,
+            "Width": 100,
+            "Height": 36,
+            "Pressed": "__generated\\alternate_theme_images_widgets_button_regular_height_36_tiny_round_pressed.png",
+            "Released": "__generated\\alternate_theme_images_widgets_button_regular_height_36_tiny_round_action.png",
+            "IconPressed": "__generated\\icon_theme_images_content_add_50_50_E8F6FB.svg.png",
+            "IconReleased": "__generated\\icon_theme_images_content_add_50_50_000000.svg.png",
+            "IconX": 25,
+            "IconY": -7,
+            "IconHeight": 50,
+            "IconWidth": 50,
+            "Preset": "alternate_theme\\presets\\button\\regular\\height_36\\tiny_round_action.json"
+          },
+          {
+            "Type": "ButtonWithIcon",
+            "Name": "buttonWithIconMinus",
+            "Y": 118,
+            "Width": 100,
+            "Height": 36,
+            "Pressed": "__generated\\alternate_theme_images_widgets_button_regular_height_36_tiny_round_pressed.png",
+            "Released": "__generated\\alternate_theme_images_widgets_button_regular_height_36_tiny_round_action.png",
+            "IconPressed": "__generated\\icon_theme_images_content_remove_50_50_E8F6FB.svg.png",
+            "IconReleased": "__generated\\icon_theme_images_content_remove_50_50_000000.svg.png",
+            "IconX": 25,
+            "IconY": -7,
+            "IconHeight": 50,
+            "IconWidth": 50,
+            "Preset": "alternate_theme\\presets\\button\\regular\\height_36\\tiny_round_action.json"
+          }
+        ],
+        "Interactions": [
+          {
+            "InteractionName": "InteractionReturnMain",
+            "Trigger": {
+              "Type": "TriggerClicked",
+              "TriggerComponent": "buttonWithLabelReturnMain"
+            },
+            "Action": {
+              "Type": "ActionGotoScreen",
+              "ScreenTransitionType": "ScreenTransitionWipe",
+              "ScreenTransitionDirection": "East",
+              "ActionComponent": "screenMain"
+            }
+          },
+          {
+            "InteractionName": "InteractionIncrementZoneNumber",
+            "Trigger": {
+              "Type": "TriggerClicked",
+              "TriggerComponent": "buttonWithIconPlus"
+            },
+            "Action": {
+              "Type": "ActionCustom",
+              "FunctionName": "incrementZoneNumber"
+            }
+          },
+          {
+            "InteractionName": "InteractionDecrementZoneNumber",
+            "Trigger": {
+              "Type": "TriggerClicked",
+              "TriggerComponent": "buttonWithIconMinus"
+            },
+            "Action": {
+              "Type": "ActionCustom",
+              "FunctionName": "decrementZoneNumber"
+            }
+          }
+        ]
+      },
+      {
+        "Name": "ScreenStandby",
+        "Components": [
+          {
+            "Type": "Box",
+            "Name": "boxStandbyBackground",
+            "Width": 480,
+            "Height": 272
+          },
+          {
+            "Type": "ButtonWithLabel",
+            "Name": "buttonWithLabelReturnMain",
+            "X": 236,
+            "Y": 227,
+            "Width": 214,
+            "Height": 36,
+            "Pressed": "__generated\\alternate_theme_images_widgets_button_regular_height_36_medium_round_pressed.png",
+            "Released": "__generated\\alternate_theme_images_widgets_button_regular_height_36_medium_round_action.png",
+            "TextId": "textID_buttonReturnHome",
+            "PressedColor": {
+              "Red": 255,
+              "Green": 255,
+              "Blue": 255
+            },
+            "TextRotation": "0",
+            "Preset": "alternate_theme\\presets\\button\\regular\\height_36\\medium_round_action.json"
+          },
+          {
+            "Type": "Box",
+            "Name": "boxMainTitleBackground",
+            "Width": 480,
+            "Height": 24,
+            "Color": {
+              "Red": 48,
+              "Green": 82,
+              "Blue": 33
+            }
+          },
+          {
+            "Type": "TextArea",
+            "Name": "textAreaStandby",
+            "X": 397,
+            "Width": 83,
+            "Height": 24,
+            "TextId": "__SingleUse_8BCO",
+            "TextRotation": "0",
+            "Color": {
+              "Red": 246,
+              "Green": 255
+            }
+          },
+          {
+            "Type": "TextArea",
+            "Name": "textAreaZWaveSentinel",
+            "Width": 297,
+            "Height": 24,
+            "TextId": "__SingleUse_93FB",
+            "TextRotation": "0",
+            "Color": {
+              "Red": 255,
+              "Green": 255,
+              "Blue": 255
+            },
+            "AutoSize": true
+          },
+          {
+            "Type": "Container",
+            "Name": "containerStandby30",
+            "X": 49,
+            "Y": 76,
+            "Width": 43,
+            "Height": 40,
+            "Components": [
+              {
+                "Type": "FlexButton",
+                "Name": "flexButtonStandby30",
+                "Width": 43,
+                "Height": 40,
+                "ButtonTrigger": {
+                  "Type": "ClickButtonTrigger"
+                },
+                "ButtonStyles": [
+                  {
+                    "Type": "BoxWithBorderButtonStyle",
+                    "Width": 43,
+                    "Height": 40,
+                    "LockToFlexButtonSize": true,
+                    "BorderSize": 5,
+                    "ColorReleased": {
+                      "Red": 255,
+                      "Green": 187
+                    },
+                    "ColorPressed": {
+                      "Green": 153,
+                      "Blue": 204
+                    },
+                    "ColorBorderReleased": {
+                      "Green": 51,
+                      "Blue": 102
+                    },
+                    "ColorBorderPressed": {
+                      "Red": 51,
+                      "Green": 102,
+                      "Blue": 153
+                    }
+                  }
+                ]
+              },
+              {
+                "Type": "TextArea",
+                "Name": "textArea1",
+                "X": 8,
+                "Y": 8,
+                "Width": 26,
+                "Height": 24,
+                "TextId": "__SingleUse_NHL0",
+                "TextRotation": "0",
+                "AutoSize": true
+              }
+            ]
+          },
+          {
+            "Type": "Container",
+            "Name": "containerStandby60",
+            "X": 92,
+            "Y": 76,
+            "Width": 43,
+            "Height": 40,
+            "Components": [
+              {
+                "Type": "FlexButton",
+                "Name": "flexButtonStandby60",
+                "Width": 43,
+                "Height": 40,
+                "ButtonTrigger": {
+                  "Type": "ClickButtonTrigger"
+                },
+                "ButtonStyles": [
+                  {
+                    "Type": "BoxWithBorderButtonStyle",
+                    "Width": 43,
+                    "Height": 40,
+                    "LockToFlexButtonSize": true,
+                    "BorderSize": 5,
+                    "ColorReleased": {
+                      "Red": 255,
+                      "Green": 187
+                    },
+                    "ColorPressed": {
+                      "Green": 153,
+                      "Blue": 204
+                    },
+                    "ColorBorderReleased": {
+                      "Green": 51,
+                      "Blue": 102
+                    },
+                    "ColorBorderPressed": {
+                      "Red": 51,
+                      "Green": 102,
+                      "Blue": 153
+                    }
+                  }
+                ]
+              },
+              {
+                "Type": "TextArea",
+                "Name": "textArea1_1",
+                "X": 8,
+                "Y": 8,
+                "Width": 26,
+                "Height": 24,
+                "TextId": "__SingleUse_1US2",
+                "TextRotation": "0",
+                "AutoSize": true
+              }
+            ]
+          },
+          {
+            "Type": "Container",
+            "Name": "containerStandby120",
+            "X": 135,
+            "Y": 76,
+            "Width": 58,
+            "Height": 40,
+            "Components": [
+              {
+                "Type": "FlexButton",
+                "Name": "flexButtonStandby120",
+                "Width": 58,
+                "Height": 40,
+                "ButtonTrigger": {
+                  "Type": "ClickButtonTrigger"
+                },
+                "ButtonStyles": [
+                  {
+                    "Type": "BoxWithBorderButtonStyle",
+                    "Width": 58,
+                    "Height": 40,
+                    "LockToFlexButtonSize": true,
+                    "BorderSize": 5,
+                    "ColorReleased": {
+                      "Red": 255,
+                      "Green": 187
+                    },
+                    "ColorPressed": {
+                      "Green": 153,
+                      "Blue": 204
+                    },
+                    "ColorBorderReleased": {
+                      "Green": 51,
+                      "Blue": 102
+                    },
+                    "ColorBorderPressed": {
+                      "Red": 51,
+                      "Green": 102,
+                      "Blue": 153
+                    }
+                  }
+                ]
+              },
+              {
+                "Type": "TextArea",
+                "Name": "textArea1_1_1",
+                "X": 11,
+                "Y": 8,
+                "Width": 39,
+                "Height": 24,
+                "TextId": "__SingleUse_VSC5",
+                "TextRotation": "0",
+                "AutoSize": true
+              }
+            ]
+          },
+          {
+            "Type": "TextArea",
+            "Name": "textAreaEnterStandbyTitle",
+            "X": 34,
+            "Y": 52,
+            "Width": 172,
+            "Height": 24,
+            "TextId": "__SingleUse_UIJC",
+            "TextRotation": "0",
+            "Color": {
+              "Red": 255,
+              "Green": 255,
+              "Blue": 255
+            }
+          },
+          {
+            "Type": "ButtonWithLabel",
+            "Name": "buttonWithLabelStandbyUntimed",
+            "X": 13,
+            "Y": 126,
+            "Width": 214,
+            "Height": 36,
+            "Pressed": "__generated\\alternate_theme_images_widgets_button_regular_height_36_medium_rounded_pressed.png",
+            "Released": "__generated\\alternate_theme_images_widgets_button_regular_height_36_medium_rounded_action.png",
+            "TextId": "__SingleUse_DZ1J",
+            "PressedColor": {
+              "Red": 255,
+              "Green": 255,
+              "Blue": 255
+            },
+            "TextRotation": "0",
+            "Preset": "alternate_theme\\presets\\button\\regular\\height_36\\medium_rounded_action.json"
+          },
+          {
+            "Type": "ButtonWithLabel",
+            "Name": "buttonWithLabelStandbyExit",
+            "X": 13,
+            "Y": 176,
+            "Width": 214,
+            "Height": 36,
+            "Pressed": "__generated\\alternate_theme_images_widgets_button_regular_height_36_medium_rounded_pressed.png",
+            "Released": "__generated\\alternate_theme_images_widgets_button_regular_height_36_medium_rounded_action.png",
+            "TextId": "__SingleUse_LQV5",
+            "PressedColor": {
+              "Red": 255,
+              "Green": 255,
+              "Blue": 255
+            },
+            "TextRotation": "0",
+            "Preset": "alternate_theme\\presets\\button\\regular\\height_36\\medium_rounded_action.json"
+          },
+          {
+            "Type": "TextArea",
+            "Name": "textArea2",
+            "X": 274,
+            "Y": 52,
+            "Width": 138,
+            "Height": 24,
+            "TextId": "__SingleUse_I71B",
+            "TextRotation": "0",
+            "Color": {
+              "Red": 255,
+              "Green": 255,
+              "Blue": 255
+            },
+            "AutoSize": true
+          },
+          {
+            "Type": "TextArea",
+            "Name": "textAreaStandbyOrActive",
+            "X": 260,
+            "Y": 92,
+            "Width": 166,
+            "Height": 48,
+            "TextId": "textID_StandbyOrActive",
+            "TextRotation": "0",
+            "Color": {
+              "Red": 255
+            }
+          },
+          {
+            "Type": "TextArea",
+            "Name": "textAreaStandbyMinutes",
+            "X": 271,
+            "Y": 144,
+            "Width": 145,
+            "Height": 24,
+            "TextId": "textID_StandbyMinutes",
+            "TextRotation": "0",
+            "Color": {
+              "Green": 255,
+              "Blue": 225
+            },
+            "Wildcard1": {
+              "TextId": "__SingleUse_DT3E",
+              "UseBuffer": true,
+              "BufferSize": 5
+            }
+          }
+        ],
+        "Interactions": [
+          {
+            "InteractionName": "InteractionReturnHome",
+            "Trigger": {
+              "Type": "TriggerClicked",
+              "TriggerComponent": "buttonWithLabelReturnMain"
+            },
+            "Action": {
+              "Type": "ActionGotoScreen",
+              "ScreenTransitionType": "ScreenTransitionWipe",
+              "ScreenTransitionDirection": "East",
+              "ActionComponent": "screenMain"
+            }
+          },
+          {
+            "InteractionName": "InteractionStandby30",
+            "Trigger": {
+              "Type": "TriggerClicked",
+              "TriggerComponent": "flexButtonStandby30"
+            },
+            "Action": {
+              "Type": "ActionSetWildcard",
+              "TextId": "__SingleUse_Q384",
+              "WildcardLocation": "Wildcard1",
+              "ActionComponent": "textAreaStandbyMinutes"
+            }
+          },
+          {
+            "InteractionName": "InteractionStandby60",
+            "Trigger": {
+              "Type": "TriggerClicked",
+              "TriggerComponent": "flexButtonStandby60"
+            },
+            "Action": {
+              "Type": "ActionSetWildcard",
+              "TextId": "__SingleUse_3WR1",
+              "WildcardLocation": "Wildcard1",
+              "ActionComponent": "textAreaStandbyMinutes"
+            }
+          },
+          {
+            "InteractionName": "InteractionStandby120",
+            "Trigger": {
+              "Type": "TriggerClicked",
+              "TriggerComponent": "flexButtonStandby120"
+            },
+            "Action": {
+              "Type": "ActionSetWildcard",
+              "TextId": "__SingleUse_R39U",
+              "WildcardLocation": "Wildcard1",
+              "ActionComponent": "textAreaStandbyMinutes"
+            }
+          },
+          {
+            "InteractionName": "InteractionStandbyUnlimited",
+            "Trigger": {
+              "Type": "TriggerClicked",
+              "TriggerComponent": "buttonWithLabelStandbyUntimed"
+            },
+            "Action": {
+              "Type": "ActionSetWildcard",
+              "TextId": "__SingleUse_AC24",
+              "WildcardLocation": "Wildcard1",
+              "ActionComponent": "textAreaStandbyMinutes"
+            }
+          },
+          {
+            "InteractionName": "InteractionStandbyExit",
+            "HasCompletedTrigger": true,
+            "Trigger": {
+              "Type": "TriggerClicked",
+              "TriggerComponent": "buttonWithLabelStandbyExit"
+            },
+            "Action": {
+              "Type": "ActionSetText",
+              "TextId": "__SingleUse_SVCL",
+              "ActionComponent": "textAreaStandbyOrActive"
+            }
+          },
+          {
+            "InteractionName": "InteractionHideStandbyMinutes",
+            "Trigger": {
+              "Type": "TriggerInteractionCompleted",
+              "InteractionToTriggerOn": "InteractionStandbyExit"
+            },
+            "Action": {
+              "Type": "ActionHide",
+              "ActionComponent": "textAreaStandbyMinutes"
+            }
+          }
+        ]
+      },
+      {
+        "Name": "ScreenSettings1",
+        "Components": [
+          {
+            "Type": "Box",
+            "Name": "boxSettings1Background",
+            "Width": 480,
+            "Height": 272
+          },
+          {
+            "Type": "Box",
+            "Name": "boxMainTitleBackground",
+            "Width": 480,
+            "Height": 24,
+            "Color": {
+              "Red": 48,
+              "Green": 82,
+              "Blue": 33
+            }
+          },
+          {
+            "Type": "TextArea",
+            "Name": "textAreaSettings1",
+            "X": 326,
+            "Width": 154,
+            "Height": 24,
+            "TextId": "__SingleUse_QY51",
+            "TextRotation": "0",
+            "Color": {
+              "Red": 246,
+              "Green": 255
+            }
+          },
+          {
+            "Type": "ButtonWithLabel",
+            "Name": "buttonWithLabelReturnMain",
+            "X": 236,
+            "Y": 227,
+            "Width": 214,
+            "Height": 36,
+            "Pressed": "__generated\\alternate_theme_images_widgets_button_regular_height_36_medium_round_pressed.png",
+            "Released": "__generated\\alternate_theme_images_widgets_button_regular_height_36_medium_round_action.png",
+            "TextId": "textID_buttonReturnHome",
+            "PressedColor": {
+              "Red": 255,
+              "Green": 255,
+              "Blue": 255
+            },
+            "TextRotation": "0",
+            "Preset": "alternate_theme\\presets\\button\\regular\\height_36\\medium_round_action.json"
+          },
+          {
+            "Type": "TextArea",
+            "Name": "textAreaZWaveSentinel",
+            "Width": 297,
+            "Height": 24,
+            "TextId": "__SingleUse_EKW7",
+            "TextRotation": "0",
+            "Color": {
+              "Red": 255,
+              "Green": 255,
+              "Blue": 255
+            },
+            "AutoSize": true
+          },
+          {
+            "Type": "TextArea",
+            "Name": "textAreaSettingsLanguageTitle",
+            "X": 14,
+            "Y": 64,
+            "Width": 97,
+            "Height": 24,
+            "TextId": "textID_Settings1LanguageTitle",
+            "TextRotation": "0",
+            "Color": {
+              "Red": 255,
+              "Green": 255,
+              "Blue": 255
+            }
+          },
+          {
+            "Type": "RadioButton",
+            "Name": "radioButtonSettings1LanguageEnglish",
+            "X": 122,
+            "Y": 58,
+            "Width": 36,
+            "Height": 36,
+            "Selected": true,
+            "FileNameSelected": "__generated\\alternate_theme_images_widgets_radiobutton_check_medium_round_on_active.png",
+            "FileNameSelectedPressed": "__generated\\alternate_theme_images_widgets_radiobutton_check_medium_round_on_pressed.png",
+            "FileNameUnselected": "__generated\\alternate_theme_images_widgets_radiobutton_check_medium_round_off.png",
+            "FileNameUnselectedPressed": "__generated\\alternate_theme_images_widgets_radiobutton_check_medium_round_off_pressed.png",
+            "RadioButtonGroup": "radioButtonGroupLanguage",
+            "Preset": "alternate_theme\\presets\\radiobutton\\check\\medium_active_round.json"
+          },
+          {
+            "Type": "RadioButton",
+            "Name": "radioButtonSettings1LanguageDeutsch",
+            "X": 122,
+            "Y": 94,
+            "Width": 36,
+            "Height": 36,
+            "FileNameSelected": "__generated\\alternate_theme_images_widgets_radiobutton_check_medium_round_on_active.png",
+            "FileNameSelectedPressed": "__generated\\alternate_theme_images_widgets_radiobutton_check_medium_round_on_pressed.png",
+            "FileNameUnselected": "__generated\\alternate_theme_images_widgets_radiobutton_check_medium_round_off.png",
+            "FileNameUnselectedPressed": "__generated\\alternate_theme_images_widgets_radiobutton_check_medium_round_off_pressed.png",
+            "RadioButtonGroup": "radioButtonGroupLanguage",
+            "Preset": "alternate_theme\\presets\\radiobutton\\check\\medium_active_round.json"
+          },
+          {
+            "Type": "TextArea",
+            "Name": "textAreaSettings1English",
+            "X": 168,
+            "Y": 64,
+            "Width": 71,
+            "Height": 24,
+            "TextId": "textID_Settings1English",
+            "TextRotation": "0",
+            "Color": {
+              "Red": 255,
+              "Green": 255,
+              "Blue": 255
+            },
+            "AutoSize": true
+          },
+          {
+            "Type": "TextArea",
+            "Name": "textAreaSettings1Deutsch",
+            "X": 168,
+            "Y": 100,
+            "Width": 81,
+            "Height": 24,
+            "TextId": "textID_Settings1Deutsch",
+            "TextRotation": "0",
+            "Color": {
+              "Red": 255,
+              "Green": 255,
+              "Blue": 255
+            },
+            "AutoSize": true
+          },
+          {
+            "Type": "TextArea",
+            "Name": "textAreaSettings1IPTitle",
+            "X": 14,
+            "Y": 148,
+            "Width": 97,
+            "Height": 24,
+            "TextId": "__SingleUse_3RMH",
+            "TextRotation": "0",
+            "Color": {
+              "Red": 255,
+              "Green": 255,
+              "Blue": 255
+            }
+          },
+          {
+            "Type": "RadioButton",
+            "Name": "radioButtonSettings1IPDHCP",
+            "X": 122,
+            "Y": 142,
+            "Width": 36,
+            "Height": 36,
+            "Selected": true,
+            "FileNameSelected": "__generated\\alternate_theme_images_widgets_radiobutton_check_medium_round_on_active.png",
+            "FileNameSelectedPressed": "__generated\\alternate_theme_images_widgets_radiobutton_check_medium_round_on_pressed.png",
+            "FileNameUnselected": "__generated\\alternate_theme_images_widgets_radiobutton_check_medium_round_off.png",
+            "FileNameUnselectedPressed": "__generated\\alternate_theme_images_widgets_radiobutton_check_medium_round_off_pressed.png",
+            "RadioButtonGroup": "radioButtonGroupIP",
+            "Preset": "alternate_theme\\presets\\radiobutton\\check\\medium_active_round.json"
+          },
+          {
+            "Type": "RadioButton",
+            "Name": "radioButtonSettings1IPStatic",
+            "X": 122,
+            "Y": 178,
+            "Width": 36,
+            "Height": 36,
+            "FileNameSelected": "__generated\\alternate_theme_images_widgets_radiobutton_check_medium_round_on_active.png",
+            "FileNameSelectedPressed": "__generated\\alternate_theme_images_widgets_radiobutton_check_medium_round_on_pressed.png",
+            "FileNameUnselected": "__generated\\alternate_theme_images_widgets_radiobutton_check_medium_round_off.png",
+            "FileNameUnselectedPressed": "__generated\\alternate_theme_images_widgets_radiobutton_check_medium_round_off_pressed.png",
+            "RadioButtonGroup": "radioButtonGroupIP",
+            "Preset": "alternate_theme\\presets\\radiobutton\\check\\medium_active_round.json"
+          },
+          {
+            "Type": "TextArea",
+            "Name": "textAreaSettings1IP_DHCP",
+            "X": 168,
+            "Y": 148,
+            "Width": 288,
+            "Height": 24,
+            "TextId": "textID_Settings1IP_DHCP",
+            "TextRotation": "0",
+            "Color": {
+              "Red": 255,
+              "Green": 255,
+              "Blue": 255
+            }
+          },
+          {
+            "Type": "TextArea",
+            "Name": "textAreaSettings1IPStatic",
+            "X": 168,
+            "Y": 184,
+            "Width": 57,
+            "Height": 24,
+            "TextId": "__SingleUse_IWCE",
+            "TextRotation": "0",
+            "Color": {
+              "Red": 255,
+              "Green": 255,
+              "Blue": 255
+            },
+            "AutoSize": true
+          },
+          {
+            "Type": "ButtonWithLabel",
+            "Name": "buttonWithLabelIPSettings",
+            "X": 236,
+            "Y": 178,
+            "Width": 138,
+            "Height": 36,
+            "Pressed": "__generated\\alternate_theme_images_widgets_button_regular_height_36_small_rounded_pressed.png",
+            "Released": "__generated\\alternate_theme_images_widgets_button_regular_height_36_small_rounded_action.png",
+            "TextId": "__SingleUse_GCYK",
+            "PressedColor": {
+              "Red": 255,
+              "Green": 255,
+              "Blue": 255
+            },
+            "TextRotation": "0",
+            "Preset": "alternate_theme\\presets\\button\\regular\\height_36\\small_rounded_action.json"
+          },
+          {
+            "Type": "TextArea",
+            "Name": "textAreaSettings1Status",
+            "Y": 24,
+            "Width": 480,
+            "Height": 24,
+            "TextId": "textID_Settings1Status",
+            "TextRotation": "0",
+            "Color": {
+              "Red": 255,
+              "Green": 238
+            }
+          },
+          {
+            "Type": "ButtonWithLabel",
+            "Name": "buttonWithLabelPrevious",
+            "X": 11,
+            "Y": 227,
+            "Width": 100,
+            "Height": 36,
+            "Pressed": "__generated\\alternate_theme_images_widgets_button_regular_height_36_tiny_round_pressed.png",
+            "Released": "__generated\\alternate_theme_images_widgets_button_regular_height_36_tiny_round_action.png",
+            "TextId": "textID_ButtonPrevious",
+            "PressedColor": {
+              "Red": 255,
+              "Green": 255,
+              "Blue": 255
+            },
+            "TextRotation": "0",
+            "Preset": "alternate_theme\\presets\\button\\regular\\height_36\\tiny_round_action.json"
+          },
+          {
+            "Type": "ButtonWithLabel",
+            "Name": "buttonWithLabelNext",
+            "X": 118,
+            "Y": 227,
+            "Width": 100,
+            "Height": 36,
+            "Pressed": "__generated\\alternate_theme_images_widgets_button_regular_height_36_tiny_round_pressed.png",
+            "Released": "__generated\\alternate_theme_images_widgets_button_regular_height_36_tiny_round_action.png",
+            "TextId": "textID_ButtonNext",
+            "PressedColor": {
+              "Red": 255,
+              "Green": 255,
+              "Blue": 255
+            },
+            "TextRotation": "0",
+            "Preset": "alternate_theme\\presets\\button\\regular\\height_36\\tiny_round_action.json"
+          }
+        ],
+        "Interactions": [
+          {
+            "InteractionName": "InteractionReturnMain",
+            "Trigger": {
+              "Type": "TriggerClicked",
+              "TriggerComponent": "buttonWithLabelReturnMain"
+            },
+            "Action": {
+              "Type": "ActionGotoScreen",
+              "ScreenTransitionType": "ScreenTransitionWipe",
+              "ScreenTransitionDirection": "East",
+              "ActionComponent": "screenMain"
+            }
+          },
+          {
+            "InteractionName": "InteractionSettings1Addresses",
+            "Trigger": {
+              "Type": "TriggerClicked",
+              "TriggerComponent": "buttonWithLabelIPSettings"
+            },
+            "Action": {
+              "Type": "ActionGotoScreen",
+              "ScreenTransitionType": "ScreenTransitionNone",
+              "ActionComponent": "ScreenIPAddresses"
+            }
+          },
+          {
+            "InteractionName": "InteractionSettings1SelectEnglish",
+            "HasCompletedTrigger": true,
+            "Trigger": {
+              "Type": "TriggerRadioButtonSelected",
+              "TriggerComponent": "radioButtonSettings1LanguageEnglish"
+            },
+            "Action": {
+              "Type": "ActionSetText",
+              "TextId": "textID_Settings1_RadioEnglish",
+              "ActionComponent": "textAreaSettings1Status"
+            }
+          },
+          {
+            "InteractionName": "InteractionSettings1SelectDeutsch",
+            "HasCompletedTrigger": true,
+            "Trigger": {
+              "Type": "TriggerRadioButtonSelected",
+              "TriggerComponent": "radioButtonSettings1LanguageDeutsch"
+            },
+            "Action": {
+              "Type": "ActionSetText",
+              "TextId": "textID_Settings1RadioDeutsch",
+              "ActionComponent": "textAreaSettings1Status"
+            }
+          },
+          {
+            "InteractionName": "InteractionSettings1SelectDHCP",
+            "HasCompletedTrigger": true,
+            "Trigger": {
+              "Type": "TriggerRadioButtonSelected",
+              "TriggerComponent": "radioButtonSettings1IPDHCP"
+            },
+            "Action": {
+              "Type": "ActionSetText",
+              "TextId": "textID_Settings1SelectDHCP",
+              "ActionComponent": "textAreaSettings1Status"
+            }
+          },
+          {
+            "InteractionName": "InteractionSettings1SelectStatic",
+            "HasCompletedTrigger": true,
+            "Trigger": {
+              "Type": "TriggerRadioButtonSelected",
+              "TriggerComponent": "radioButtonSettings1IPStatic"
+            },
+            "Action": {
+              "Type": "ActionSetText",
+              "TextId": "textID_Settings1SelectStatic",
+              "ActionComponent": "textAreaSettings1Status"
+            }
+          },
+          {
+            "InteractionName": "InteractionSettings1Next",
+            "Trigger": {
+              "Type": "TriggerClicked",
+              "TriggerComponent": "buttonWithLabelNext"
+            },
+            "Action": {
+              "Type": "ActionGotoScreen",
+              "ScreenTransitionType": "ScreenTransitionNone",
+              "ActionComponent": "ScreenAbout"
+            }
+          },
+          {
+            "InteractionName": "InteractionSettings1Previous",
+            "Trigger": {
+              "Type": "TriggerClicked",
+              "TriggerComponent": "buttonWithLabelPrevious"
+            },
+            "Action": {
+              "Type": "ActionGotoScreen",
+              "ScreenTransitionType": "ScreenTransitionNone",
+              "ActionComponent": "ScreenAbout"
+            }
+          },
+          {
+            "InteractionName": "InteractionSetLanguageEnglish",
+            "Trigger": {
+              "Type": "TriggerInteractionCompleted",
+              "InteractionToTriggerOn": "InteractionSettings1SelectEnglish"
+            },
+            "Action": {
+              "Type": "ActionCustom",
+              "FunctionName": "setLanguageEnglish"
+            }
+          },
+          {
+            "InteractionName": "InteractionSetLanguageDeutsch",
+            "Trigger": {
+              "Type": "TriggerInteractionCompleted",
+              "InteractionToTriggerOn": "InteractionSettings1SelectDeutsch"
+            },
+            "Action": {
+              "Type": "ActionCustom",
+              "FunctionName": "setLanguageDeutsch"
+            }
+          },
+          {
+            "InteractionName": "InteractionEnableDHCP",
+            "Trigger": {
+              "Type": "TriggerInteractionCompleted",
+              "InteractionToTriggerOn": "InteractionSettings1SelectDHCP"
+            },
+            "Action": {
+              "Type": "ActionCustom",
+              "FunctionName": "functionEnableDHCP"
+            }
+          },
+          {
+            "InteractionName": "InteractionDisableDHCP",
+            "Trigger": {
+              "Type": "TriggerInteractionCompleted",
+              "InteractionToTriggerOn": "InteractionSettings1SelectStatic"
+            },
+            "Action": {
+              "Type": "ActionCustom",
+              "FunctionName": "functionDisableDHCP"
+            }
+          }
+        ]
+      },
+      {
+        "Name": "ScreenAbout",
+        "Components": [
+          {
+            "Type": "Box",
+            "Name": "boxSettings1Background",
+            "Width": 480,
+            "Height": 272
+          },
+          {
+            "Type": "ButtonWithLabel",
+            "Name": "buttonWithLabelReturnMain",
+            "X": 236,
+            "Y": 227,
+            "Width": 214,
+            "Height": 36,
+            "Pressed": "__generated\\alternate_theme_images_widgets_button_regular_height_36_medium_round_pressed.png",
+            "Released": "__generated\\alternate_theme_images_widgets_button_regular_height_36_medium_round_action.png",
+            "TextId": "textID_buttonReturnHome",
+            "PressedColor": {
+              "Red": 255,
+              "Green": 255,
+              "Blue": 255
+            },
+            "TextRotation": "0",
+            "Preset": "alternate_theme\\presets\\button\\regular\\height_36\\medium_round_action.json"
+          },
+          {
+            "Type": "Box",
+            "Name": "boxMainTitleBackground",
+            "Width": 480,
+            "Height": 24,
+            "Color": {
+              "Red": 48,
+              "Green": 82,
+              "Blue": 33
+            }
+          },
+          {
+            "Type": "TextArea",
+            "Name": "textAreaZWaveSentinel_1",
+            "Width": 297,
+            "Height": 24,
+            "TextId": "__SingleUse_JKVV",
+            "TextRotation": "0",
+            "Color": {
+              "Red": 255,
+              "Green": 255,
+              "Blue": 255
+            },
+            "AutoSize": true
+          },
+          {
+            "Type": "TextArea",
+            "Name": "textAreaAbout",
+            "X": 326,
+            "Width": 154,
+            "Height": 24,
+            "TextId": "textID_About",
+            "TextRotation": "0",
+            "Color": {
+              "Red": 246,
+              "Green": 255
+            }
+          },
+          {
+            "Type": "TextArea",
+            "Name": "textAreaSerialNumberTitle",
+            "X": 12,
+            "Y": 64,
+            "Width": 207,
+            "Height": 24,
+            "TextId": "textID_SerialNumberTitle",
+            "TextRotation": "0",
+            "Color": {
+              "Red": 255,
+              "Green": 255,
+              "Blue": 255
+            }
+          },
+          {
+            "Type": "TextArea",
+            "Name": "textAreaFirmwareTitle",
+            "X": 12,
+            "Y": 106,
+            "Width": 207,
+            "Height": 24,
+            "TextId": "textID_FirmwareTitle",
+            "TextRotation": "0",
+            "Color": {
+              "Red": 255,
+              "Green": 255,
+              "Blue": 255
+            }
+          },
+          {
+            "Type": "TextArea",
+            "Name": "textAreaTechSupportTitle",
+            "X": 12,
+            "Y": 147,
+            "Width": 207,
+            "Height": 24,
+            "TextId": "textID_TechSupportTitle",
+            "TextRotation": "0",
+            "Color": {
+              "Red": 255,
+              "Green": 255,
+              "Blue": 255
+            }
+          },
+          {
+            "Type": "ButtonWithLabel",
+            "Name": "buttonWithLabelAboutPrevious",
+            "X": 12,
+            "Y": 227,
+            "Width": 100,
+            "Height": 36,
+            "Pressed": "__generated\\alternate_theme_images_widgets_button_regular_height_36_tiny_round_pressed.png",
+            "Released": "__generated\\alternate_theme_images_widgets_button_regular_height_36_tiny_round_action.png",
+            "TextId": "__SingleUse_K4JA",
+            "PressedColor": {
+              "Red": 255,
+              "Green": 255,
+              "Blue": 255
+            },
+            "TextRotation": "0",
+            "Preset": "alternate_theme\\presets\\button\\regular\\height_36\\tiny_round_action.json"
+          },
+          {
+            "Type": "ButtonWithLabel",
+            "Name": "buttonWithLabelAboutNext",
+            "X": 119,
+            "Y": 227,
+            "Width": 100,
+            "Height": 36,
+            "Pressed": "__generated\\alternate_theme_images_widgets_button_regular_height_36_tiny_round_pressed.png",
+            "Released": "__generated\\alternate_theme_images_widgets_button_regular_height_36_tiny_round_action.png",
+            "TextId": "__SingleUse_4G2Z",
+            "PressedColor": {
+              "Red": 255,
+              "Green": 255,
+              "Blue": 255
+            },
+            "TextRotation": "0",
+            "Preset": "alternate_theme\\presets\\button\\regular\\height_36\\tiny_round_action.json"
+          },
+          {
+            "Type": "TextArea",
+            "Name": "textAreaAboutSerialNumber",
+            "X": 236,
+            "Y": 64,
+            "Width": 194,
+            "Height": 24,
+            "TextId": "__SingleUse_3BNE",
+            "TextRotation": "0",
+            "Color": {
+              "Red": 255,
+              "Green": 225
+            },
+            "AutoSize": true
+          },
+          {
+            "Type": "TextArea",
+            "Name": "textArea1",
+            "X": 236,
+            "Y": 106,
+            "Width": 78,
+            "Height": 24,
+            "TextId": "__SingleUse_H6P8",
+            "TextRotation": "0",
+            "Color": {
+              "Red": 255,
+              "Green": 234
+            },
+            "AutoSize": true
+          },
+          {
+            "Type": "TextArea",
+            "Name": "textAreaAboutTechSupportPhone",
+            "X": 236,
+            "Y": 147,
+            "Width": 170,
+            "Height": 24,
+            "TextId": "__SingleUse_19JN",
+            "TextRotation": "0",
+            "Color": {
+              "Red": 153,
+              "Green": 153,
+              "Blue": 153
+            },
+            "AutoSize": true
+          },
+          {
+            "Type": "TextArea",
+            "Name": "textAreaAboutTechSupportURL",
+            "X": 236,
+            "Y": 171,
+            "Width": 221,
+            "Height": 24,
+            "TextId": "__SingleUse_FCVK",
+            "TextRotation": "0",
+            "Color": {
+              "Red": 153,
+              "Green": 153,
+              "Blue": 153
+            },
+            "AutoSize": true
+          }
+        ],
+        "Interactions": [
+          {
+            "InteractionName": "InteractionAboutReturnHome",
+            "Trigger": {
+              "Type": "TriggerClicked",
+              "TriggerComponent": "buttonWithLabelReturnMain"
+            },
+            "Action": {
+              "Type": "ActionGotoScreen",
+              "ScreenTransitionType": "ScreenTransitionCover",
+              "ScreenTransitionDirection": "East",
+              "ActionComponent": "screenMain"
+            }
+          },
+          {
+            "InteractionName": "InteractionAboutPrevious",
+            "Trigger": {
+              "Type": "TriggerClicked",
+              "TriggerComponent": "buttonWithLabelAboutPrevious"
+            },
+            "Action": {
+              "Type": "ActionGotoScreen",
+              "ScreenTransitionType": "ScreenTransitionNone",
+              "ActionComponent": "ScreenSettings1"
+            }
+          },
+          {
+            "InteractionName": "InteractionAboutNext",
+            "Trigger": {
+              "Type": "TriggerClicked",
+              "TriggerComponent": "buttonWithLabelAboutNext"
+            },
+            "Action": {
+              "Type": "ActionGotoScreen",
+              "ScreenTransitionType": "ScreenTransitionNone",
+              "ActionComponent": "ScreenSettings1"
+            }
+          }
+        ]
+      },
+      {
+        "Name": "ScreenIPAddresses",
+        "Includes": "",
+        "Components": [
+          {
+            "Type": "Box",
+            "Name": "boxSettings1Background",
+            "Width": 480,
+            "Height": 272
+          },
+          {
+            "Type": "Box",
+            "Name": "boxMainTitleBackground",
+            "Width": 480,
+            "Height": 24,
+            "Color": {
+              "Red": 48,
+              "Green": 82,
+              "Blue": 33
+            }
+          },
+          {
+            "Type": "TextArea",
+            "Name": "textAreaZWaveSentinel",
+            "Width": 297,
+            "Height": 24,
+            "TextId": "__SingleUse_YA2S",
+            "TextRotation": "0",
+            "Color": {
+              "Red": 255,
+              "Green": 255,
+              "Blue": 255
+            },
+            "AutoSize": true
+          },
+          {
+            "Type": "TextArea",
+            "Name": "textAreaIPAddresses",
+            "X": 321,
+            "Width": 159,
+            "Height": 24,
+            "TextId": "textID_IPAddresses",
+            "TextRotation": "0",
+            "Color": {
+              "Red": 255,
+              "Green": 225
+            }
+          },
+          {
+            "Type": "ButtonWithLabel",
+            "Name": "buttonWithLabelIPAddressReturn",
+            "X": 367,
+            "Y": 225,
+            "Width": 100,
+            "Height": 36,
+            "Pressed": "__generated\\alternate_theme_images_widgets_button_regular_height_36_tiny_round_pressed.png",
+            "Released": "__generated\\alternate_theme_images_widgets_button_regular_height_36_tiny_round_action.png",
+            "TextId": "__SingleUse_EI3H",
+            "PressedColor": {
+              "Red": 255,
+              "Green": 255,
+              "Blue": 255
+            },
+            "TextRotation": "0",
+            "Preset": "alternate_theme\\presets\\button\\regular\\height_36\\tiny_round_action.json"
+          },
+          {
+            "Type": "TextArea",
+            "Name": "textAreaAddressTitle",
+            "X": 29,
+            "Y": 59,
+            "Width": 161,
+            "Height": 25,
+            "TextId": "__SingleUse_4LQV",
+            "TextRotation": "0",
+            "Color": {
+              "Red": 255,
+              "Green": 255,
+              "Blue": 255
+            }
+          },
+          {
+            "Type": "TextArea",
+            "Name": "textAreaDNSTitle",
+            "X": 29,
+            "Y": 91,
+            "Width": 161,
+            "Height": 27,
+            "TextId": "__SingleUse_LHBH",
+            "TextRotation": "0",
+            "Color": {
+              "Red": 255,
+              "Green": 255,
+              "Blue": 255
+            }
+          },
+          {
+            "Type": "TextArea",
+            "Name": "textAreaGatewayTitle",
+            "X": 29,
+            "Y": 124,
+            "Width": 161,
+            "Height": 27,
+            "TextId": "__SingleUse_WT6C",
+            "TextRotation": "0",
+            "Color": {
+              "Red": 255,
+              "Green": 255,
+              "Blue": 255
+            }
+          },
+          {
+            "Type": "TextArea",
+            "Name": "textAreaNetmaskTitle",
+            "X": 29,
+            "Y": 157,
+            "Width": 161,
+            "Height": 27,
+            "TextId": "__SingleUse_V338",
+            "TextRotation": "0",
+            "Color": {
+              "Red": 255,
+              "Green": 255,
+              "Blue": 255
+            }
+          },
+          {
+            "Type": "ButtonWithLabel",
+            "Name": "buttonWithLabelIPAddressRevert",
+            "X": 122,
+            "Y": 196,
+            "Width": 100,
+            "Height": 36,
+            "Pressed": "__generated\\alternate_theme_images_widgets_button_regular_height_36_tiny_rounded_pressed.png",
+            "Released": "__generated\\alternate_theme_images_widgets_button_regular_height_36_tiny_rounded_action.png",
+            "TextId": "__SingleUse_1L1Y",
+            "PressedColor": {
+              "Red": 255,
+              "Green": 255,
+              "Blue": 255
+            },
+            "TextRotation": "0",
+            "Preset": "alternate_theme\\presets\\button\\regular\\height_36\\tiny_rounded_action.json"
+          },
+          {
+            "Type": "ButtonWithLabel",
+            "Name": "buttonWithLabelIPAddressApply",
+            "X": 254,
+            "Y": 196,
+            "Width": 100,
+            "Height": 36,
+            "Pressed": "__generated\\alternate_theme_images_widgets_button_regular_height_36_tiny_rounded_pressed.png",
+            "Released": "__generated\\alternate_theme_images_widgets_button_regular_height_36_tiny_rounded_action.png",
+            "TextId": "__SingleUse_8YKZ",
+            "PressedColor": {
+              "Red": 255,
+              "Green": 255,
+              "Blue": 255
+            },
+            "TextRotation": "0",
+            "Preset": "alternate_theme\\presets\\button\\regular\\height_36\\tiny_rounded_action.json"
+          },
+          {
+            "Type": "Container",
+            "Name": "containerIP_Netmask1",
+            "X": 204,
+            "Y": 158,
+            "Width": 50,
+            "Height": 34,
+            "Components": [
+              {
+                "Type": "FlexButton",
+                "Name": "flexButtonNetmask1",
+                "Width": 50,
+                "Height": 34,
+                "ButtonTrigger": {
+                  "Type": "ClickButtonTrigger"
+                },
+                "ButtonStyles": [
+                  {
+                    "Type": "BoxWithBorderButtonStyle",
+                    "Width": 50,
+                    "Height": 34,
+                    "LockToFlexButtonSize": true,
+                    "BorderSize": 5,
+                    "ColorReleased": {
+                      "Red": 255,
+                      "Green": 238
+                    },
+                    "ColorPressed": {
+                      "Green": 153,
+                      "Blue": 204
+                    },
+                    "ColorBorderPressed": {
+                      "Red": 255,
+                      "Green": 255,
+                      "Blue": 255
+                    }
+                  }
+                ]
+              },
+              {
+                "Type": "TextArea",
+                "Name": "textAreaNetmask1",
+                "X": 6,
+                "Y": 6,
+                "Width": 39,
+                "Height": 24,
+                "TextId": "__SingleUse_FMT3",
+                "TextRotation": "0",
+                "Wildcard1": {
+                  "TextId": "__SingleUse_F1K7",
+                  "UseBuffer": true,
+                  "BufferSize": 4
+                }
+              }
+            ]
+          },
+          {
+            "Type": "Container",
+            "Name": "containerIP_Netmask2",
+            "X": 256,
+            "Y": 158,
+            "Width": 50,
+            "Height": 34,
+            "Components": [
+              {
+                "Type": "FlexButton",
+                "Name": "flexButtonNetmask2",
+                "Width": 50,
+                "Height": 34,
+                "ButtonTrigger": {
+                  "Type": "ClickButtonTrigger"
+                },
+                "ButtonStyles": [
+                  {
+                    "Type": "BoxWithBorderButtonStyle",
+                    "Width": 50,
+                    "Height": 34,
+                    "LockToFlexButtonSize": true,
+                    "BorderSize": 5,
+                    "ColorReleased": {
+                      "Red": 255,
+                      "Green": 238
+                    },
+                    "ColorPressed": {
+                      "Green": 153,
+                      "Blue": 204
+                    },
+                    "ColorBorderPressed": {
+                      "Red": 255,
+                      "Green": 255,
+                      "Blue": 255
+                    }
+                  }
+                ]
+              },
+              {
+                "Type": "TextArea",
+                "Name": "textAreaNetmask2",
+                "X": 6,
+                "Y": 6,
+                "Width": 39,
+                "Height": 24,
+                "TextId": "__SingleUse_JQP3",
+                "TextRotation": "0",
+                "Wildcard1": {
+                  "TextId": "__SingleUse_OZ4H",
+                  "UseBuffer": true,
+                  "BufferSize": 4
+                }
+              }
+            ]
+          },
+          {
+            "Type": "Container",
+            "Name": "containerIP_Netmask3",
+            "X": 306,
+            "Y": 158,
+            "Width": 50,
+            "Height": 34,
+            "Components": [
+              {
+                "Type": "FlexButton",
+                "Name": "flexButtonNetmask3",
+                "Width": 50,
+                "Height": 34,
+                "ButtonTrigger": {
+                  "Type": "ClickButtonTrigger"
+                },
+                "ButtonStyles": [
+                  {
+                    "Type": "BoxWithBorderButtonStyle",
+                    "Width": 50,
+                    "Height": 34,
+                    "LockToFlexButtonSize": true,
+                    "BorderSize": 5,
+                    "ColorReleased": {
+                      "Red": 255,
+                      "Green": 238
+                    },
+                    "ColorPressed": {
+                      "Green": 153,
+                      "Blue": 204
+                    },
+                    "ColorBorderPressed": {
+                      "Red": 255,
+                      "Green": 255,
+                      "Blue": 255
+                    }
+                  }
+                ]
+              },
+              {
+                "Type": "TextArea",
+                "Name": "textAreaNetmask3",
+                "X": 6,
+                "Y": 6,
+                "Width": 39,
+                "Height": 24,
+                "TextId": "__SingleUse_I7UV",
+                "TextRotation": "0",
+                "Wildcard1": {
+                  "TextId": "__SingleUse_SBS5",
+                  "UseBuffer": true,
+                  "BufferSize": 4
+                }
+              }
+            ]
+          },
+          {
+            "Type": "Container",
+            "Name": "containerIP_Netmask4",
+            "X": 356,
+            "Y": 159,
+            "Width": 50,
+            "Height": 34,
+            "Components": [
+              {
+                "Type": "FlexButton",
+                "Name": "flexButtonNetmask4",
+                "Width": 50,
+                "Height": 34,
+                "ButtonTrigger": {
+                  "Type": "ClickButtonTrigger"
+                },
+                "ButtonStyles": [
+                  {
+                    "Type": "BoxWithBorderButtonStyle",
+                    "Width": 50,
+                    "Height": 34,
+                    "LockToFlexButtonSize": true,
+                    "BorderSize": 5,
+                    "ColorReleased": {
+                      "Red": 255,
+                      "Green": 238
+                    },
+                    "ColorPressed": {
+                      "Green": 153,
+                      "Blue": 204
+                    },
+                    "ColorBorderPressed": {
+                      "Red": 255,
+                      "Green": 255,
+                      "Blue": 255
+                    }
+                  }
+                ]
+              },
+              {
+                "Type": "TextArea",
+                "Name": "textAreaNetmask4",
+                "X": 6,
+                "Y": 6,
+                "Width": 39,
+                "Height": 24,
+                "TextId": "__SingleUse_K0V2",
+                "TextRotation": "0",
+                "Wildcard1": {
+                  "TextId": "__SingleUse_YZ2E",
+                  "UseBuffer": true,
+                  "BufferSize": 4
+                }
+              }
+            ]
+          },
+          {
+            "Type": "Container",
+            "Name": "containerIP_Gateway1",
+            "X": 204,
+            "Y": 124,
+            "Width": 50,
+            "Height": 34,
+            "Components": [
+              {
+                "Type": "FlexButton",
+                "Name": "flexButtonGateway1",
+                "Width": 50,
+                "Height": 34,
+                "ButtonTrigger": {
+                  "Type": "ClickButtonTrigger"
+                },
+                "ButtonStyles": [
+                  {
+                    "Type": "BoxWithBorderButtonStyle",
+                    "Width": 50,
+                    "Height": 34,
+                    "LockToFlexButtonSize": true,
+                    "BorderSize": 5,
+                    "ColorReleased": {
+                      "Red": 255,
+                      "Green": 238
+                    },
+                    "ColorPressed": {
+                      "Green": 153,
+                      "Blue": 204
+                    },
+                    "ColorBorderPressed": {
+                      "Red": 255,
+                      "Green": 255,
+                      "Blue": 255
+                    }
+                  }
+                ]
+              },
+              {
+                "Type": "TextArea",
+                "Name": "textAreaGateway1",
+                "X": 6,
+                "Y": 6,
+                "Width": 39,
+                "Height": 24,
+                "TextId": "__SingleUse_XPBP",
+                "TextRotation": "0",
+                "Wildcard1": {
+                  "TextId": "__SingleUse_RHYM",
+                  "UseBuffer": true,
+                  "BufferSize": 4
+                }
+              }
+            ]
+          },
+          {
+            "Type": "Container",
+            "Name": "containerIP_Gateway2",
+            "X": 256,
+            "Y": 124,
+            "Width": 50,
+            "Height": 34,
+            "Components": [
+              {
+                "Type": "FlexButton",
+                "Name": "flexButtonGateway2",
+                "Width": 50,
+                "Height": 34,
+                "ButtonTrigger": {
+                  "Type": "ClickButtonTrigger"
+                },
+                "ButtonStyles": [
+                  {
+                    "Type": "BoxWithBorderButtonStyle",
+                    "Width": 50,
+                    "Height": 34,
+                    "LockToFlexButtonSize": true,
+                    "BorderSize": 5,
+                    "ColorReleased": {
+                      "Red": 255,
+                      "Green": 238
+                    },
+                    "ColorPressed": {
+                      "Green": 153,
+                      "Blue": 204
+                    },
+                    "ColorBorderPressed": {
+                      "Red": 255,
+                      "Green": 255,
+                      "Blue": 255
+                    }
+                  }
+                ]
+              },
+              {
+                "Type": "TextArea",
+                "Name": "textAreaGateway2",
+                "X": 6,
+                "Y": 6,
+                "Width": 39,
+                "Height": 24,
+                "TextId": "__SingleUse_T9GN",
+                "TextRotation": "0",
+                "Wildcard1": {
+                  "TextId": "__SingleUse_DVGV",
+                  "UseBuffer": true,
+                  "BufferSize": 4
+                }
+              }
+            ]
+          },
+          {
+            "Type": "Container",
+            "Name": "containerIP_Gateway3",
+            "X": 306,
+            "Y": 124,
+            "Width": 50,
+            "Height": 34,
+            "Components": [
+              {
+                "Type": "FlexButton",
+                "Name": "flexButtonGateway3",
+                "Width": 50,
+                "Height": 34,
+                "ButtonTrigger": {
+                  "Type": "ClickButtonTrigger"
+                },
+                "ButtonStyles": [
+                  {
+                    "Type": "BoxWithBorderButtonStyle",
+                    "Width": 50,
+                    "Height": 34,
+                    "LockToFlexButtonSize": true,
+                    "BorderSize": 5,
+                    "ColorReleased": {
+                      "Red": 255,
+                      "Green": 238
+                    },
+                    "ColorPressed": {
+                      "Green": 153,
+                      "Blue": 204
+                    },
+                    "ColorBorderPressed": {
+                      "Red": 255,
+                      "Green": 255,
+                      "Blue": 255
+                    }
+                  }
+                ]
+              },
+              {
+                "Type": "TextArea",
+                "Name": "textAreaGateway3",
+                "X": 6,
+                "Y": 6,
+                "Width": 39,
+                "Height": 24,
+                "TextId": "__SingleUse_JR18",
+                "TextRotation": "0",
+                "Wildcard1": {
+                  "TextId": "__SingleUse_3ZWG",
+                  "UseBuffer": true,
+                  "BufferSize": 4
+                }
+              }
+            ]
+          },
+          {
+            "Type": "Container",
+            "Name": "containerIP_Gateway4",
+            "X": 356,
+            "Y": 124,
+            "Width": 50,
+            "Height": 34,
+            "Components": [
+              {
+                "Type": "FlexButton",
+                "Name": "flexButtonGateway4",
+                "Width": 50,
+                "Height": 34,
+                "ButtonTrigger": {
+                  "Type": "ClickButtonTrigger"
+                },
+                "ButtonStyles": [
+                  {
+                    "Type": "BoxWithBorderButtonStyle",
+                    "Width": 50,
+                    "Height": 34,
+                    "LockToFlexButtonSize": true,
+                    "BorderSize": 5,
+                    "ColorReleased": {
+                      "Red": 255,
+                      "Green": 238
+                    },
+                    "ColorPressed": {
+                      "Green": 153,
+                      "Blue": 204
+                    },
+                    "ColorBorderPressed": {
+                      "Red": 255,
+                      "Green": 255,
+                      "Blue": 255
+                    }
+                  }
+                ]
+              },
+              {
+                "Type": "TextArea",
+                "Name": "textAreaGateway4",
+                "X": 6,
+                "Y": 6,
+                "Width": 39,
+                "Height": 24,
+                "TextId": "__SingleUse_GUI1",
+                "TextRotation": "0",
+                "Wildcard1": {
+                  "TextId": "__SingleUse_M6M7",
+                  "UseBuffer": true,
+                  "BufferSize": 4
+                }
+              }
+            ]
+          },
+          {
+            "Type": "Container",
+            "Name": "containerIP_DNS1",
+            "X": 204,
+            "Y": 88,
+            "Width": 50,
+            "Height": 34,
+            "Components": [
+              {
+                "Type": "FlexButton",
+                "Name": "flexButtonDNS1",
+                "Width": 50,
+                "Height": 34,
+                "ButtonTrigger": {
+                  "Type": "ClickButtonTrigger"
+                },
+                "ButtonStyles": [
+                  {
+                    "Type": "BoxWithBorderButtonStyle",
+                    "Width": 50,
+                    "Height": 34,
+                    "LockToFlexButtonSize": true,
+                    "BorderSize": 5,
+                    "ColorReleased": {
+                      "Red": 255,
+                      "Green": 238
+                    },
+                    "ColorPressed": {
+                      "Green": 153,
+                      "Blue": 204
+                    },
+                    "ColorBorderPressed": {
+                      "Red": 255,
+                      "Green": 255,
+                      "Blue": 255
+                    }
+                  }
+                ]
+              },
+              {
+                "Type": "TextArea",
+                "Name": "textAreaDNS1",
+                "X": 6,
+                "Y": 7,
+                "Width": 39,
+                "Height": 24,
+                "TextId": "__SingleUse_W469",
+                "TextRotation": "0",
+                "Wildcard1": {
+                  "TextId": "__SingleUse_KS78",
+                  "UseBuffer": true,
+                  "BufferSize": 4
+                }
+              }
+            ]
+          },
+          {
+            "Type": "Container",
+            "Name": "containerIP_DNS2",
+            "X": 256,
+            "Y": 88,
+            "Width": 50,
+            "Height": 34,
+            "Components": [
+              {
+                "Type": "FlexButton",
+                "Name": "flexButtonDNS2",
+                "Width": 50,
+                "Height": 34,
+                "ButtonTrigger": {
+                  "Type": "ClickButtonTrigger"
+                },
+                "ButtonStyles": [
+                  {
+                    "Type": "BoxWithBorderButtonStyle",
+                    "Width": 50,
+                    "Height": 34,
+                    "LockToFlexButtonSize": true,
+                    "BorderSize": 5,
+                    "ColorReleased": {
+                      "Red": 255,
+                      "Green": 238
+                    },
+                    "ColorPressed": {
+                      "Green": 153,
+                      "Blue": 204
+                    },
+                    "ColorBorderPressed": {
+                      "Red": 255,
+                      "Green": 255,
+                      "Blue": 255
+                    }
+                  }
+                ]
+              },
+              {
+                "Type": "TextArea",
+                "Name": "textAreaDNS2",
+                "X": 6,
+                "Y": 6,
+                "Width": 39,
+                "Height": 24,
+                "TextId": "__SingleUse_X3C4",
+                "TextRotation": "0",
+                "Wildcard1": {
+                  "TextId": "__SingleUse_X53I",
+                  "UseBuffer": true,
+                  "BufferSize": 4
+                }
+              }
+            ]
+          },
+          {
+            "Type": "Container",
+            "Name": "containerIP_DNS3",
+            "X": 306,
+            "Y": 89,
+            "Width": 50,
+            "Height": 34,
+            "Components": [
+              {
+                "Type": "FlexButton",
+                "Name": "flexButtonDNS3",
+                "Width": 50,
+                "Height": 34,
+                "ButtonTrigger": {
+                  "Type": "ClickButtonTrigger"
+                },
+                "ButtonStyles": [
+                  {
+                    "Type": "BoxWithBorderButtonStyle",
+                    "Width": 50,
+                    "Height": 34,
+                    "LockToFlexButtonSize": true,
+                    "BorderSize": 5,
+                    "ColorReleased": {
+                      "Red": 255,
+                      "Green": 238
+                    },
+                    "ColorPressed": {
+                      "Green": 153,
+                      "Blue": 204
+                    },
+                    "ColorBorderPressed": {
+                      "Red": 255,
+                      "Green": 255,
+                      "Blue": 255
+                    }
+                  }
+                ]
+              },
+              {
+                "Type": "TextArea",
+                "Name": "textAreaDNS3",
+                "X": 6,
+                "Y": 6,
+                "Width": 39,
+                "Height": 24,
+                "TextId": "__SingleUse_1E31",
+                "TextRotation": "0",
+                "Wildcard1": {
+                  "TextId": "__SingleUse_V2EV",
+                  "UseBuffer": true,
+                  "BufferSize": 4
+                }
+              }
+            ]
+          },
+          {
+            "Type": "Container",
+            "Name": "containerIP_DNS4",
+            "X": 356,
+            "Y": 88,
+            "Width": 50,
+            "Height": 34,
+            "Components": [
+              {
+                "Type": "FlexButton",
+                "Name": "flexButtonDNS4",
+                "Width": 50,
+                "Height": 34,
+                "ButtonTrigger": {
+                  "Type": "ClickButtonTrigger"
+                },
+                "ButtonStyles": [
+                  {
+                    "Type": "BoxWithBorderButtonStyle",
+                    "Width": 50,
+                    "Height": 34,
+                    "LockToFlexButtonSize": true,
+                    "BorderSize": 5,
+                    "ColorReleased": {
+                      "Red": 255,
+                      "Green": 238
+                    },
+                    "ColorPressed": {
+                      "Green": 153,
+                      "Blue": 204
+                    },
+                    "ColorBorderPressed": {
+                      "Red": 255,
+                      "Green": 255,
+                      "Blue": 255
+                    }
+                  }
+                ]
+              },
+              {
+                "Type": "TextArea",
+                "Name": "textAreaDNS4",
+                "X": 6,
+                "Y": 6,
+                "Width": 39,
+                "Height": 24,
+                "TextId": "__SingleUse_MBKX",
+                "TextRotation": "0",
+                "Wildcard1": {
+                  "TextId": "__SingleUse_O693",
+                  "UseBuffer": true,
+                  "BufferSize": 4
+                }
+              }
+            ]
+          },
+          {
+            "Type": "Container",
+            "Name": "containerIP_Address1",
+            "X": 204,
+            "Y": 50,
+            "Width": 50,
+            "Height": 34,
+            "Components": [
+              {
+                "Type": "FlexButton",
+                "Name": "flexButtonIPAddress1",
+                "Width": 50,
+                "Height": 34,
+                "ButtonTrigger": {
+                  "Type": "ClickButtonTrigger"
+                },
+                "ButtonStyles": [
+                  {
+                    "Type": "BoxWithBorderButtonStyle",
+                    "Width": 50,
+                    "Height": 34,
+                    "LockToFlexButtonSize": true,
+                    "BorderSize": 5,
+                    "ColorReleased": {
+                      "Red": 255,
+                      "Green": 238
+                    },
+                    "ColorPressed": {
+                      "Green": 153,
+                      "Blue": 204
+                    },
+                    "ColorBorderPressed": {
+                      "Red": 255,
+                      "Green": 255,
+                      "Blue": 255
+                    }
+                  }
+                ]
+              },
+              {
+                "Type": "TextArea",
+                "Name": "textAreaIPAddress1",
+                "X": 6,
+                "Y": 5,
+                "Width": 39,
+                "Height": 25,
+                "TextId": "__SingleUse_J4ZE",
+                "TextRotation": "0",
+                "Wildcard1": {
+                  "TextId": "__SingleUse_V4MF",
+                  "UseBuffer": true,
+                  "BufferSize": 4
+                }
+              }
+            ]
+          },
+          {
+            "Type": "Container",
+            "Name": "containerIP_Address2",
+            "X": 255,
+            "Y": 50,
+            "Width": 50,
+            "Height": 34,
+            "Components": [
+              {
+                "Type": "FlexButton",
+                "Name": "flexButtonIPAddress2",
+                "Width": 50,
+                "Height": 34,
+                "ButtonTrigger": {
+                  "Type": "ClickButtonTrigger"
+                },
+                "ButtonStyles": [
+                  {
+                    "Type": "BoxWithBorderButtonStyle",
+                    "Width": 50,
+                    "Height": 34,
+                    "LockToFlexButtonSize": true,
+                    "BorderSize": 5,
+                    "ColorReleased": {
+                      "Red": 255,
+                      "Green": 238
+                    },
+                    "ColorPressed": {
+                      "Green": 153,
+                      "Blue": 204
+                    },
+                    "ColorBorderPressed": {
+                      "Red": 255,
+                      "Green": 255,
+                      "Blue": 255
+                    }
+                  }
+                ]
+              },
+              {
+                "Type": "TextArea",
+                "Name": "textAreaIPAddress2",
+                "X": 6,
+                "Y": 6,
+                "Width": 39,
+                "Height": 24,
+                "TextId": "__SingleUse_XOIR",
+                "TextRotation": "0",
+                "Wildcard1": {
+                  "TextId": "__SingleUse_LK8X",
+                  "UseBuffer": true,
+                  "BufferSize": 4
+                }
+              }
+            ]
+          },
+          {
+            "Type": "Container",
+            "Name": "containerIP_Address3",
+            "X": 306,
+            "Y": 50,
+            "Width": 50,
+            "Height": 34,
+            "Components": [
+              {
+                "Type": "FlexButton",
+                "Name": "flexButtonIPAddress3",
+                "Width": 50,
+                "Height": 34,
+                "ButtonTrigger": {
+                  "Type": "ClickButtonTrigger"
+                },
+                "ButtonStyles": [
+                  {
+                    "Type": "BoxWithBorderButtonStyle",
+                    "Width": 50,
+                    "Height": 34,
+                    "LockToFlexButtonSize": true,
+                    "BorderSize": 5,
+                    "ColorReleased": {
+                      "Red": 255,
+                      "Green": 238
+                    },
+                    "ColorPressed": {
+                      "Green": 153,
+                      "Blue": 204
+                    },
+                    "ColorBorderPressed": {
+                      "Red": 255,
+                      "Green": 255,
+                      "Blue": 255
+                    }
+                  }
+                ]
+              },
+              {
+                "Type": "TextArea",
+                "Name": "textAreaIPAddress3",
+                "X": 6,
+                "Y": 6,
+                "Width": 39,
+                "Height": 24,
+                "TextId": "__SingleUse_IPUZ",
+                "TextRotation": "0",
+                "Wildcard1": {
+                  "TextId": "__SingleUse_91UY",
+                  "UseBuffer": true,
+                  "BufferSize": 4
+                }
+              }
+            ]
+          },
+          {
+            "Type": "Container",
+            "Name": "containerIP_Address4",
+            "X": 356,
+            "Y": 50,
+            "Width": 50,
+            "Height": 34,
+            "Components": [
+              {
+                "Type": "FlexButton",
+                "Name": "flexButtonIPAddress4",
+                "Width": 50,
+                "Height": 34,
+                "ButtonTrigger": {
+                  "Type": "ClickButtonTrigger"
+                },
+                "ButtonStyles": [
+                  {
+                    "Type": "BoxWithBorderButtonStyle",
+                    "Width": 50,
+                    "Height": 34,
+                    "LockToFlexButtonSize": true,
+                    "BorderSize": 5,
+                    "ColorReleased": {
+                      "Red": 255,
+                      "Green": 238
+                    },
+                    "ColorPressed": {
+                      "Green": 153,
+                      "Blue": 204
+                    },
+                    "ColorBorderPressed": {
+                      "Red": 255,
+                      "Green": 255,
+                      "Blue": 255
+                    }
+                  }
+                ]
+              },
+              {
+                "Type": "TextArea",
+                "Name": "textAreaIPAddress4",
+                "X": 6,
+                "Y": 6,
+                "Width": 39,
+                "Height": 24,
+                "TextId": "__SingleUse_CTKB",
+                "TextRotation": "0",
+                "Wildcard1": {
+                  "TextId": "__SingleUse_5IEE",
+                  "UseBuffer": true,
+                  "BufferSize": 4
+                }
+              }
+            ]
+          },
+          {
+            "Type": "TextArea",
+            "Name": "textAreaIPAddressStatus",
+            "Y": 24,
+            "Width": 480,
+            "Height": 24,
+            "TextId": "__SingleUse_TCFK",
+            "TextRotation": "0",
+            "Color": {
+              "Red": 255,
+              "Green": 217
+            }
+          },
+          {
+            "Type": "CustomContainerInstance",
+            "Name": "numberPICKERAddress",
+            "X": 408,
+            "Y": 64,
+            "Width": 72,
+            "Height": 120,
+            "Visible": false,
+            "CustomContainerDefinitionName": "NumberPICKER"
+          }
+        ],
+        "Interactions": [
+          {
+            "InteractionName": "InteractionIPAddressReturn",
+            "Trigger": {
+              "Type": "TriggerClicked",
+              "TriggerComponent": "buttonWithLabelIPAddressReturn"
+            },
+            "Action": {
+              "Type": "ActionGotoScreen",
+              "ScreenTransitionType": "ScreenTransitionNone",
+              "ActionComponent": "ScreenSettings1"
+            }
+          },
+          {
+            "InteractionName": "InteractionIPAddressApply",
+            "Trigger": {
+              "Type": "TriggerClicked",
+              "TriggerComponent": "buttonWithLabelIPAddressApply"
+            },
+            "Action": {
+              "Type": "ActionCustom",
+              "FunctionName": "functionSaveAddresses"
+            }
+          },
+          {
+            "InteractionName": "InteractionIPAddressRevert",
+            "Trigger": {
+              "Type": "TriggerClicked",
+              "TriggerComponent": "buttonWithLabelIPAddressRevert"
+            },
+            "Action": {
+              "Type": "ActionCustom",
+              "FunctionName": "functionRevertAddresses"
+            }
+          },
+          {
+            "InteractionName": "InteractionAddress1Clicked",
+            "Trigger": {
+              "Type": "TriggerClicked",
+              "TriggerComponent": "flexButtonIPAddress1"
+            },
+            "Action": {
+              "Type": "ActionCustom2",
+              "ActionCustomTypeName": "Call ScreenIPAddresses actionSelectAddressByte",
+              "ParameterValue": "1",
+              "ActionComponent": "ScreenIPAddresses"
+            }
+          },
+          {
+            "InteractionName": "InteractionAddress2Clicked",
+            "Trigger": {
+              "Type": "TriggerClicked",
+              "TriggerComponent": "flexButtonIPAddress2"
+            },
+            "Action": {
+              "Type": "ActionCustom2",
+              "ActionCustomTypeName": "Call ScreenIPAddresses actionSelectAddressByte",
+              "ParameterValue": "2",
+              "ActionComponent": "ScreenIPAddresses"
+            }
+          },
+          {
+            "InteractionName": "InteractionAddress3Clicked",
+            "Trigger": {
+              "Type": "TriggerClicked",
+              "TriggerComponent": "flexButtonIPAddress3"
+            },
+            "Action": {
+              "Type": "ActionCustom2",
+              "ActionCustomTypeName": "Call ScreenIPAddresses actionSelectAddressByte",
+              "ParameterValue": "3",
+              "ActionComponent": "ScreenIPAddresses"
+            }
+          },
+          {
+            "InteractionName": "InteractionAddress4Clicked",
+            "Trigger": {
+              "Type": "TriggerClicked",
+              "TriggerComponent": "flexButtonIPAddress4"
+            },
+            "Action": {
+              "Type": "ActionCustom2",
+              "ActionCustomTypeName": "Call ScreenIPAddresses actionSelectAddressByte",
+              "ParameterValue": "4",
+              "ActionComponent": "ScreenIPAddresses"
+            }
+          },
+          {
+            "InteractionName": "InteractionDNS1Clicked",
+            "Trigger": {
+              "Type": "TriggerClicked",
+              "TriggerComponent": "flexButtonDNS1"
+            },
+            "Action": {
+              "Type": "ActionCustom2",
+              "ActionCustomTypeName": "Call ScreenIPAddresses actionSelectAddressByte",
+              "ParameterValue": "5",
+              "ActionComponent": "ScreenIPAddresses"
+            }
+          },
+          {
+            "InteractionName": "InteractionDNS2Clicked",
+            "Trigger": {
+              "Type": "TriggerClicked",
+              "TriggerComponent": "flexButtonDNS2"
+            },
+            "Action": {
+              "Type": "ActionCustom2",
+              "ActionCustomTypeName": "Call ScreenIPAddresses actionSelectAddressByte",
+              "ParameterValue": "6",
+              "ActionComponent": "ScreenIPAddresses"
+            }
+          },
+          {
+            "InteractionName": "InteractionDNS3Clicked",
+            "Trigger": {
+              "Type": "TriggerClicked",
+              "TriggerComponent": "flexButtonDNS3"
+            },
+            "Action": {
+              "Type": "ActionCustom2",
+              "ActionCustomTypeName": "Call ScreenIPAddresses actionSelectAddressByte",
+              "ParameterValue": "7",
+              "ActionComponent": "ScreenIPAddresses"
+            }
+          },
+          {
+            "InteractionName": "InteractionDNS4Clicked",
+            "Trigger": {
+              "Type": "TriggerClicked",
+              "TriggerComponent": "flexButtonDNS4"
+            },
+            "Action": {
+              "Type": "ActionCustom2",
+              "ActionCustomTypeName": "Call ScreenIPAddresses actionSelectAddressByte",
+              "ParameterValue": "8",
+              "ActionComponent": "ScreenIPAddresses"
+            }
+          },
+          {
+            "InteractionName": "InteractionUpdateSelectedAddressWithCounter",
+            "Trigger": {
+              "Type": "TriggerOnEveryTick",
+              "TickCount": 15
+            },
+            "Action": {
+              "Type": "ActionCustom",
+              "FunctionName": "functionUpdateSelectedAddressWithCounter"
+            }
+          },
+          {
+            "InteractionName": "InteractionGateway1Clicked",
+            "Trigger": {
+              "Type": "TriggerClicked",
+              "TriggerComponent": "flexButtonGateway1"
+            },
+            "Action": {
+              "Type": "ActionCustom2",
+              "ActionCustomTypeName": "Call ScreenIPAddresses actionSelectAddressByte",
+              "ParameterValue": "9",
+              "ActionComponent": "ScreenIPAddresses"
+            }
+          },
+          {
+            "InteractionName": "InteractionGateway2Clicked",
+            "Trigger": {
+              "Type": "TriggerClicked",
+              "TriggerComponent": "flexButtonGateway2"
+            },
+            "Action": {
+              "Type": "ActionCustom2",
+              "ActionCustomTypeName": "Call ScreenIPAddresses actionSelectAddressByte",
+              "ParameterValue": "10",
+              "ActionComponent": "ScreenIPAddresses"
+            }
+          },
+          {
+            "InteractionName": "InteractionGateway3Clicked",
+            "Trigger": {
+              "Type": "TriggerClicked",
+              "TriggerComponent": "flexButtonGateway3"
+            },
+            "Action": {
+              "Type": "ActionCustom2",
+              "ActionCustomTypeName": "Call ScreenIPAddresses actionSelectAddressByte",
+              "ParameterValue": "11",
+              "ActionComponent": "ScreenIPAddresses"
+            }
+          },
+          {
+            "InteractionName": "InteractionGateway4Clicked",
+            "Trigger": {
+              "Type": "TriggerClicked",
+              "TriggerComponent": "flexButtonGateway4"
+            },
+            "Action": {
+              "Type": "ActionCustom2",
+              "ActionCustomTypeName": "Call ScreenIPAddresses actionSelectAddressByte",
+              "ParameterValue": "12",
+              "ActionComponent": "ScreenIPAddresses"
+            }
+          },
+          {
+            "InteractionName": "InteractionNetmask1Clicked",
+            "Trigger": {
+              "Type": "TriggerClicked",
+              "TriggerComponent": "flexButtonNetmask1"
+            },
+            "Action": {
+              "Type": "ActionCustom2",
+              "ActionCustomTypeName": "Call ScreenIPAddresses actionSelectAddressByte",
+              "ParameterValue": "13",
+              "ActionComponent": "ScreenIPAddresses"
+            }
+          },
+          {
+            "InteractionName": "InteractionNetmask2Clicked",
+            "Trigger": {
+              "Type": "TriggerClicked",
+              "TriggerComponent": "flexButtonNetmask2"
+            },
+            "Action": {
+              "Type": "ActionCustom2",
+              "ActionCustomTypeName": "Call ScreenIPAddresses actionSelectAddressByte",
+              "ParameterValue": "14",
+              "ActionComponent": "ScreenIPAddresses"
+            }
+          },
+          {
+            "InteractionName": "InteractionNetmask3Clicked",
+            "Trigger": {
+              "Type": "TriggerClicked",
+              "TriggerComponent": "flexButtonNetmask3"
+            },
+            "Action": {
+              "Type": "ActionCustom2",
+              "ActionCustomTypeName": "Call ScreenIPAddresses actionSelectAddressByte",
+              "ParameterValue": "15",
+              "ActionComponent": "ScreenIPAddresses"
+            }
+          },
+          {
+            "InteractionName": "InteractionNetmask4Clicked",
+            "Trigger": {
+              "Type": "TriggerClicked",
+              "TriggerComponent": "flexButtonNetmask4"
+            },
+            "Action": {
+              "Type": "ActionCustom2",
+              "ActionCustomTypeName": "Call ScreenIPAddresses actionSelectAddressByte",
+              "ParameterValue": "16",
+              "ActionComponent": "ScreenIPAddresses"
+            }
+          }
+        ],
+        "CustomActions": [
+          {
+            "Name": "actionWriteCounterValue",
+            "Description": "Write counter value to assigned wildcard",
+            "HasValue": true,
+            "ValueType": "uint8_t"
+          },
+          {
+            "Name": "actionSelectAddressByte",
+            "Description": "Select a given address byte and set counter to its value",
+            "HasValue": true,
+            "ValueType": "uint8_t"
+          }
+        ]
+      }
+    ],
+    "CustomContainerDefinitions": [
+      {
+        "Name": "NumberPICKER",
+        "Width": 72,
+        "Height": 120,
+        "Components": [
+          {
+            "Type": "Image",
+            "Name": "background",
+            "X": -1,
+            "Width": 250,
+            "Height": 120,
+            "RelativeFilename": "number-select.png"
+          },
+          {
+            "Type": "ScrollWheel",
+            "Name": "numberScrollWheel",
+            "X": 7,
+            "Width": 60,
+            "Height": 120,
+            "SelectedItemOffset": 45,
+            "UseSelectedStyle": true,
+            "SelectedItemTemplateName": "numberTemplateScrollCustomContainer",
+            "IsCircular": true,
+            "ItemTemplateName": "numberTemplateScrollCustomContainer",
+            "NumberofItems": 256,
+            "Easing": "Back",
+            "EasingOption": "Out",
+            "SwipeAcceleration": 20.0,
+            "DragAcceleration": 1.0
+          }
+        ],
+        "Interactions": []
+      },
+      {
+        "Name": "numberTemplateScrollCustomContainer",
+        "Width": 60,
+        "Height": 30,
+        "Components": [
+          {
+            "Type": "TextArea",
+            "Name": "numberTextArea",
+            "X": 5,
+            "Y": 3,
+            "Width": 44,
+            "Height": 22,
+            "TextId": "textID_numberTextArea",
+            "TextRotation": "0",
+            "Color": {
+              "Red": 77,
+              "Green": 255
+            },
+            "AutoSize": true,
+            "Wildcard1": {
+              "TextId": "__SingleUse_RQ58",
+              "UseBuffer": true,
+              "BufferSize": 10
+            }
+          }
+        ],
+        "Interactions": []
+      }
+    ],
+    "Name": "H745_Discovery_TouchGFX",
+    "Resolution": {
+      "Width": 480,
+      "Height": 272
+    },
+    "SelectedColorDepth": 16,
+    "StartupScreenName": "screenMain",
+    "SelectedStartupLanguage": "GB",
+    "TouchGfxPath": "../Middlewares/ST/touchgfx",
+    "UIPath": ".",
+    "AvailableColorDepths": [
+      16
+    ],
+    "AvailableLCDs": {
+      "16": "LCD16bpp"
+    },
+    "AvailableSections": [
+      "ExtFlashSection",
+      "IntFlashSection"
+    ],
+    "AvailableResolutions": [
+      {
+        "Width": 480,
+        "Height": 272
+      }
+    ],
+    "PhysicalButtons": [],
+    "FrameworkFeatures": {
+      "LCD16bpp": {
+        "Id": "LCD16bpp",
+        "IsEnabled": true
+      }
+    },
+    "GenerateAssetsCommand": "make -f simulator/gcc/Makefile assets -j8",
+    "PostGenerateCommand": "touchgfx update_project --project-file=simulator/msvs/Application.vcxproj",
+    "PostGenerateTargetCommand": "touchgfx update_project",
+    "CompileSimulatorCommand": "make -f simulator/gcc/Makefile -j8",
+    "RunSimulatorCommand": "build\\bin\\simulator.exe",
+    "CompileTargetCommandOverride": "make -f ../../gcc/Makefile -j8",
+    "FlashTargetCommandOverride": "make -f ../../gcc/Makefile flash",
+    "FlashTargetIntCommandOverride": "make -f ../../gcc/Makefile intflash",
+    "LandscapeSkinX": 0,
+    "LandscapeSkinY": 0,
+    "PortraitSkinX": 0,
+    "PortraitSkinY": 0,
+    "DisplayOrientation": "Landscape",
+    "Family": "STM32H7",
+    "SubFamily": "STM32H745/755",
+    "Toolchain": "STM32CubeIDE",
+    "Platform": "m7",
+    "ProjectFile": "../../STM32H745I_DISCO.ioc",
+    "OptionalComponentsRoot": "../Middlewares/ST/touchgfx_components",
+    "OptionalComponents": [],
+    "AdditionalFeatures": [
+      "CWRVector",
+      "VectorFonts",
+      "Video"
+    ]
+  },
+  "Version": "4.25.0",
+  "CreatedBy": "4.25.0"
+}

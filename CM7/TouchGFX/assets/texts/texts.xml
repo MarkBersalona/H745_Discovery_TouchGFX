@@ -1,0 +1,529 @@
+<?xml version="1.0" encoding="utf-8"?>
+<TextDatabase xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:noNamespaceSchemaLocation="texts.xsd" Version="4.25.0">
+  <Languages>
+    <Language Id="GB" />
+    <Language Id="DE" />
+  </Languages>
+  <Texts>
+    <TextGroup Id="Group1" />
+    <TextGroup Id="Unsorted">
+      <Text Id="textID_ActiveReadings" Alignment="Center" TypographyId="Large">
+        <Translation Language="GB">Active</Translation>
+        <Translation Language="DE">Aktiv</Translation>
+      </Text>
+      <Text Id="textID_IPAddressesRevert" Alignment="Center" TypographyId="Default">
+        <Translation Language="GB">Read old IP addresses and restore here</Translation>
+        <Translation Language="DE">Alte IP-Adressen lesen und hier wiederherstellen</Translation>
+      </Text>
+      <Text Id="textID_IPAddressApply" Alignment="Center" TypographyId="Default">
+        <Translation Language="GB">Send new IP addresses to FW</Translation>
+        <Translation Language="DE">Neue IP-Adressen speichern</Translation>
+      </Text>
+      <Text Id="__SingleUse_TCFK" Alignment="Center" TypographyId="Default">
+        <Translation Language="GB">Warning or error messages here...</Translation>
+        <Translation Language="DE">Warn- oder Fehlermeldungen hier...</Translation>
+      </Text>
+      <Text Id="__SingleUse_YZ2E" Alignment="Left" TypographyId="Default">
+        <Translation Language="GB">0</Translation>
+        <Translation Language="DE">0</Translation>
+      </Text>
+      <Text Id="__SingleUse_K0V2" Alignment="Center" TypographyId="Default">
+        <Translation Language="GB">&lt;value&gt;</Translation>
+        <Translation Language="DE">&lt;value&gt;</Translation>
+      </Text>
+      <Text Id="__SingleUse_SBS5" Alignment="Left" TypographyId="Default">
+        <Translation Language="GB">255</Translation>
+        <Translation Language="DE">255</Translation>
+      </Text>
+      <Text Id="__SingleUse_I7UV" Alignment="Center" TypographyId="Default">
+        <Translation Language="GB">&lt;value&gt;</Translation>
+        <Translation Language="DE">&lt;value&gt;</Translation>
+      </Text>
+      <Text Id="__SingleUse_OZ4H" Alignment="Left" TypographyId="Default">
+        <Translation Language="GB">255</Translation>
+        <Translation Language="DE">255</Translation>
+      </Text>
+      <Text Id="__SingleUse_JQP3" Alignment="Center" TypographyId="Default">
+        <Translation Language="GB">&lt;value&gt;</Translation>
+        <Translation Language="DE">&lt;value&gt;</Translation>
+      </Text>
+      <Text Id="__SingleUse_F1K7" Alignment="Left" TypographyId="Default">
+        <Translation Language="GB">255</Translation>
+        <Translation Language="DE">255</Translation>
+      </Text>
+      <Text Id="__SingleUse_FMT3" Alignment="Center" TypographyId="Default">
+        <Translation Language="GB">&lt;value&gt;</Translation>
+        <Translation Language="DE">&lt;value&gt;</Translation>
+      </Text>
+      <Text Id="__SingleUse_M6M7" Alignment="Left" TypographyId="Default">
+        <Translation Language="GB">1</Translation>
+        <Translation Language="DE">1</Translation>
+      </Text>
+      <Text Id="__SingleUse_GUI1" Alignment="Center" TypographyId="Default">
+        <Translation Language="GB">&lt;value&gt;</Translation>
+        <Translation Language="DE">&lt;value&gt;</Translation>
+      </Text>
+      <Text Id="__SingleUse_3ZWG" Alignment="Left" TypographyId="Default">
+        <Translation Language="GB">2</Translation>
+        <Translation Language="DE">2</Translation>
+      </Text>
+      <Text Id="__SingleUse_JR18" Alignment="Center" TypographyId="Default">
+        <Translation Language="GB">&lt;value&gt;</Translation>
+        <Translation Language="DE">&lt;value&gt;</Translation>
+      </Text>
+      <Text Id="__SingleUse_DVGV" Alignment="Left" TypographyId="Default">
+        <Translation Language="GB">1</Translation>
+        <Translation Language="DE">1</Translation>
+      </Text>
+      <Text Id="__SingleUse_T9GN" Alignment="Center" TypographyId="Default">
+        <Translation Language="GB">&lt;value&gt;</Translation>
+        <Translation Language="DE">&lt;value&gt;</Translation>
+      </Text>
+      <Text Id="__SingleUse_RHYM" Alignment="Left" TypographyId="Default">
+        <Translation Language="GB">10</Translation>
+        <Translation Language="DE">10</Translation>
+      </Text>
+      <Text Id="__SingleUse_XPBP" Alignment="Center" TypographyId="Default">
+        <Translation Language="GB">&lt;value&gt;</Translation>
+        <Translation Language="DE">&lt;value&gt;</Translation>
+      </Text>
+      <Text Id="__SingleUse_O693" Alignment="Left" TypographyId="Default">
+        <Translation Language="GB">81</Translation>
+        <Translation Language="DE">81</Translation>
+      </Text>
+      <Text Id="__SingleUse_MBKX" Alignment="Center" TypographyId="Default">
+        <Translation Language="GB">&lt;value&gt;</Translation>
+        <Translation Language="DE">&lt;value&gt;</Translation>
+      </Text>
+      <Text Id="__SingleUse_V2EV" Alignment="Left" TypographyId="Default">
+        <Translation Language="GB">2</Translation>
+        <Translation Language="DE">2</Translation>
+      </Text>
+      <Text Id="__SingleUse_1E31" Alignment="Center" TypographyId="Default">
+        <Translation Language="GB">&lt;value&gt;</Translation>
+        <Translation Language="DE">&lt;value&gt;</Translation>
+      </Text>
+      <Text Id="__SingleUse_X53I" Alignment="Left" TypographyId="Default">
+        <Translation Language="GB">1</Translation>
+        <Translation Language="DE">1</Translation>
+      </Text>
+      <Text Id="__SingleUse_X3C4" Alignment="Center" TypographyId="Default">
+        <Translation Language="GB">&lt;value&gt;</Translation>
+        <Translation Language="DE">&lt;value&gt;</Translation>
+      </Text>
+      <Text Id="__SingleUse_KS78" Alignment="Left" TypographyId="Default">
+        <Translation Language="GB">10</Translation>
+        <Translation Language="DE">10</Translation>
+      </Text>
+      <Text Id="__SingleUse_W469" Alignment="Center" TypographyId="Default">
+        <Translation Language="GB">&lt;value&gt;</Translation>
+        <Translation Language="DE">&lt;value&gt;</Translation>
+      </Text>
+      <Text Id="__SingleUse_5IEE" Alignment="Left" TypographyId="Default">
+        <Translation Language="GB">33</Translation>
+        <Translation Language="DE">33</Translation>
+      </Text>
+      <Text Id="__SingleUse_CTKB" Alignment="Center" TypographyId="Default">
+        <Translation Language="GB">&lt;value&gt;</Translation>
+        <Translation Language="DE">&lt;value&gt;</Translation>
+      </Text>
+      <Text Id="__SingleUse_91UY" Alignment="Left" TypographyId="Default">
+        <Translation Language="GB">2</Translation>
+        <Translation Language="DE">2</Translation>
+      </Text>
+      <Text Id="__SingleUse_IPUZ" Alignment="Center" TypographyId="Default">
+        <Translation Language="GB">&lt;value&gt;</Translation>
+        <Translation Language="DE">&lt;value&gt;</Translation>
+      </Text>
+      <Text Id="__SingleUse_LK8X" Alignment="Left" TypographyId="Default">
+        <Translation Language="GB">1</Translation>
+        <Translation Language="DE">1</Translation>
+      </Text>
+      <Text Id="__SingleUse_XOIR" Alignment="Center" TypographyId="Default">
+        <Translation Language="GB">&lt;value&gt;</Translation>
+        <Translation Language="DE">&lt;value&gt;</Translation>
+      </Text>
+      <Text Id="__SingleUse_V4MF" Alignment="Left" TypographyId="Default">
+        <Translation Language="GB">10</Translation>
+        <Translation Language="DE">10</Translation>
+      </Text>
+      <Text Id="__SingleUse_J4ZE" Alignment="Center" TypographyId="Default">
+        <Translation Language="GB">&lt;value&gt;</Translation>
+        <Translation Language="DE">&lt;value&gt;</Translation>
+      </Text>
+      <Text Id="__SingleUse_8YKZ" Alignment="Center" TypographyId="Default">
+        <Translation Language="GB">Apply</Translation>
+        <Translation Language="DE">Speichern</Translation>
+      </Text>
+      <Text Id="__SingleUse_1L1Y" Alignment="Center" TypographyId="Default">
+        <Translation Language="GB">Revert</Translation>
+        <Translation Language="DE">Wiedereinsetzen</Translation>
+      </Text>
+      <Text Id="__SingleUse_V338" Alignment="Right" TypographyId="Default">
+        <Translation Language="GB">Netmask</Translation>
+        <Translation Language="DE">Netmask</Translation>
+      </Text>
+      <Text Id="__SingleUse_WT6C" Alignment="Right" TypographyId="Default">
+        <Translation Language="GB">Gateway</Translation>
+        <Translation Language="DE">Gateway</Translation>
+      </Text>
+      <Text Id="__SingleUse_LHBH" Alignment="Right" TypographyId="Default">
+        <Translation Language="GB">DNS</Translation>
+        <Translation Language="DE">DNS</Translation>
+      </Text>
+      <Text Id="__SingleUse_4LQV" Alignment="Right" TypographyId="Default">
+        <Translation Language="GB">Address</Translation>
+        <Translation Language="DE">Address</Translation>
+      </Text>
+      <Text Id="__SingleUse_EI3H" Alignment="Center" TypographyId="Default">
+        <Translation Language="GB">Return</Translation>
+        <Translation Language="DE">Zurück</Translation>
+      </Text>
+      <Text Id="textID_IPAddresses" Alignment="Right" TypographyId="Default">
+        <Translation Language="GB">IP Addresses</Translation>
+        <Translation Language="DE">IP-Adressen</Translation>
+      </Text>
+      <Text Id="__SingleUse_YA2S" Alignment="Left" TypographyId="Default">
+        <Translation Language="GB">Sensaphone Z-Wave Sentinel</Translation>
+        <Translation Language="DE">Sensaphone Z-Wave Sentinel</Translation>
+      </Text>
+      <Text Id="__SingleUse_JKVV" Alignment="Left" TypographyId="Default">
+        <Translation Language="GB">Sensaphone Z-Wave Sentinel</Translation>
+        <Translation Language="DE">Sensaphone Z-Wave Sentinel</Translation>
+      </Text>
+      <Text Id="__SingleUse_FCVK" Alignment="Left" TypographyId="Default">
+        <Translation Language="GB">www.sensaphone.com</Translation>
+        <Translation Language="DE">www.sensaphone.com</Translation>
+      </Text>
+      <Text Id="__SingleUse_19JN" Alignment="Left" TypographyId="Default">
+        <Translation Language="GB">1-877-373-2700</Translation>
+        <Translation Language="DE">1-877-373-2700</Translation>
+      </Text>
+      <Text Id="__SingleUse_H6P8" Alignment="Left" TypographyId="Default">
+        <Translation Language="GB">v1.0.22</Translation>
+        <Translation Language="DE">v1.0.22</Translation>
+      </Text>
+      <Text Id="__SingleUse_3BNE" Alignment="Left" TypographyId="Default">
+        <Translation Language="GB">00-07-F9-xx-xx-xx</Translation>
+        <Translation Language="DE">00-07-F9-xx-xx-xx</Translation>
+      </Text>
+      <Text Id="__SingleUse_4G2Z" Alignment="Center" TypographyId="Default">
+        <Translation Language="GB">Next &gt;</Translation>
+        <Translation Language="DE">&gt;</Translation>
+      </Text>
+      <Text Id="__SingleUse_K4JA" Alignment="Center" TypographyId="Default">
+        <Translation Language="GB">&lt; Prev</Translation>
+        <Translation Language="DE">&lt;</Translation>
+      </Text>
+      <Text Id="textID_TechSupportTitle" Alignment="Right" TypographyId="Default">
+        <Translation Language="GB">Tech Support</Translation>
+        <Translation Language="DE">Technischer Support</Translation>
+      </Text>
+      <Text Id="textID_FirmwareTitle" Alignment="Right" TypographyId="Default">
+        <Translation Language="GB">Firmware</Translation>
+        <Translation Language="DE">Firmware</Translation>
+      </Text>
+      <Text Id="textID_SerialNumberTitle" Alignment="Right" TypographyId="Default">
+        <Translation Language="GB">Serial number</Translation>
+        <Translation Language="DE">Seriennummer</Translation>
+      </Text>
+      <Text Id="textID_About" Alignment="Right" TypographyId="Default">
+        <Translation Language="GB">About...</Translation>
+        <Translation Language="DE">Über...</Translation>
+      </Text>
+      <Text Id="textID_ButtonNext" Alignment="Center" TypographyId="Default">
+        <Translation Language="GB">Next &gt;</Translation>
+        <Translation Language="DE">&gt;</Translation>
+      </Text>
+      <Text Id="textID_ButtonPrevious" Alignment="Center" TypographyId="Default">
+        <Translation Language="GB">&lt; Prev</Translation>
+        <Translation Language="DE">&lt;</Translation>
+      </Text>
+      <Text Id="textID_Settings1SelectStatic" Alignment="Center" TypographyId="Default">
+        <Translation Language="GB">Set IP addresses and disable DHCP</Translation>
+        <Translation Language="DE">IP-Addressen festlegen und DHCP deaktivieren</Translation>
+      </Text>
+      <Text Id="textID_Settings1SelectDHCP" Alignment="Center" TypographyId="Default">
+        <Translation Language="GB">Enable DHCP</Translation>
+        <Translation Language="DE">DHCP aktivieren</Translation>
+      </Text>
+      <Text Id="textID_Settings1RadioDeutsch" Alignment="Center" TypographyId="Default">
+        <Translation Language="GB">Set language to DE</Translation>
+        <Translation Language="DE">Sprache auf DE einstellen</Translation>
+      </Text>
+      <Text Id="textID_Settings1_RadioEnglish" Alignment="Center" TypographyId="Default">
+        <Translation Language="GB">Set language to GB</Translation>
+        <Translation Language="DE">Sprache auf GB einstellen</Translation>
+      </Text>
+      <Text Id="textID_Settings1Addresses" Alignment="Center" TypographyId="Default">
+        <Translation Language="GB">New screen for setting IP addresses</Translation>
+        <Translation Language="DE">Neuer Bildschirm zum Einstellen von IP-Addressen</Translation>
+      </Text>
+      <Text Id="textID_Settings1Status" Alignment="Center" TypographyId="Default">
+        <Translation Language="GB">Warning or error messages here...</Translation>
+        <Translation Language="DE">Warn- oder Fehlermeldungen hier...</Translation>
+      </Text>
+      <Text Id="__SingleUse_GCYK" Alignment="Center" TypographyId="Default">
+        <Translation Language="GB">Addresses</Translation>
+        <Translation Language="DE">Addressen</Translation>
+      </Text>
+      <Text Id="__SingleUse_IWCE" Alignment="Left" TypographyId="Default">
+        <Translation Language="GB">Static</Translation>
+        <Translation Language="DE">Static</Translation>
+      </Text>
+      <Text Id="textID_Settings1IP_DHCP" Alignment="Left" TypographyId="Default">
+        <Translation Language="GB">DHCP (auto addresses)</Translation>
+        <Translation Language="DE">DHCP (auto-Adressen)</Translation>
+      </Text>
+      <Text Id="ResourceId1" Alignment="Left" TypographyId="Default">
+        <Translation Language="GB">New Text</Translation>
+        <Translation Language="DE">New Text</Translation>
+      </Text>
+      <Text Id="__SingleUse_3RMH" Alignment="Right" TypographyId="Default">
+        <Translation Language="GB">IP</Translation>
+        <Translation Language="DE">IP</Translation>
+      </Text>
+      <Text Id="textID_Settings1Deutsch" Alignment="Left" TypographyId="Default">
+        <Translation Language="GB">Deutsch</Translation>
+        <Translation Language="DE">Deutsch</Translation>
+      </Text>
+      <Text Id="textID_Settings1English" Alignment="Left" TypographyId="Default">
+        <Translation Language="GB">English</Translation>
+        <Translation Language="DE">English</Translation>
+      </Text>
+      <Text Id="textID_Settings1LanguageTitle" Alignment="Right" TypographyId="Default">
+        <Translation Language="GB">Language</Translation>
+        <Translation Language="DE">Sprache</Translation>
+      </Text>
+      <Text Id="__SingleUse_EKW7" Alignment="Left" TypographyId="Default">
+        <Translation Language="GB">Sensaphone Z-Wave Sentinel</Translation>
+        <Translation Language="DE">Sensaphone Z-Wave Sentinel</Translation>
+      </Text>
+      <Text Id="__SingleUse_QY51" Alignment="Right" TypographyId="Default">
+        <Translation Language="GB">Settings 1</Translation>
+        <Translation Language="DE">Einstellungen 1</Translation>
+      </Text>
+      <Text Id="__SingleUse_SVCL" Alignment="Center" TypographyId="Large">
+        <Translation Language="GB">...</Translation>
+        <Translation Language="DE">...</Translation>
+      </Text>
+      <Text Id="__SingleUse_AC24" Alignment="Left" TypographyId="Default">
+        <Translation Language="GB">999</Translation>
+        <Translation Language="DE">999</Translation>
+      </Text>
+      <Text Id="__SingleUse_R39U" Alignment="Left" TypographyId="Default">
+        <Translation Language="GB">120</Translation>
+        <Translation Language="DE">120</Translation>
+      </Text>
+      <Text Id="__SingleUse_3WR1" Alignment="Left" TypographyId="Default">
+        <Translation Language="GB">60</Translation>
+        <Translation Language="DE">60</Translation>
+      </Text>
+      <Text Id="__SingleUse_Q384" Alignment="Left" TypographyId="Default">
+        <Translation Language="GB">30</Translation>
+        <Translation Language="DE">30</Translation>
+      </Text>
+      <Text Id="__SingleUse_DT3E" Alignment="Left" TypographyId="Default">
+        <Translation Language="GB">43</Translation>
+        <Translation Language="DE">43</Translation>
+      </Text>
+      <Text Id="textID_StandbyMinutes" Alignment="Center" TypographyId="Default">
+        <Translation Language="GB">&lt;value&gt; minutes</Translation>
+        <Translation Language="DE">&lt;value&gt; minuten</Translation>
+      </Text>
+      <Text Id="textID_StandbyOrActive" Alignment="Center" TypographyId="Large">
+        <Translation Language="GB">Standby</Translation>
+        <Translation Language="DE">Halten</Translation>
+      </Text>
+      <Text Id="__SingleUse_I71B" Alignment="Left" TypographyId="Default">
+        <Translation Language="GB">Device Status</Translation>
+        <Translation Language="DE">Gerätestatus</Translation>
+      </Text>
+      <Text Id="__SingleUse_LQV5" Alignment="Center" TypographyId="Default">
+        <Translation Language="GB">Exit Standby</Translation>
+        <Translation Language="DE">Messverte aktiv</Translation>
+      </Text>
+      <Text Id="__SingleUse_DZ1J" Alignment="Center" TypographyId="Default">
+        <Translation Language="GB">Untimed Standby</Translation>
+        <Translation Language="DE">Unendlich halten</Translation>
+      </Text>
+      <Text Id="__SingleUse_VSC5" Alignment="Center" TypographyId="Default">
+        <Translation Language="GB">120</Translation>
+        <Translation Language="DE">120</Translation>
+      </Text>
+      <Text Id="__SingleUse_1US2" Alignment="Center" TypographyId="Default">
+        <Translation Language="GB">60</Translation>
+        <Translation Language="DE">60</Translation>
+      </Text>
+      <Text Id="__SingleUse_NHL0" Alignment="Center" TypographyId="Default">
+        <Translation Language="GB">30</Translation>
+        <Translation Language="DE">30</Translation>
+      </Text>
+      <Text Id="__SingleUse_UIJC" Alignment="Center" TypographyId="Default">
+        <Translation Language="GB">Enter Standby</Translation>
+        <Translation Language="DE">Messverte halten</Translation>
+      </Text>
+      <Text Id="__SingleUse_8BCO" Alignment="Right" TypographyId="Default">
+        <Translation Language="GB">Standby</Translation>
+        <Translation Language="DE">Halten</Translation>
+      </Text>
+      <Text Id="__SingleUse_93FB" Alignment="Left" TypographyId="Default">
+        <Translation Language="GB">Sensaphone Z-Wave Sentinel</Translation>
+        <Translation Language="DE">Sensaphone Z-Wave Sentinel</Translation>
+      </Text>
+      <Text Id="__SingleUse_8JFP" Alignment="Center" TypographyId="Default">
+        <Translation Language="GB">?</Translation>
+        <Translation Language="DE" Alignment="Center">?</Translation>
+      </Text>
+      <Text Id="__SingleUse_J9AJ" Alignment="Center" TypographyId="Default">
+        <Translation Language="GB">?</Translation>
+        <Translation Language="DE" Alignment="Center">?</Translation>
+      </Text>
+      <Text Id="__SingleUse_YSCA" Alignment="Center" TypographyId="Default">
+        <Translation Language="GB">?</Translation>
+        <Translation Language="DE" Alignment="Center">?</Translation>
+      </Text>
+      <Text Id="__SingleUse_KQUG" Alignment="Center" TypographyId="Default">
+        <Translation Language="GB">?</Translation>
+        <Translation Language="DE" Alignment="Center">?</Translation>
+      </Text>
+      <Text Id="__SingleUse_MGXS" Alignment="Center" TypographyId="Default">
+        <Translation Language="GB">?</Translation>
+        <Translation Language="DE" Alignment="Center">?</Translation>
+      </Text>
+      <Text Id="__SingleUse_KDTQ" Alignment="Center" TypographyId="Default">
+        <Translation Language="GB">X</Translation>
+        <Translation Language="DE">X</Translation>
+      </Text>
+      <Text Id="__SingleUse_4VK7" Alignment="Center" TypographyId="Default">
+        <Translation Language="GB">X</Translation>
+        <Translation Language="DE" Alignment="Center">X</Translation>
+      </Text>
+      <Text Id="__SingleUse_8XLB" Alignment="Center" TypographyId="Default">
+        <Translation Language="GB">X</Translation>
+        <Translation Language="DE" Alignment="Center">X</Translation>
+      </Text>
+      <Text Id="__SingleUse_NN31" Alignment="Center" TypographyId="Default">
+        <Translation Language="GB">X</Translation>
+        <Translation Language="DE">X</Translation>
+      </Text>
+      <Text Id="textID_AlarmStatus" Alignment="Left" TypographyId="Default">
+        <Translation Language="GB">Readings active</Translation>
+        <Translation Language="DE">Messwerte aktiv</Translation>
+      </Text>
+      <Text Id="textID_AlarmAckStatus" Alignment="Center" TypographyId="Default">
+        <Translation Language="GB">Acknowledge all unacked alarms</Translation>
+        <Translation Language="DE">Bestätig alle Alarme</Translation>
+      </Text>
+      <Text Id="texttID_buttonAck" Alignment="Center" TypographyId="Default">
+        <Translation Language="GB">ACK</Translation>
+        <Translation Language="DE">Bestätig</Translation>
+      </Text>
+      <Text Id="__SingleUse_M1Y5" Alignment="Left" TypographyId="Default">
+        <Translation Language="GB">00</Translation>
+        <Translation Language="DE">25</Translation>
+      </Text>
+      <Text Id="__SingleUse_UAK8" Alignment="Center" TypographyId="Default">
+        <Translation Language="GB">Zone &lt;value&gt;</Translation>
+        <Translation Language="DE">Zone &lt;value&gt;</Translation>
+      </Text>
+      <Text Id="textID_ZoneNumberWildcard" Alignment="Left" TypographyId="Default">
+        <Translation Language="GB"></Translation>
+        <Translation Language="DE"></Translation>
+      </Text>
+      <Text Id="textID_ZoneNumber" Alignment="Center" TypographyId="Default">
+        <Translation Language="GB">Zone: &lt;value&gt;</Translation>
+        <Translation Language="DE">Zone: &lt;value&gt;</Translation>
+      </Text>
+      <Text Id="__SingleUse_OMKY" Alignment="Right" TypographyId="Default">
+        <Translation Language="GB">Test new screen</Translation>
+        <Translation Language="DE">neuer Bildschirm</Translation>
+      </Text>
+      <Text Id="__SingleUse_XNAF" Alignment="Left" TypographyId="Default">
+        <Translation Language="GB">Sensaphone Z-Wave Sentinel</Translation>
+        <Translation Language="DE">Sensaphone Z-Wave Sentinel</Translation>
+      </Text>
+      <Text Id="textID_interactionSensorAlarm" Alignment="Center" TypographyId="Default">
+        <Translation Language="GB">Zone 4: Sensor reading Alarm</Translation>
+        <Translation Language="DE">Zone 4: Sensormesswertalarm</Translation>
+      </Text>
+      <Text Id="textID_interactionSensorOK" Alignment="Center" TypographyId="Default">
+        <Translation Language="GB">Zone 3: Sensor reading OK</Translation>
+        <Translation Language="DE">Zone 3: Sensorwert ok</Translation>
+      </Text>
+      <Text Id="textID_interactionSensorUnconnected" Alignment="Center" TypographyId="Default">
+        <Translation Language="GB">Zone 2: Assigned sensor not connected yet</Translation>
+        <Translation Language="DE">Zone 2: zugewiesener Sensor nicht verbunden</Translation>
+      </Text>
+      <Text Id="textID_interactionSensorUnassigned" Alignment="Center" TypographyId="Default">
+        <Translation Language="GB">Zone 1: Unassigned</Translation>
+        <Translation Language="DE">Zone 1: nicht zugewiesen</Translation>
+      </Text>
+      <Text Id="textID_interactionSettings" Alignment="Center" TypographyId="Default">
+        <Translation Language="GB">Settings - switch to Settings screen</Translation>
+        <Translation Language="DE">Einstellungen - zum Einstellungsbildschirm</Translation>
+      </Text>
+      <Text Id="textID_interactionStandby" Alignment="Center" TypographyId="Default">
+        <Translation Language="GB">Go to Standby screen?</Translation>
+        <Translation Language="DE">Schaltfläche "Alarm halten" angeklickt</Translation>
+      </Text>
+      <Text Id="textID_textAreaStatus" Alignment="Center" TypographyId="Default">
+        <Translation Language="GB">Warning or error messages here...</Translation>
+        <Translation Language="DE">Warn- oder Fehlermeldungen hier...</Translation>
+      </Text>
+      <Text Id="__SingleUse_WFLV" Alignment="Left" TypographyId="Default">
+        <Translation Language="GB">OFFLINE</Translation>
+        <Translation Language="DE">OFFLINE</Translation>
+      </Text>
+      <Text Id="__SingleUse_IOF1" Alignment="Left" TypographyId="Reduced_14">
+        <Translation Language="GB">Lithium</Translation>
+        <Translation Language="DE">Lithium</Translation>
+      </Text>
+      <Text Id="__SingleUse_4T38" Alignment="Left" TypographyId="Reduced_14">
+        <Translation Language="GB">NiMH</Translation>
+        <Translation Language="DE">NiMH</Translation>
+      </Text>
+      <Text Id="textID_buttonStandby" Alignment="Center" TypographyId="Default">
+        <Translation Language="GB">Standby</Translation>
+        <Translation Language="DE">Halt</Translation>
+      </Text>
+      <Text Id="textID_buttonSettings" Alignment="Center" TypographyId="Default">
+        <Translation Language="GB">Settings</Translation>
+        <Translation Language="DE">Einstellungen</Translation>
+      </Text>
+      <Text Id="textID_buttonGoZone" Alignment="Center" TypographyId="Default">
+        <Translation Language="GB">Zone 33</Translation>
+        <Translation Language="DE">neuer Bildschirm</Translation>
+      </Text>
+      <Text Id="textID_buttonReturnHome" Alignment="Center" TypographyId="Default">
+        <Translation Language="GB">Return to Main</Translation>
+        <Translation Language="DE">Startbildschirm</Translation>
+      </Text>
+      <Text Id="__SingleUse_SU1R" Alignment="Right" TypographyId="Default">
+        <Translation Language="GB">2025.10.17 1439</Translation>
+        <Translation Language="DE">2025.10.17 1439</Translation>
+      </Text>
+      <Text Id="__SingleUse_DZIZ" Alignment="Left" TypographyId="Default">
+        <Translation Language="GB">Sensaphone Z-Wave Sentinel</Translation>
+        <Translation Language="DE">Sensaphone Z-Wave Sentinel</Translation>
+      </Text>
+      <Text Id="__SingleUse_RQ58" Alignment="Left" TypographyId="TypographyPicker">
+        <Translation Language="GB">000</Translation>
+        <Translation Language="DE">000</Translation>
+      </Text>
+      <Text Id="textID_numberTextArea" Alignment="Center" TypographyId="TypographyPicker">
+        <Translation Language="GB">&lt;&gt;</Translation>
+        <Translation Language="DE">&lt;&gt;</Translation>
+      </Text>
+    </TextGroup>
+  </Texts>
+  <Typographies>
+    <Typography Id="Default" Font="verdana.ttf" Size="20" Bpp="4" IsVector="no" Direction="LTR" FallbackCharacter="?" WildcardCharacterRanges="0-9" />
+    <Typography Id="Large" Font="verdana.ttf" Size="40" Bpp="4" IsVector="no" Direction="LTR" FallbackCharacter="?" WildcardCharacterRanges="0-9" />
+    <Typography Id="Small" Font="verdana.ttf" Size="10" Bpp="4" IsVector="no" Direction="LTR" FallbackCharacter="?" WildcardCharacterRanges="0-9" />
+    <Typography Id="Reduced_14" Font="verdana.ttf" Size="14" Bpp="4" IsVector="no" Direction="LTR" FallbackCharacter="?" WildcardCharacterRanges="0-9" />
+    <Typography Id="TypographyPicker" Font="verdana.ttf" Size="18" Bpp="4" IsVector="no" Direction="LTR" FallbackCharacter="?" WildcardCharacterRanges="0-9,a-z,A-Z, -!">
+      <LanguageSetting Language="DE" Font="verdana.ttf" Size="18" Bpp="4" IsVector="no" IsCompressed="no" Direction="LTR" FallbackCharacter="?" WildcardCharacterRanges="0-9,a-z,A-Z, -!" />
+    </Typography>
+  </Typographies>
+</TextDatabase>
