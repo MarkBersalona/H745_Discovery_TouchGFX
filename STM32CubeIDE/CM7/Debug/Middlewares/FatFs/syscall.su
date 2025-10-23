@@ -1,0 +1,6 @@
+F:/400_Cellular/Projects/H745_Discovery_TouchGFX/Middlewares/Third_Party/FatFs/src/option/syscall.c:36:5:ff_cre_syncobj	24	static
+F:/400_Cellular/Projects/H745_Discovery_TouchGFX/Middlewares/Third_Party/FatFs/src/option/syscall.c:77:5:ff_del_syncobj	16	static
+F:/400_Cellular/Projects/H745_Discovery_TouchGFX/Middlewares/Third_Party/FatFs/src/option/syscall.c:98:5:ff_req_grant	24	static
+F:/400_Cellular/Projects/H745_Discovery_TouchGFX/Middlewares/Third_Party/FatFs/src/option/syscall.c:135:6:ff_rel_grant	16	static
+F:/400_Cellular/Projects/H745_Discovery_TouchGFX/Middlewares/Third_Party/FatFs/src/option/syscall.c:158:7:ff_memalloc	16	static
+F:/400_Cellular/Projects/H745_Discovery_TouchGFX/Middlewares/Third_Party/FatFs/src/option/syscall.c:170:6:ff_memfree	16	static

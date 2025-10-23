@@ -1,0 +1,7 @@
+F:/400_Cellular/Projects/H745_Discovery_TouchGFX/CM7/TouchGFX/generated/texts/src/TypedTextDatabase.cpp:294:43:const touchgfx::TypedText::TypedTextData* TypedTextDatabase::getInstance(touchgfx::LanguageId)	1
+F:/400_Cellular/Projects/H745_Discovery_TouchGFX/CM7/TouchGFX/generated/texts/src/TypedTextDatabase.cpp:299:10:uint16_t TypedTextDatabase::getInstanceSize()	1
+F:/400_Cellular/Projects/H745_Discovery_TouchGFX/CM7/TouchGFX/generated/texts/src/TypedTextDatabase.cpp:304:24:const touchgfx::Font** TypedTextDatabase::getFonts()	1
+F:/400_Cellular/Projects/H745_Discovery_TouchGFX/CM7/TouchGFX/generated/texts/src/TypedTextDatabase.cpp:309:23:const touchgfx::Font* TypedTextDatabase::setFont(touchgfx::FontId, const touchgfx::Font*)	1
+F:/400_Cellular/Projects/H745_Discovery_TouchGFX/CM7/TouchGFX/generated/texts/src/TypedTextDatabase.cpp:316:6:void TypedTextDatabase::resetFont(touchgfx::FontId)	6
+F:/400_Cellular/Projects/H745_Discovery_TouchGFX/CM7/TouchGFX/generated/texts/src/TypedTextDatabase.cpp:337:1:void __static_initialization_and_destruction_0()	1
+F:/400_Cellular/Projects/H745_Discovery_TouchGFX/CM7/TouchGFX/generated/texts/src/TypedTextDatabase.cpp:337:1:cpp)	1

@@ -1,0 +1,5 @@
+screenMainPresenter.hpp:28:13:screenMainPresenter::~screenMainPresenter()	0	static
+screenMainPresenter.cpp:10:6:virtual void screenMainPresenter::activate()	0	static
+screenMainPresenter.hpp:28:13:virtual screenMainPresenter::~screenMainPresenter()	8	static
+screenMainPresenter.hpp:28:13:virtual void* screenMainPresenter::_ZThn4_N19screenMainPresenterD1Ev()	0	static
+screenMainPresenter.cpp:4:1:screenMainPresenter::screenMainPresenter(screenMainView&)	8	static

@@ -1,0 +1,15 @@
+../../CM7/../../CM7/Middlewares/ST/touchgfx/framework/include/touchgfx/Screen.hpp:104:18:virtual void touchgfx::Screen::afterTransition()	16	static
+../../CM7/../../CM7/Middlewares/ST/touchgfx/framework/include/touchgfx/Screen.hpp:115:18:virtual void touchgfx::Screen::tearDownScreen()	16	static
+../../CM7/../../CM7/Middlewares/ST/touchgfx/framework/include/touchgfx/Screen.hpp:144:18:virtual void touchgfx::Screen::handleTickEvent()	16	static
+../../CM7/../../CM7/Middlewares/ST/touchgfx/framework/include/touchgfx/Screen.hpp:154:18:virtual void touchgfx::Screen::handleKeyEvent(uint8_t)	16	static
+../../CM7/../../CM7/Middlewares/ST/touchgfx/framework/include/touchgfx/Screen.hpp:267:10:void touchgfx::Screen::invalidate() const	16	static
+../../CM7/../../CM7/Middlewares/ST/touchgfx/framework/include/touchgfx/Texts.hpp:48:23:static touchgfx::LanguageId touchgfx::Texts::getLanguage()	4	static
+../../CM7/../../CM7/TouchGFX/gui/include/gui/screensettings1_screen/ScreenSettings1View.hpp:11:13:ScreenSettings1View::~ScreenSettings1View()	16	static
+../../CM7/../../CM7/TouchGFX/gui/include/gui/screensettings1_screen/ScreenSettings1View.hpp:11:13:virtual ScreenSettings1View::~ScreenSettings1View()	16	static
+F:/400_Cellular/Projects/H745_Discovery_TouchGFX/CM7/TouchGFX/gui/src/screensettings1_screen/ScreenSettings1View.cpp:7:1:ScreenSettings1View::ScreenSettings1View()	16	static
+F:/400_Cellular/Projects/H745_Discovery_TouchGFX/CM7/TouchGFX/gui/src/screensettings1_screen/ScreenSettings1View.cpp:12:6:virtual void ScreenSettings1View::setupScreen()	24	static
+F:/400_Cellular/Projects/H745_Discovery_TouchGFX/CM7/TouchGFX/gui/src/screensettings1_screen/ScreenSettings1View.cpp:48:6:virtual void ScreenSettings1View::tearDownScreen()	16	static
+F:/400_Cellular/Projects/H745_Discovery_TouchGFX/CM7/TouchGFX/gui/src/screensettings1_screen/ScreenSettings1View.cpp:53:6:virtual void ScreenSettings1View::setLanguageEnglish()	16	static
+F:/400_Cellular/Projects/H745_Discovery_TouchGFX/CM7/TouchGFX/gui/src/screensettings1_screen/ScreenSettings1View.cpp:59:6:virtual void ScreenSettings1View::setLanguageDeutsch()	16	static
+F:/400_Cellular/Projects/H745_Discovery_TouchGFX/CM7/TouchGFX/gui/src/screensettings1_screen/ScreenSettings1View.cpp:65:6:virtual void ScreenSettings1View::functionEnableDHCP()	16	static
+F:/400_Cellular/Projects/H745_Discovery_TouchGFX/CM7/TouchGFX/gui/src/screensettings1_screen/ScreenSettings1View.cpp:69:6:virtual void ScreenSettings1View::functionDisableDHCP()	16	static

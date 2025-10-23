@@ -150,6 +150,88 @@ typedef enum Intertask_messages
   msgid_TOUCHGFX_MAIN_SET_CURRENT_ZONE,   // 1 payload: new current zone (within zone limits)
 } Intertask_message_ID;
 
+//
+// Z-Wave SerialAPI state machine commands
+//
+typedef enum ZWave_state_machine_commands
+{
+  ZWAVE_SM_CMD_INITIALIZE,
+  ZWAVE_SM_CMD_RUN,
+  ZWAVE_SM_CMD_STATE,
+} ZWaveStateMachineCommand;
+
+//
+// Z-Wave SerialAPI states
+//
+typedef enum ZWave_state
+{
+  ZWAVE_IDLE,
+  ZWAVE_FRAME_PARSE,
+  ZWAVE_TX_SERIAL,
+  ZWAVE_CALLBACK_TX_SERIAL,
+  ZWAVE_COMMAND_TX_SERIAL,
+} ZWaveState;
+
+typedef enum ZWave_Rx_State
+{
+  ZWAVE_RX_SOF,
+  ZWAVE_RX_LEN,
+  ZWAVE_RX_TYPE,
+  ZWAVE_RX_CMD,
+  ZWAVE_RX_DATA,
+  ZWAVE_RX_CHECKSUM,
+} ZWaveRxState;
+
+#define RECEIVE_BUFFER_SIZE     180
+#define FRAME_LENGTH_MIN        3
+#define FRAME_LENGTH_MAX        RECEIVE_BUFFER_SIZE
+
+typedef enum ZWave_Rx_Parse_Result
+{
+  ZWAVE_RX_PARSE_IDLE,             // returned if nothing special has happened
+  ZWAVE_RX_PARSE_FRAME_RECEIVED,   // returned when a valid frame has been received
+  ZWAVE_RX_PARSE_FRAME_SENT,       // returned if frame was ACKed by the other end
+  ZWAVE_RX_PARSE_FRAME_ERROR,      // returned if frame has error in Checksum
+  ZWAVE_RX_PARSE_RX_TIMEOUT,       // returned if Rx timeout has happened
+  ZWAVE_RX_PARSE_TX_TIMEOUT        // returned if Tx timeout (waiting for ACK) ahs happened
+} ZWaveRxParseResult_t;
+
+typedef struct {
+  uint8_t ack_timeout;
+  uint32_t ack_timeout_ms;
+  uint8_t byte_timeout;
+  uint32_t byte_timeout_ms;
+  ZWaveRxState state;
+  uint8_t expect_bytes;
+  uint8_t ack_needed;
+  uint8_t buffer_len;
+  uint8_t buffer[RECEIVE_BUFFER_SIZE];
+  uint8_t rx_active;
+  uint8_t rx_wait_count;
+} ZWaveRxInterface_t;
+
+typedef struct {
+  uint8_t sof;
+  uint8_t len;
+  uint8_t type;
+  uint8_t cmd;
+  uint8_t payload[UINT8_MAX];
+} ZWaveTxFrame_t;
+
+// Z-Wave buffer sizes
+#define BUF_SIZE_RX 168
+#define BUF_SIZE_TX 168
+
+typedef struct {
+  uint8_t sof;
+  uint8_t len;
+  uint8_t type;
+  uint8_t cmd;
+  uint8_t payload[RECEIVE_BUFFER_SIZE]; //size defined to fix SonarQube errors
+} *ZWaveInterfaceFrame_ptr;
+
+extern ZWaveInterfaceFrame_ptr const ZWaveSerialFrame;
+
 /////////////////////////////
 //// TEST MAB 2025.10.03
 //// Temporary "saved" IP address bytes

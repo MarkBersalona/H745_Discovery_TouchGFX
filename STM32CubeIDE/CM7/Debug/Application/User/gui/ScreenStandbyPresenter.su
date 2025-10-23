@@ -1,0 +1,15 @@
+../../CM7/../../CM7/Middlewares/ST/touchgfx/framework/include/mvp/Presenter.hpp:37:18:virtual void touchgfx::Presenter::activate()	16	static
+../../CM7/../../CM7/Middlewares/ST/touchgfx/framework/include/mvp/Presenter.hpp:47:18:virtual void touchgfx::Presenter::deactivate()	16	static
+../../CM7/../../CM7/Middlewares/ST/touchgfx/framework/include/mvp/Presenter.hpp:52:13:touchgfx::Presenter::~Presenter()	16	static
+../../CM7/../../CM7/Middlewares/ST/touchgfx/framework/include/mvp/Presenter.hpp:52:13:virtual touchgfx::Presenter::~Presenter()	16	static
+../../CM7/../../CM7/Middlewares/ST/touchgfx/framework/include/mvp/Presenter.hpp:58:5:touchgfx::Presenter::Presenter()	16	static
+../../CM7/../../CM7/TouchGFX/gui/include/gui/model/ModelListener.hpp:9:5:ModelListener::ModelListener()	16	static
+../../CM7/../../CM7/TouchGFX/gui/include/gui/model/ModelListener.hpp:11:13:ModelListener::~ModelListener()	16	static
+../../CM7/../../CM7/TouchGFX/gui/include/gui/model/ModelListener.hpp:11:13:virtual ModelListener::~ModelListener()	16	static
+../../CM7/../../CM7/TouchGFX/gui/include/gui/model/ModelListener.hpp:22:18:virtual void ModelListener::notifyZoneChanged(unsigned int)	16	static
+../../CM7/../../CM7/TouchGFX/gui/include/gui/model/ModelListener.hpp:28:18:virtual void ModelListener::notifyStandbyChanged()	16	static
+../../CM7/../../CM7/TouchGFX/gui/include/gui/screenstandby_screen/ScreenStandbyPresenter.hpp:28:13:ScreenStandbyPresenter::~ScreenStandbyPresenter()	16	static
+../../CM7/../../CM7/TouchGFX/gui/include/gui/screenstandby_screen/ScreenStandbyPresenter.hpp:28:13:virtual ScreenStandbyPresenter::~ScreenStandbyPresenter()	16	static
+F:/400_Cellular/Projects/H745_Discovery_TouchGFX/CM7/TouchGFX/gui/src/screenstandby_screen/ScreenStandbyPresenter.cpp:4:1:ScreenStandbyPresenter::ScreenStandbyPresenter(ScreenStandbyView&)	16	static
+F:/400_Cellular/Projects/H745_Discovery_TouchGFX/CM7/TouchGFX/gui/src/screenstandby_screen/ScreenStandbyPresenter.cpp:10:6:virtual void ScreenStandbyPresenter::activate()	16	static
+F:/400_Cellular/Projects/H745_Discovery_TouchGFX/CM7/TouchGFX/gui/src/screenstandby_screen/ScreenStandbyPresenter.cpp:15:6:virtual void ScreenStandbyPresenter::deactivate()	16	static

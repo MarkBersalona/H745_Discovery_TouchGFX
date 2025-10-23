@@ -1,0 +1,16 @@
+F:/400_Cellular/Projects/H745_Discovery_TouchGFX/Drivers/BSP/STM32H745I-DISCO/stm32h745i_discovery_bus.c:188:9:BSP_I2C4_Init	4
+F:/400_Cellular/Projects/H745_Discovery_TouchGFX/Drivers/BSP/STM32H745I-DISCO/stm32h745i_discovery_bus.c:239:9:BSP_I2C4_DeInit	3
+F:/400_Cellular/Projects/H745_Discovery_TouchGFX/Drivers/BSP/STM32H745I-DISCO/stm32h745i_discovery_bus.c:267:26:MX_I2C4_Init	4
+F:/400_Cellular/Projects/H745_Discovery_TouchGFX/Drivers/BSP/STM32H745I-DISCO/stm32h745i_discovery_bus.c:313:9:BSP_I2C4_WriteReg	3
+F:/400_Cellular/Projects/H745_Discovery_TouchGFX/Drivers/BSP/STM32H745I-DISCO/stm32h745i_discovery_bus.c:350:9:BSP_I2C4_ReadReg	3
+F:/400_Cellular/Projects/H745_Discovery_TouchGFX/Drivers/BSP/STM32H745I-DISCO/stm32h745i_discovery_bus.c:387:9:BSP_I2C4_WriteReg16	3
+F:/400_Cellular/Projects/H745_Discovery_TouchGFX/Drivers/BSP/STM32H745I-DISCO/stm32h745i_discovery_bus.c:424:9:BSP_I2C4_ReadReg16	3
+F:/400_Cellular/Projects/H745_Discovery_TouchGFX/Drivers/BSP/STM32H745I-DISCO/stm32h745i_discovery_bus.c:460:9:BSP_I2C4_IsReady	2
+F:/400_Cellular/Projects/H745_Discovery_TouchGFX/Drivers/BSP/STM32H745I-DISCO/stm32h745i_discovery_bus.c:482:9:BSP_GetTick	1
+F:/400_Cellular/Projects/H745_Discovery_TouchGFX/Drivers/BSP/STM32H745I-DISCO/stm32h745i_discovery_bus.c:570:17:I2C_GetTiming	7
+F:/400_Cellular/Projects/H745_Discovery_TouchGFX/Drivers/BSP/STM32H745I-DISCO/stm32h745i_discovery_bus.c:608:13:I2C_Compute_PRESC_SCLDEL_SDADEL	11
+F:/400_Cellular/Projects/H745_Discovery_TouchGFX/Drivers/BSP/STM32H745I-DISCO/stm32h745i_discovery_bus.c:689:17:I2C_Compute_SCLL_SCLH	12
+F:/400_Cellular/Projects/H745_Discovery_TouchGFX/Drivers/BSP/STM32H745I-DISCO/stm32h745i_discovery_bus.c:767:13:I2C4_MspInit	1
+F:/400_Cellular/Projects/H745_Discovery_TouchGFX/Drivers/BSP/STM32H745I-DISCO/stm32h745i_discovery_bus.c:812:13:I2C4_MspDeInit	1
+F:/400_Cellular/Projects/H745_Discovery_TouchGFX/Drivers/BSP/STM32H745I-DISCO/stm32h745i_discovery_bus.c:838:16:I2C4_WriteReg	2
+F:/400_Cellular/Projects/H745_Discovery_TouchGFX/Drivers/BSP/STM32H745I-DISCO/stm32h745i_discovery_bus.c:857:16:I2C4_ReadReg	2

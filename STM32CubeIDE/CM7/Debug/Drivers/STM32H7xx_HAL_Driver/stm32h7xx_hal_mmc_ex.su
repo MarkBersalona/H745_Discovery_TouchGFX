@@ -1,0 +1,4 @@
+F:/400_Cellular/Projects/H745_Discovery_TouchGFX/Drivers/STM32H7xx_HAL_Driver/Src/stm32h7xx_hal_mmc_ex.c:86:19:HAL_MMCEx_ConfigDMAMultiBuffer	24	static
+F:/400_Cellular/Projects/H745_Discovery_TouchGFX/Drivers/STM32H7xx_HAL_Driver/Src/stm32h7xx_hal_mmc_ex.c:112:19:HAL_MMCEx_ReadBlocksDMAMultiBuffer	64	static
+F:/400_Cellular/Projects/H745_Discovery_TouchGFX/Drivers/STM32H7xx_HAL_Driver/Src/stm32h7xx_hal_mmc_ex.c:215:19:HAL_MMCEx_WriteBlocksDMAMultiBuffer	64	static
+F:/400_Cellular/Projects/H745_Discovery_TouchGFX/Drivers/STM32H7xx_HAL_Driver/Src/stm32h7xx_hal_mmc_ex.c:319:19:HAL_MMCEx_ChangeDMABuffer	24	static

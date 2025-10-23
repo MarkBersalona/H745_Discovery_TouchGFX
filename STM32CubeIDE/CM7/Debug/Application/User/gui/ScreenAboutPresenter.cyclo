@@ -1,0 +1,15 @@
+../../CM7/../../CM7/Middlewares/ST/touchgfx/framework/include/mvp/Presenter.hpp:37:18:virtual void touchgfx::Presenter::activate()	1
+../../CM7/../../CM7/Middlewares/ST/touchgfx/framework/include/mvp/Presenter.hpp:47:18:virtual void touchgfx::Presenter::deactivate()	1
+../../CM7/../../CM7/Middlewares/ST/touchgfx/framework/include/mvp/Presenter.hpp:52:13:touchgfx::Presenter::~Presenter()	1
+../../CM7/../../CM7/Middlewares/ST/touchgfx/framework/include/mvp/Presenter.hpp:52:13:virtual touchgfx::Presenter::~Presenter()	1
+../../CM7/../../CM7/Middlewares/ST/touchgfx/framework/include/mvp/Presenter.hpp:58:5:touchgfx::Presenter::Presenter()	1
+../../CM7/../../CM7/TouchGFX/gui/include/gui/model/ModelListener.hpp:9:5:ModelListener::ModelListener()	1
+../../CM7/../../CM7/TouchGFX/gui/include/gui/model/ModelListener.hpp:11:13:ModelListener::~ModelListener()	1
+../../CM7/../../CM7/TouchGFX/gui/include/gui/model/ModelListener.hpp:11:13:virtual ModelListener::~ModelListener()	1
+../../CM7/../../CM7/TouchGFX/gui/include/gui/model/ModelListener.hpp:22:18:virtual void ModelListener::notifyZoneChanged(unsigned int)	1
+../../CM7/../../CM7/TouchGFX/gui/include/gui/model/ModelListener.hpp:28:18:virtual void ModelListener::notifyStandbyChanged()	1
+../../CM7/../../CM7/TouchGFX/gui/include/gui/screenabout_screen/ScreenAboutPresenter.hpp:28:13:ScreenAboutPresenter::~ScreenAboutPresenter()	1
+../../CM7/../../CM7/TouchGFX/gui/include/gui/screenabout_screen/ScreenAboutPresenter.hpp:28:13:virtual ScreenAboutPresenter::~ScreenAboutPresenter()	1
+F:/400_Cellular/Projects/H745_Discovery_TouchGFX/CM7/TouchGFX/gui/src/screenabout_screen/ScreenAboutPresenter.cpp:4:1:ScreenAboutPresenter::ScreenAboutPresenter(ScreenAboutView&)	1
+F:/400_Cellular/Projects/H745_Discovery_TouchGFX/CM7/TouchGFX/gui/src/screenabout_screen/ScreenAboutPresenter.cpp:10:6:virtual void ScreenAboutPresenter::activate()	1
+F:/400_Cellular/Projects/H745_Discovery_TouchGFX/CM7/TouchGFX/gui/src/screenabout_screen/ScreenAboutPresenter.cpp:15:6:virtual void ScreenAboutPresenter::deactivate()	1

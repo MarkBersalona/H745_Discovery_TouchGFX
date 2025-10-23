@@ -1,0 +1,4 @@
+F:/400_Cellular/Projects/H745_Discovery_TouchGFX/CM7/TouchGFX/gui/src/model/Model.cpp:15:1:Model::Model()	1
+F:/400_Cellular/Projects/H745_Discovery_TouchGFX/CM7/TouchGFX/gui/src/model/Model.cpp:20:6:void Model::tick()	6
+F:/400_Cellular/Projects/H745_Discovery_TouchGFX/CM7/TouchGFX/gui/src/model/Model.cpp:66:15:unsigned int Model::getCurrentZone()	1
+F:/400_Cellular/Projects/H745_Discovery_TouchGFX/CM7/TouchGFX/gui/src/model/Model.cpp:71:6:void Model::setCurrentZone(unsigned int)	3

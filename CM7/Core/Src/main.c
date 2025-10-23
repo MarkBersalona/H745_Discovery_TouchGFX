@@ -32,6 +32,7 @@
 #include "main_user.h"
 #include "gconfig.h"
 #include "stm32h745i_discovery.h"
+#include "SerialAPI.h"
 
 /* USER CODE END Includes */
 
@@ -264,6 +265,41 @@ uint32_t gulStandbyCounter=0;  /* In Standby mode when When <> 0 */
 uint8_t gucReceivedByteFromZWave;
 uint8_t gucReceivedByteFromDiagnostic;
 
+/* Queue for frames transmitted to Z-Wave controller (EFR32ZG23) */
+#define MAX_CALLBACK_QUEUE  8
+#define MAX_UNSOLICITED_QUEUE 8
+
+typedef struct _callback_element_{
+  uint8_t wCmd;
+  uint8_t wLen;
+  uint8_t wBuf[BUF_SIZE_TX];
+} CALLBACK_ELEMENT;
+
+typedef struct _request_queue_{
+  uint8_t requestOut;
+  uint8_t requestIn;
+  uint8_t requestCnt;
+  CALLBACK_ELEMENT requestQueue[MAX_CALLBACK_QUEUE];
+} REQUEST_QUEUE;
+
+REQUEST_QUEUE gstructCallbackQueue = { 0 };
+
+typedef struct _request_unsolicited_queue_{
+  uint8_t requestOut;
+  uint8_t requestIn;
+  uint8_t requestCnt;
+  CALLBACK_ELEMENT requestQueue[MAX_UNSOLICITED_QUEUE];
+} REQUEST_UNSOLICITED_QUEUE;
+
+REQUEST_UNSOLICITED_QUEUE gstructCommandQueue = { 0 };
+
+static ZWaveRxInterface_t gtZWaveRxInterface = {
+  .state = ZWAVE_RX_SOF,
+  .buffer_len = 0,
+};
+
+ZWaveInterfaceFrame_ptr const ZWaveSerialFrame = (ZWaveInterfaceFrame_ptr)gtZWaveRxInterface.buffer;
+
 /////////////////////////////
 
 /* USER CODE END PV */
@@ -293,6 +329,7 @@ void NetworkTask(void *argument);
 void ZWaveTask(void *argument);
 
 /* USER CODE BEGIN PFP */
+uint8_t ZWave_XOR_Checksum(uint8_t aucInitialValue, const uint8_t *paucDataBuffer, uint8_t aucLength);
 
 /* USER CODE END PFP */
 
@@ -1343,6 +1380,447 @@ void PrintStartupBanner(void)
 // end PrintStartupBanner
 
 /** *****************************************************************************************************************************
+  * @brief  Parse received byte from Z-Wave controller when ZWave Rx state is CHECKSUM
+  * @param  aucRxByte - received byte from ZWave controller
+  * @param  aucIsACKRequired - TRUE if ACK/NAK should be sent based on checksum; FALSE otherwise
+  * @retval Result of validating checksum
+  */
+ZWaveRxParseResult_t ZWave_Handle_CHECKSUM(uint8_t aucRxByte, uint8_t aucIsACKRequired)
+{
+  static ZWaveRxParseResult_t ltResult;
+
+  LOG("%s: CHECKSUM byte is 0x%02X\r\n", __FUNCTION__, aucRxByte);
+
+  // Reset byte timeout
+  gtZWaveRxInterface.byte_timeout = false;
+
+  // Stop byte timer
+
+  // Disable Rx active
+  gtZWaveRxInterface.rx_active = false;  // Not really active now...
+
+  /* Default values for ack == false */
+  /* It means we are in the process of looking for an acknowledge to a callback request */
+  // MAB 2025.10.22 - Another way to think of it:
+  // comm_interface.c, SerialAPIStateHandler() state is stateTxSerial, stateCallbackTxSerial or stateCommandTxSerial
+  /* Drop the new frame we received - we don't have time to handle it. */
+  ltResult = ZWAVE_RX_PARSE_IDLE;
+  uint8_t lucResponse = CAN;
+
+  /* Do we send ACK/NAK according to checksum... */
+  /* if not then the received frame is dropped! */
+  if (aucIsACKRequired)
+  {
+    uint8_t checksum = ZWave_XOR_Checksum(0xFF, &(ZWaveSerialFrame->len), ZWaveSerialFrame->len);
+    ltResult = (aucRxByte == checksum) ? ZWAVE_RX_PARSE_FRAME_RECEIVED : ZWAVE_RX_PARSE_FRAME_ERROR;
+    lucResponse = (aucRxByte == checksum) ? ACK : NAK;
+  }
+  switch (lucResponse)
+  {
+  case ACK:
+    LOG("%s: ACK (checksum OK)\r\n", __FUNCTION__);
+    break;
+  case NAK:
+    LOG("%s: NAK (checksum error)\r\n", __FUNCTION__);
+    break;
+  case CAN:
+    LOG("%s: CAN (unable to process received frame: received frame dropped)\r\n", __FUNCTION__);
+    break;
+  default:
+    LOG("%s: *** WARNING *** lucResponse = 0x%02X UNKNOWN\r\n", __FUNCTION__, lucResponse);
+    break;
+  }
+
+  // Set ZWave Rx state to SOF
+  LOG("%s: Transitioning from CHECKSUM to SOF\r\n", __FUNCTION__);
+  gtZWaveRxInterface.state = ZWAVE_RX_SOF;
+
+  ///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+  // Transmit ACK (checksum OK), NAK (checksum error) or CAN (unable to process received frame: received frame dropped)
+  ///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+  //HAL_UART_Transmit(&huart2, (uint8_t *)&lucResponse, 1, 1);
+
+  // Return result
+  return ltResult;
+}
+// end ZWave_Handle_CHECKSUM
+
+/** *****************************************************************************************************************************
+  * @brief  Parse received byte from Z-Wave controller when ZWave Rx state is CMD
+  * @param  aucRxByte - received byte from ZWave controller
+  * @retval None
+  */
+void ZWave_Handle_CMD(uint8_t aucRxByte)
+{
+  LOG("%s: CMD byte is 0x%02X\r\n", __FUNCTION__, aucRxByte);
+
+  // Save received byte to ZWave Rx buffer
+  gtZWaveRxInterface.buffer[gtZWaveRxInterface.buffer_len] = aucRxByte;
+  gtZWaveRxInterface.buffer_len++;
+
+  // IF a data payload is expected
+  if (ZWaveSerialFrame->len > 3)
+  {
+    // Set Rx wait count to the size of the data payload
+    gtZWaveRxInterface.rx_wait_count = ZWaveSerialFrame->len - 3;
+
+    // Set ZWave Rx state to DATA
+    LOG("%s: Transitioning from CMD to DATA\r\n", __FUNCTION__);
+    gtZWaveRxInterface.state = ZWAVE_RX_DATA;
+  }
+  // ELSE (no data payload)
+  else
+  {
+    // Set Rx wait count to 1 (the checksum byte)
+    gtZWaveRxInterface.rx_wait_count = 1;
+
+    // Set ZWave Rx state to CHECKSUM
+    LOG("%s: Transitioning from CMD to CHECKSUM\r\n", __FUNCTION__);
+    gtZWaveRxInterface.state = ZWAVE_RX_CHECKSUM;
+  }
+  // ENDIF
+}
+// end ZWave_Handle_CMD
+
+/** *****************************************************************************************************************************
+  * @brief  Parse received byte from Z-Wave controller when ZWave Rx state is DATA
+  * @param  aucRxByte - received byte from ZWave controller
+  * @retval None
+  */
+void ZWave_Handle_DATA(uint8_t aucRxByte)
+{
+  LOG("%s: DATA byte is 0x%02X\r\n", __FUNCTION__, aucRxByte);
+
+  // Decrement Rx wait count
+  gtZWaveRxInterface.rx_wait_count--;
+
+  // Save received byte to ZWave Rx buffer
+  gtZWaveRxInterface.buffer[gtZWaveRxInterface.buffer_len] = aucRxByte;
+  gtZWaveRxInterface.buffer_len++;
+
+  // IF last data payload bytes has been received
+  if ( (gtZWaveRxInterface.buffer_len >= RECEIVE_BUFFER_SIZE) || (gtZWaveRxInterface.buffer_len > ZWaveSerialFrame->len) )
+  {
+    // Set ZWave Rx state to CHECKSUM
+    LOG("%s: Transitioning from DATA to CHECKSUM\r\n", __FUNCTION__);
+    gtZWaveRxInterface.state = ZWAVE_RX_CHECKSUM;
+  }
+  // ENDIF
+}
+// end ZWave_Handle_DATA
+
+/** *****************************************************************************************************************************
+  * @brief  Parse received byte from Z-Wave controller when ZWave Rx state is an unexpected state
+  * @param  None
+  * @retval None
+  */
+void ZWave_Handle_Default(void)
+{
+  // If this routine is called, the ZWave Rx state is an unknown state
+  // Reset to SOF
+
+  // Set ZWave Rx state to SOF
+  LOG("%s: Transitioning to SOF\r\n", __FUNCTION__);
+  gtZWaveRxInterface.state = ZWAVE_RX_SOF;
+
+  // Disable Rx active
+  gtZWaveRxInterface.rx_active = false;  // Not really active now...
+
+  // Reset ACK timeout
+  gtZWaveRxInterface.ack_timeout = false;
+
+  // Reset byte timeout
+  gtZWaveRxInterface.byte_timeout = false;
+
+  // Stop ACK timer
+  // Stop byte timer
+
+}
+// end ZWave_Handle_Default
+
+/** *****************************************************************************************************************************
+  * @brief  Parse received byte from Z-Wave controller when ZWave Rx state is LEN
+  * @param  aucRxByte - received byte from ZWave controller
+  * @retval None
+  */
+void ZWave_Handle_LEN(uint8_t aucRxByte)
+{
+  // Validate length
+  if (aucRxByte < FRAME_LENGTH_MIN || FRAME_LENGTH_MAX < aucRxByte)
+  {
+    // (invalid length; discard)
+    LOG("%s: *** WARNING *** Invalid length byte = 0x%02X\r\n", __FUNCTION__, aucRxByte);
+
+    // Set ZWave Rx state to SOF
+    LOG("%s: Transitioning from LEN to SOF\r\n", __FUNCTION__);
+    gtZWaveRxInterface.state = ZWAVE_RX_SOF;
+
+    // Disable Rx active
+    gtZWaveRxInterface.rx_active = false;  // Not really active now...
+
+    // Reset byte timeout
+    gtZWaveRxInterface.byte_timeout = false;
+
+    // Stop byte timer
+  }
+  else
+  {
+    // (valid length)
+    LOG("%s: Length byte = 0x%02X\r\n", __FUNCTION__, aucRxByte);
+
+    // Set ZWave Rx state to TYPE
+    LOG("%s: Transitioning from LEN to TYPE\r\n", __FUNCTION__);
+    gtZWaveRxInterface.state = ZWAVE_RX_TYPE;
+
+    // Save received byte to ZWave Rx buffer
+    gtZWaveRxInterface.buffer[gtZWaveRxInterface.buffer_len] = aucRxByte;
+    gtZWaveRxInterface.buffer_len++;
+  }
+}
+// end ZWave_Handle_LEN
+
+/** *****************************************************************************************************************************
+  * @brief  Parse received byte from Z-Wave controller when ZWave Rx state is SOF
+  * @param  aucRxByte - received byte from ZWave controller
+  * @retval Result of parsing received byte
+  */
+ZWaveRxParseResult_t ZWave_Handle_SOF(uint8_t aucRxByte)
+{
+  static ZWaveRxParseResult_t ltResult;
+
+  // Initialize result to IDLE
+  ltResult = ZWAVE_RX_PARSE_IDLE;
+
+  // IF received byte is SOF
+  if (SOF == aucRxByte)
+  {
+    // Set ZWave Rx state to LEN
+    LOG("%s: Transitioning from SOF to LEN\r\n", __FUNCTION__);
+    gtZWaveRxInterface.state = ZWAVE_RX_LEN;
+
+    // Reset ZWave RX buffer length to 0
+    gtZWaveRxInterface.buffer_len = 0;
+
+    // Activate ZWave Rx; enable timeout
+    gtZWaveRxInterface.rx_active = true; // now we're receiving - check for timeout
+
+    // Save received byte to ZWave Rx buffer
+    gtZWaveRxInterface.buffer[gtZWaveRxInterface.buffer_len] = aucRxByte;
+    gtZWaveRxInterface.buffer_len++;
+
+    // Reset byte timeout
+    gtZWaveRxInterface.byte_timeout = false;
+  }
+
+  // ELSE IF ACK is pending
+  else if (gtZWaveRxInterface.ack_needed)
+  {
+    // IF received ACK or NAK
+    if (ACK == aucRxByte || NAK == aucRxByte)
+    {
+      // Reset ACK pending
+      gtZWaveRxInterface.ack_needed = false;
+
+      // Reset ACK timeout
+      gtZWaveRxInterface.ack_timeout = false;
+
+      // Reset byte timeout
+      gtZWaveRxInterface.byte_timeout = false;
+
+      // Stop ACK timer
+      // Stop byte timer
+    }
+    // ENDIF
+    // IF received byte is ACK
+    if (ACK == aucRxByte)
+    {
+      LOG("%s: Received an ACK \r\n", __FUNCTION__);
+      // Set result to FRAME_SENT
+      ltResult = ZWAVE_RX_PARSE_FRAME_SENT;
+   }
+    // ELSE IF received byte is NAK
+    else if (NAK == aucRxByte)
+    {
+      LOG("%s: Received a NAK \r\n", __FUNCTION__);
+      // Set result to TX_TIMEOUT
+      ltResult = ZWAVE_RX_PARSE_TX_TIMEOUT;
+    }
+    // ELSE
+    else
+    {
+      // Discard received byte
+      LOG("%s: Received byte 0x%02X, discarding... \r\n", __FUNCTION__, aucRxByte);
+    }
+    // ENDIF
+  }
+
+  // ELSE
+  else
+  {
+    // Discard received byte
+
+    // Reset ACK timeout
+    gtZWaveRxInterface.ack_timeout = false;
+
+    // Stop ACK timer
+  }
+  // ENDIF
+
+  // Return result
+  return ltResult;
+}
+// end ZWave_Handle_SOF
+
+/** *****************************************************************************************************************************
+  * @brief  Parse received byte from Z-Wave controller when ZWave Rx state is TYPE
+  * @param  aucRxByte - received byte from ZWave controller
+  * @retval None
+  */
+void ZWave_Handle_TYPE(uint8_t aucRxByte)
+{
+  // IF received byte is neither REQUEST nor RESPONSE
+  if (aucRxByte > RESPONSE)
+  {
+    LOG("%s: *** WARNING *** Invalid TYPE byte = 0x%02X is neither REQUEST (0) nor RESPONSE (1)\r\n", __FUNCTION__, aucRxByte);
+    // Set ZWave Rx state to SOF
+    LOG("%s: Transitioning from TYPE to SOF\r\n", __FUNCTION__);
+    gtZWaveRxInterface.state = ZWAVE_RX_SOF;
+
+    // Disable Rx active
+    gtZWaveRxInterface.rx_active = false;  // Not really active now...
+
+    // Reset byte timeout
+    gtZWaveRxInterface.byte_timeout = false;
+
+    // Stop byte timer
+  }
+  // ELSE
+  else
+  {
+    if (REQUEST == aucRxByte)
+    {
+      LOG("%s: TYPE byte is REQUEST (0)\r\n", __FUNCTION__);
+    }
+    else
+    {
+      LOG("%s: TYPE byte is RESPONSE (1)\r\n", __FUNCTION__);
+    }
+    // Set ZWave Rx state to CMD
+    LOG("%s: Transitioning from TYPE to CMD\r\n", __FUNCTION__);
+    gtZWaveRxInterface.state = ZWAVE_RX_CMD;
+
+    // Save received byte to ZWave Rx buffer
+    gtZWaveRxInterface.buffer[gtZWaveRxInterface.buffer_len] = aucRxByte;
+    gtZWaveRxInterface.buffer_len++;
+  }
+  // ENDIF
+}
+// end ZWave_Handle_TYPE
+
+/** *****************************************************************************************************************************
+  * @brief  Parse received FIFO bytes from Z-Wave controller
+  * @param  aucIsACKRequired - TRUE if received frame should be ACKed; FALSE otherwise
+  * @retval Result of parsing received bytes from Z-Wave controller
+  */
+ZWaveRxParseResult_t ZWave_Parse_Rx_Data(uint8_t aucIsACKRequired)
+{
+  uint8_t lucRxByte = 0;
+  ZWaveRxParseResult_t ltParseResult = ZWAVE_RX_PARSE_IDLE;  // Do not make this a static variable; or at least always initialize to IDLE
+  static osStatus_t ltZWaveRxQueueStatus;
+
+  // WHILE result is PARSE_IDLE AND received byte count > 0
+  while (ZWAVE_RX_PARSE_IDLE == ltParseResult && osMessageQueueGetCount(ZWaveRxQueueHandle))
+  {
+    // Read received byte
+    ltZWaveRxQueueStatus = osMessageQueueGet(ZWaveRxQueueHandle, &lucRxByte, NULL, 0);
+    if (osOK != ltZWaveRxQueueStatus)
+    {
+      LOG("%s: *** WARNING *** ltZWaveRxQueueStatus = %d\r\n", __FUNCTION__, ltZWaveRxQueueStatus);
+    }
+
+    // Process received byte based on ZWave Rx state
+    switch (gtZWaveRxInterface.state)
+    {
+    case ZWAVE_RX_SOF:
+      ltParseResult = ZWave_Handle_SOF(lucRxByte);
+      break;
+
+    case ZWAVE_RX_LEN:
+      ZWave_Handle_LEN(lucRxByte);
+      break;
+
+    case ZWAVE_RX_TYPE:
+      ZWave_Handle_TYPE(lucRxByte);
+      break;
+
+    case ZWAVE_RX_CMD:
+      ZWave_Handle_CMD(lucRxByte);
+      break;
+
+    case ZWAVE_RX_DATA:
+      ZWave_Handle_DATA(lucRxByte);
+      break;
+
+    case ZWAVE_RX_CHECKSUM:
+      ltParseResult = ZWave_Handle_CHECKSUM(lucRxByte, aucIsACKRequired);
+      break;
+
+    default:
+      ZWave_Handle_Default();
+      break;
+
+    } // end switch
+  }
+  // END WHILE
+
+  // (check for timeouts if no other events detected)
+  if (ZWAVE_RX_PARSE_IDLE == ltParseResult)
+  {
+    // IF in the middle of receiving data AND byte timeout occurred
+    if (gtZWaveRxInterface.rx_active && gtZWaveRxInterface.byte_timeout)
+    {
+      // Reset byte timeout
+      gtZWaveRxInterface.byte_timeout = false;
+
+      // Reset ZWave Rx state to SOF
+      LOG("%s: Transitioning to SOF\r\n", __FUNCTION__);
+      gtZWaveRxInterface.state = ZWAVE_RX_SOF;
+
+      // Disable Rx active
+      gtZWaveRxInterface.rx_active = false;  // Not really active now...
+
+      // Set result to RX_TIMEOUT
+      ltParseResult = ZWAVE_RX_PARSE_RX_TIMEOUT;
+    }
+
+    // IF waiting for ACK AND ACK timeout occurred
+    if (gtZWaveRxInterface.ack_needed && gtZWaveRxInterface.ack_timeout)
+    {
+      // Reset ACK timeout
+      gtZWaveRxInterface.ack_timeout = false;
+
+      // Reset ZWave Rx state to SOF
+      LOG("%s: Transitioning to SOF\r\n", __FUNCTION__);
+      gtZWaveRxInterface.state = ZWAVE_RX_SOF;
+
+      // Reset ACK pending
+      gtZWaveRxInterface.ack_needed = false;
+
+      // Set result to TX_TIMEOUT
+      ltParseResult = ZWAVE_RX_PARSE_TX_TIMEOUT;
+    }
+
+  }
+
+
+
+  // Set expected bytes based on ZWave Rx state
+
+  return ltParseResult;
+}
+// end ZWave_Parse_Rx_Data
+
+/** *****************************************************************************************************************************
   * @brief  Read received FIFO bytes from Z-Wave controller
   * @param  *aucResponseBuffer - pointer to buffer into which received bytes will be copied
   * @retval Count of bytes received (possibly 0)
@@ -1383,6 +1861,299 @@ uint16_t ZWave_Receive_Response(uint8_t* aucReceiveBuffer)
   return luiZWaveRxCount;
 }
 // end ZWave_Receive_Response
+
+/** *****************************************************************************************************************************
+  * @brief  Z-Wave SerialAPI state machine
+  * @param  stateMachineCommand - INITIALIZE, RUN or STATE
+  * @retval Present state
+  */
+/***********************************************
+ZWave_SerialAPI_StateMachine
+
+  IF command is INITIALIZE
+    Clear elapsed time
+    Initialize subordinate state machines
+    Set state to IDLE
+
+  ELSE IF command is RUN
+    Update elapsed time
+
+    IF state is IDLE
+      IF any callback requests are pending
+        Transmit request
+        Set state to CALLBACK_TX_SERIAL
+      ELSE IF any command requests are pending
+        Transmit request
+        Set state to COMMAND_TX_SERIAL
+      ELSE IF a frame has been received
+        Set state to FRAME_PARSE
+      ENDIF
+
+    ELSE IF state is FRAME_PARSE
+      Invoke the handler for the received command
+      Set state to IDLE
+
+    ELSE IF state is TX_SERIAL
+      IF the response was ACKed
+        Reset retry count
+        Set state to IDLE
+      ELSE IF TX timeout
+        Increment retry count
+        IF retry count < maximum retry count
+          Retransmit the response
+        ELSE
+          Reset retry count
+          Set state to IDLE
+        ENDIF
+      ENDIF
+
+    ELSE IF state is CALLBACK_TX_SERIAL
+      IF the callback was ACKed
+        Pop the request from the callback queue
+        Reset retry count
+        Set state to IDLE
+      ELSE IF TX timeout
+        Increment retry count
+        IF retry count < maximum retry count
+          Retransmit the request
+        ELSE
+          Pop the request from the callback queue
+          Reset retry count
+          Set state to IDLE
+        ENDIF
+      ENDIF
+
+    ELSE IF state is COMMAND_TX_SERIAL
+       IF the command was ACKed
+        Pop the request from the command queue
+        Reset retry count
+        Set state to IDLE
+      ELSE IF TX timeout
+        Increment retry count
+        IF retry count < maximum retry count
+          Retransmit the request
+        ELSE
+          Pop the request from the command queue
+          Reset retry count
+          Set state to IDLE
+        ENDIF
+      ENDIF
+
+    ELSE
+      Flag illegal state
+      Set state to IDLE
+
+    ENDIF (state)
+
+  ELSE IF command is STATE
+    Do nothing (present state will be returned)
+
+  ELSE
+    Flag faulty state machine call
+  ENDIF (command)
+
+  Return present state
+
+END ZWave_SerialAPI_StateMachine
+************************************************/
+ZWaveState ZWave_SerialAPI_StateMachine(ZWaveStateMachineCommand stateMachineCommand)
+{
+  static ZWaveState leZWaveState = ZWAVE_IDLE;
+  static uint32_t lulElapsedTime_sec = 0;
+  static uint8_t lucOldSecond = 100; // Nonsense initial value guarantees update when RTC first read
+
+  //////////////////////////////////////////////////////////////////////////
+  // IF command is INITIALIZE
+  if (ZWAVE_SM_CMD_INITIALIZE == stateMachineCommand)
+  {
+    LOG("%s: initializing\r\n", __FUNCTION__);
+
+    // Clear elapsed time
+    lulElapsedTime_sec = 0;
+
+    // Initialize subordinate state machines
+
+    // Set state to IDLE
+    LOG("%s: Transitioning from initialization to IDLE\r\n", __FUNCTION__);
+    leZWaveState = ZWAVE_IDLE;
+  }
+
+  //////////////////////////////////////////////////////////////////////////
+  // ELSE IF command is RUN
+  else if (ZWAVE_SM_CMD_RUN == stateMachineCommand)
+  {
+    //  Update elapsed time
+    // (update only when the RTC seconds update, i.e. update once per second)
+    if (lucOldSecond != sMainRTCTime.Seconds)
+    {
+      lucOldSecond = sMainRTCTime.Seconds;
+
+      ++lulElapsedTime_sec;
+    }
+
+    //-------------------------------------------------------
+    // IF state is IDLE
+    if (ZWAVE_IDLE == leZWaveState)
+    {
+      // IF any callback requests are pending
+      if (gstructCallbackQueue.requestCnt)
+      {
+        // Transmit request
+
+        // Set state to CALLBACK_TX_SERIAL
+        LOG("%s: Transitioning from IDLE to CALLBACK_TX_SERIAL\r\n", __FUNCTION__);
+        leZWaveState = ZWAVE_CALLBACK_TX_SERIAL;
+      }
+      // ELSE IF any command requests are pending
+      else if (gstructCommandQueue.requestCnt)
+      {
+        // Transmit request
+
+        // Set state to COMMAND_TX_SERIAL
+        LOG("%s: Transitioning from IDLE to COMMAND_TX_SERIAL\r\n", __FUNCTION__);
+        leZWaveState = ZWAVE_COMMAND_TX_SERIAL;
+      }
+      // ELSE IF a frame has been received
+      else if (ZWave_Parse_Rx_Data(true) == ZWAVE_RX_PARSE_FRAME_RECEIVED)
+      {
+        // Set state to FRAME_PARSE
+        LOG("%s: Transitioning from IDLE to FRAME_PARSE\r\n", __FUNCTION__);
+        leZWaveState = ZWAVE_FRAME_PARSE;
+      }
+      // ENDIF
+    }
+
+    //-------------------------------------------------------
+    // ELSE IF state is FRAME_PARSE
+    else if (ZWAVE_FRAME_PARSE == leZWaveState)
+    {
+      // Invoke the handler for the received command
+      LOG("%s: Invoke the handler (callback routine) for the received frame (from the Z-Wave controller)...\r\n", __FUNCTION__);
+
+      // Set state to IDLE
+      LOG("%s: Transitioning from FRAME_PARSE to IDLE\r\n", __FUNCTION__);
+      leZWaveState = ZWAVE_IDLE;
+    }
+
+    //-------------------------------------------------------
+    // ELSE IF state is TX_SERIAL
+    else if (ZWAVE_TX_SERIAL == leZWaveState)
+    {
+      // IF the response was ACKed
+        // Reset retry count
+        // Set state to IDLE
+      // ELSE IF TX timeout
+        // Increment retry count
+        // IF retry count < maximum retry count
+          // Retransmit the response
+        // ELSE
+          // Reset retry count
+          // Set state to IDLE
+        // ENDIF
+      // ENDIF
+    }
+
+    //-------------------------------------------------------
+    // ELSE IF state is CALLBACK_TX_SERIAL
+    else if (ZWAVE_CALLBACK_TX_SERIAL == leZWaveState)
+    {
+      // IF the callback was ACKed
+        // Pop the request from the callback queue
+        // Reset retry count
+        // Set state to IDLE
+      // ELSE IF TX timeout
+        // Increment retry count
+        // IF retry count < maximum retry count
+           // Retransmit the request
+        // ELSE
+          // Pop the request from the callback queue
+          // Reset retry count
+          // Set state to IDLE
+        // ENDIF
+      // ENDIF
+    }
+
+    //-------------------------------------------------------
+    // ELSE IF state is COMMAND_TX_SERIAL
+    else if (ZWAVE_COMMAND_TX_SERIAL == leZWaveState)
+    {
+      // IF the command was ACKed
+       // Pop the request from the command queue
+       // Reset retry count
+       // Set state to IDLE
+     // ELSE IF TX timeout
+       // Increment retry count
+       // IF retry count < maximum retry count
+         // Retransmit the request
+       // ELSE
+         // Pop the request from the command queue
+         // Reset retry count
+         // Set state to IDLE
+       // ENDIF
+     // ENDIF
+    }
+
+    //-------------------------------------------------------
+    // ELSE
+    else
+    {
+      // Flag illegal state
+      LOG("\r\n>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>\r\n");
+      LOG("\r\n%s: *** ERROR *** Invalid state: leZWaveState = %d\r\n", __FUNCTION__, leZWaveState);
+      LOG("\r\n>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>\r\n");
+
+      // Set state to IDLE
+      LOG("%s: Transitioning from invalid state to IDLE\r\n", __FUNCTION__);
+      leZWaveState = ZWAVE_IDLE;
+   }
+
+    // ENDIF (state)
+    //-------------------------------------------------------
+  }
+
+  //////////////////////////////////////////////////////////////////////////
+  // ELSE IF command is STATE
+  else if (ZWAVE_SM_CMD_STATE == stateMachineCommand)
+  {
+    // Do nothing (present state will be returned)
+  }
+
+  //////////////////////////////////////////////////////////////////////////
+  // ELSE
+  else
+  {
+    // Flag faulty state machine call
+    LOG("\r\n>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>\r\n");
+    LOG("\r\n%s: *** ERROR *** Invalid state machine command: stateMachineCommand = %d\r\n", __FUNCTION__, stateMachineCommand);
+    LOG("\r\n>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>\r\n");
+  }
+  // ENDIF (command)
+  //////////////////////////////////////////////////////////////////////////
+
+  // Return present state
+  return leZWaveState;
+}
+// end ZWave_SerialAPI_StateMachine
+
+/** *****************************************************************************************************************************
+  * @brief  Calculate Z-Wave checksum
+  * @param  uint8_t  aucInitialValue - initial checksum value (for a Z-Wave frame, must be 0xFF)
+  * @param  uint8_t* paucDataBuffer  - pointer to data buffer over which the checksum is calculated
+  * @param  uint8_t  aucLength       - length of data buffer in bytes
+  * @retval uint8_t checksum value
+  */
+uint8_t ZWave_XOR_Checksum(uint8_t aucInitialValue, const uint8_t *paucDataBuffer, uint8_t aucLength)
+{
+  uint8_t lucChecksum = aucInitialValue;
+
+  for (int i = 0; i < aucLength; ++i)
+  {
+    lucChecksum ^= paucDataBuffer[i];
+  }
+
+  return lucChecksum;
+}
+// end ZWave_XOR_Checksum
 
 /* ***************************************************************************************************************************** */
 /* ***************************************************************************************************************************** */
@@ -1443,7 +2214,7 @@ void MainTask(void *argument)
   }
   else
   {
-    LOG("%s: HAL_UART_Receive_IT(&huart1) (for Diagnostic) returned HAL_OK\r\n", __FUNCTION__);
+    //LOG("%s: HAL_UART_Receive_IT(&huart1) (for Diagnostic) returned HAL_OK\r\n", __FUNCTION__);
   }
 
   /* Infinite loop */
@@ -1821,7 +2592,7 @@ void NetworkTask(void *argument)
 void ZWaveTask(void *argument)
 {
   /* USER CODE BEGIN ZWaveTask */
-  static uint16_t luiZWaveRxCount = 0;
+  //static uint16_t luiZWaveRxCount = 0;
   static HAL_StatusTypeDef ltHALStatus;
   static uint8_t lucOldSecond = 100; // Nonsense initial value guarantees update when RTC first read
   static uint8_t lucOldMinute = 100; // Nonsense initial value guarantees update when RTC first read
@@ -1838,8 +2609,11 @@ void ZWaveTask(void *argument)
   }
   else
   {
-    LOG("%s: HAL_UART_Receive_IT(&huart2) (for Z-Wave) returned HAL_OK\r\n", __FUNCTION__);
+    //LOG("%s: HAL_UART_Receive_IT(&huart2) (for Z-Wave) returned HAL_OK\r\n", __FUNCTION__);
   }
+
+  // Initialize Z-Wave SerialAPI state machine
+  ZWave_SerialAPI_StateMachine(ZWAVE_SM_CMD_INITIALIZE);
 
   /* Infinite loop */
   for(;;)
@@ -1876,19 +2650,27 @@ void ZWaveTask(void *argument)
     } // updates on hours
     ///////////////////////////////
 
+//    //////////////////////////////////////////////
+//    //
+//    // Check for any received bytes from the Z-Wave controller
+//    //
+//    //////////////////////////////////////////////
+//    memset(gucZWaveRxBuffer, 0x00, sizeof(gucZWaveRxBuffer));
+//    luiZWaveRxCount = ZWave_Receive_Response(gucZWaveRxBuffer);
+//    if (luiZWaveRxCount > 0)
+//    {
+//      LOG("-----------------------  Z-Wave received bytes START -----------------------\r\n");
+//      PrintBytes(gucZWaveRxBuffer, luiZWaveRxCount, false, 0);
+//      LOG("-----------------------  Z-Wave received bytes  END  -----------------------\r\n");
+//    }
+
+
     //////////////////////////////////////////////
     //
-    // Check for any received bytes from the Z-Wave controller
+    // Run the Z-Wave state machine
     //
     //////////////////////////////////////////////
-    memset(gucZWaveRxBuffer, 0x00, sizeof(gucZWaveRxBuffer));
-    luiZWaveRxCount = ZWave_Receive_Response(gucZWaveRxBuffer);
-    if (luiZWaveRxCount > 0)
-    {
-      LOG("-----------------------  Z-Wave received bytes START -----------------------\r\n");
-      PrintBytes(gucZWaveRxBuffer, luiZWaveRxCount, false, 0);
-      LOG("-----------------------  Z-Wave received bytes  END  -----------------------\r\n");
-    }
+    ZWave_SerialAPI_StateMachine(ZWAVE_SM_CMD_RUN);
 
 
     //////////////////////////////////////////////

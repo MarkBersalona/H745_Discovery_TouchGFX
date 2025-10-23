@@ -1,0 +1,19 @@
+../../CM7/../../CM7/Middlewares/ST/touchgfx/framework/include/mvp/Presenter.hpp:37:18:virtual void touchgfx::Presenter::activate()	16	static
+../../CM7/../../CM7/Middlewares/ST/touchgfx/framework/include/mvp/Presenter.hpp:47:18:virtual void touchgfx::Presenter::deactivate()	16	static
+../../CM7/../../CM7/Middlewares/ST/touchgfx/framework/include/mvp/Presenter.hpp:52:13:touchgfx::Presenter::~Presenter()	16	static
+../../CM7/../../CM7/Middlewares/ST/touchgfx/framework/include/mvp/Presenter.hpp:52:13:virtual touchgfx::Presenter::~Presenter()	16	static
+../../CM7/../../CM7/Middlewares/ST/touchgfx/framework/include/mvp/Presenter.hpp:58:5:touchgfx::Presenter::Presenter()	16	static
+../../CM7/../../CM7/TouchGFX/gui/include/gui/model/ModelListener.hpp:9:5:ModelListener::ModelListener()	16	static
+../../CM7/../../CM7/TouchGFX/gui/include/gui/model/ModelListener.hpp:11:13:ModelListener::~ModelListener()	16	static
+../../CM7/../../CM7/TouchGFX/gui/include/gui/model/ModelListener.hpp:11:13:virtual ModelListener::~ModelListener()	16	static
+../../CM7/../../CM7/TouchGFX/gui/include/gui/model/ModelListener.hpp:22:18:virtual void ModelListener::notifyZoneChanged(unsigned int)	16	static
+../../CM7/../../CM7/TouchGFX/gui/include/gui/model/ModelListener.hpp:28:18:virtual void ModelListener::notifyStandbyChanged()	16	static
+../../CM7/../../CM7/TouchGFX/gui/include/gui/screennew_screen/ScreenNewPresenter.hpp:28:13:ScreenNewPresenter::~ScreenNewPresenter()	16	static
+../../CM7/../../CM7/TouchGFX/gui/include/gui/screennew_screen/ScreenNewPresenter.hpp:28:13:virtual ScreenNewPresenter::~ScreenNewPresenter()	16	static
+F:/400_Cellular/Projects/H745_Discovery_TouchGFX/CM7/TouchGFX/gui/src/screennew_screen/ScreenNewPresenter.cpp:4:1:ScreenNewPresenter::ScreenNewPresenter(ScreenNewView&)	16	static
+F:/400_Cellular/Projects/H745_Discovery_TouchGFX/CM7/TouchGFX/gui/src/screennew_screen/ScreenNewPresenter.cpp:10:6:virtual void ScreenNewPresenter::activate()	16	static
+F:/400_Cellular/Projects/H745_Discovery_TouchGFX/CM7/TouchGFX/gui/src/screennew_screen/ScreenNewPresenter.cpp:15:6:virtual void ScreenNewPresenter::deactivate()	16	static
+F:/400_Cellular/Projects/H745_Discovery_TouchGFX/CM7/TouchGFX/gui/src/screennew_screen/ScreenNewPresenter.cpp:20:14:virtual unsigned int ScreenNewPresenter::incrementZoneNumber()	24	static
+F:/400_Cellular/Projects/H745_Discovery_TouchGFX/CM7/TouchGFX/gui/src/screennew_screen/ScreenNewPresenter.cpp:32:14:virtual unsigned int ScreenNewPresenter::decrementZoneNumber()	24	static
+F:/400_Cellular/Projects/H745_Discovery_TouchGFX/CM7/TouchGFX/gui/src/screennew_screen/ScreenNewPresenter.cpp:44:14:virtual unsigned int ScreenNewPresenter::getCurrentZone()	16	static
+F:/400_Cellular/Projects/H745_Discovery_TouchGFX/CM7/TouchGFX/gui/src/screennew_screen/ScreenNewPresenter.cpp:50:6:virtual void ScreenNewPresenter::notifyZoneChanged(unsigned int)	16	static

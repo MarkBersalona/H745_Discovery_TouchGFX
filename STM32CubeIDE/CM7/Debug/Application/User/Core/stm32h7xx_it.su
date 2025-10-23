@@ -1,0 +1,15 @@
+F:/400_Cellular/Projects/H745_Discovery_TouchGFX/CM7/Core/Src/stm32h7xx_it.c:79:6:NMI_Handler	4	static
+F:/400_Cellular/Projects/H745_Discovery_TouchGFX/CM7/Core/Src/stm32h7xx_it.c:94:6:HardFault_Handler	4	static
+F:/400_Cellular/Projects/H745_Discovery_TouchGFX/CM7/Core/Src/stm32h7xx_it.c:109:6:MemManage_Handler	4	static
+F:/400_Cellular/Projects/H745_Discovery_TouchGFX/CM7/Core/Src/stm32h7xx_it.c:124:6:BusFault_Handler	4	static
+F:/400_Cellular/Projects/H745_Discovery_TouchGFX/CM7/Core/Src/stm32h7xx_it.c:139:6:UsageFault_Handler	4	static
+F:/400_Cellular/Projects/H745_Discovery_TouchGFX/CM7/Core/Src/stm32h7xx_it.c:154:6:DebugMon_Handler	4	static
+F:/400_Cellular/Projects/H745_Discovery_TouchGFX/CM7/Core/Src/stm32h7xx_it.c:174:6:EXTI2_IRQHandler	8	static
+F:/400_Cellular/Projects/H745_Discovery_TouchGFX/CM7/Core/Src/stm32h7xx_it.c:188:6:USART1_IRQHandler	8	static
+F:/400_Cellular/Projects/H745_Discovery_TouchGFX/CM7/Core/Src/stm32h7xx_it.c:216:6:USART2_IRQHandler	8	static
+F:/400_Cellular/Projects/H745_Discovery_TouchGFX/CM7/Core/Src/stm32h7xx_it.c:230:6:TIM6_DAC_IRQHandler	8	static
+F:/400_Cellular/Projects/H745_Discovery_TouchGFX/CM7/Core/Src/stm32h7xx_it.c:244:6:LTDC_IRQHandler	8	static
+F:/400_Cellular/Projects/H745_Discovery_TouchGFX/CM7/Core/Src/stm32h7xx_it.c:258:6:DMA2D_IRQHandler	8	static
+F:/400_Cellular/Projects/H745_Discovery_TouchGFX/CM7/Core/Src/stm32h7xx_it.c:272:6:QUADSPI_IRQHandler	8	static
+F:/400_Cellular/Projects/H745_Discovery_TouchGFX/CM7/Core/Src/stm32h7xx_it.c:286:6:JPEG_IRQHandler	8	static
+F:/400_Cellular/Projects/H745_Discovery_TouchGFX/CM7/Core/Src/stm32h7xx_it.c:300:6:MDMA_IRQHandler	8	static

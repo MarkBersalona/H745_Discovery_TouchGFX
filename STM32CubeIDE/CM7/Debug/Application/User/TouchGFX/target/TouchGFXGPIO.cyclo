@@ -1,0 +1,5 @@
+F:/400_Cellular/Projects/H745_Discovery_TouchGFX/CM7/TouchGFX/target/TouchGFXGPIO.cpp:59:6:static void touchgfx::GPIO::init()	4
+F:/400_Cellular/Projects/H745_Discovery_TouchGFX/CM7/TouchGFX/target/TouchGFXGPIO.cpp:76:6:static void touchgfx::GPIO::set(GPIO_ID)	4
+F:/400_Cellular/Projects/H745_Discovery_TouchGFX/CM7/TouchGFX/target/TouchGFXGPIO.cpp:106:6:static void touchgfx::GPIO::clear(GPIO_ID)	6
+F:/400_Cellular/Projects/H745_Discovery_TouchGFX/CM7/TouchGFX/target/TouchGFXGPIO.cpp:136:6:static void touchgfx::GPIO::toggle(GPIO_ID)	4
+F:/400_Cellular/Projects/H745_Discovery_TouchGFX/CM7/TouchGFX/target/TouchGFXGPIO.cpp:166:6:static bool touchgfx::GPIO::get(GPIO_ID)	3
