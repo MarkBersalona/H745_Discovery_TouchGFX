@@ -1431,6 +1431,14 @@ ZWaveRxParseResult_t ZWave_Handle_CHECKSUM(uint8_t aucRxByte, uint8_t aucIsACKRe
     break;
   }
 
+  // At this point the received frame (minus the checksum) has been saved to the Rx buffer
+  // Display the received frame
+  LOG("%s: gtZWaveRxInterface.buffer_len=%d \t ZWaveSerialFrame->len=%d\r\n", __FUNCTION__, gtZWaveRxInterface.buffer_len, ZWaveSerialFrame->len);
+  LOG("-----------------------  Z-Wave received frame (minus checksum) START -----------------------\r\n");
+  PrintBytes(gtZWaveRxInterface.buffer, gtZWaveRxInterface.buffer_len, false, 0);
+  //PrintBytes(ZWaveSerialFrame, ZWaveSerialFrame->len, false, 0); // length off by -1 because SOF included
+  LOG("-----------------------  Z-Wave received frame (minus checksum)  END  -----------------------\r\n");
+
   // Set ZWave Rx state to SOF
   LOG("%s: Transitioning from CHECKSUM to SOF\r\n", __FUNCTION__);
   gtZWaveRxInterface.state = ZWAVE_RX_SOF;
@@ -1594,6 +1602,8 @@ ZWaveRxParseResult_t ZWave_Handle_SOF(uint8_t aucRxByte)
   // IF received byte is SOF
   if (SOF == aucRxByte)
   {
+    LOG("%s: Received a SOF \r\n", __FUNCTION__);
+
     // Set ZWave Rx state to LEN
     LOG("%s: Transitioning from SOF to LEN\r\n", __FUNCTION__);
     gtZWaveRxInterface.state = ZWAVE_RX_LEN;
@@ -1649,7 +1659,14 @@ ZWaveRxParseResult_t ZWave_Handle_SOF(uint8_t aucRxByte)
     else
     {
       // Discard received byte
-      LOG("%s: Received byte 0x%02X, discarding... \r\n", __FUNCTION__, aucRxByte);
+      if (isprint(aucRxByte))
+      {
+        LOG("%s: Received byte 0x%02X (%c), discarding... \r\n", __FUNCTION__, aucRxByte, aucRxByte);
+      }
+      else
+      {
+        LOG("%s: Received byte 0x%02X, discarding... \r\n", __FUNCTION__, aucRxByte);
+      }
     }
     // ENDIF
   }
@@ -1658,6 +1675,14 @@ ZWaveRxParseResult_t ZWave_Handle_SOF(uint8_t aucRxByte)
   else
   {
     // Discard received byte
+    if (isprint(aucRxByte))
+    {
+      LOG("%s: Received byte 0x%02X (%c), discarding... \r\n", __FUNCTION__, aucRxByte, aucRxByte);
+    }
+    else
+    {
+      LOG("%s: Received byte 0x%02X, discarding... \r\n", __FUNCTION__, aucRxByte);
+    }
 
     // Reset ACK timeout
     gtZWaveRxInterface.ack_timeout = false;
