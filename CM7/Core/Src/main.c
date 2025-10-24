@@ -33,6 +33,10 @@
 #include "gconfig.h"
 #include "stm32h745i_discovery.h"
 #include "SerialAPI.h"
+#include "zpal_init.h"
+#include "ZW_basis_api.h"
+#include "ZW_classcmd.h"
+#include "cmds_management.h"
 
 /* USER CODE END Includes */
 
@@ -329,6 +333,13 @@ void NetworkTask(void *argument);
 void ZWaveTask(void *argument);
 
 /* USER CODE BEGIN PFP */
+
+void ZWave_REQ_CMD_0A_Serial_API_Started(void);
+void ZWave_RES_CMD_0B_Serial_API_Setup(void);
+void ZWave_RES_CMD_15_ZW_Get_Version(void);
+void ZWave_RES_CMD_28_NVR_Get_Value(void);
+void ZWave_RES_CMD_41_ZW_Get_Node_Protocol_Info(void);
+
 uint8_t ZWave_XOR_Checksum(uint8_t aucInitialValue, const uint8_t *paucDataBuffer, uint8_t aucLength);
 
 /* USER CODE END PFP */
@@ -1389,7 +1400,7 @@ ZWaveRxParseResult_t ZWave_Handle_CHECKSUM(uint8_t aucRxByte, uint8_t aucIsACKRe
 {
   static ZWaveRxParseResult_t ltResult;
 
-  LOG("%s: CHECKSUM byte is 0x%02X\r\n", __FUNCTION__, aucRxByte);
+  //LOG("%s: CHECKSUM byte is 0x%02X\r\n", __FUNCTION__, aucRxByte);
 
   // Reset byte timeout
   gtZWaveRxInterface.byte_timeout = false;
@@ -1418,13 +1429,13 @@ ZWaveRxParseResult_t ZWave_Handle_CHECKSUM(uint8_t aucRxByte, uint8_t aucIsACKRe
   switch (lucResponse)
   {
   case ACK:
-    LOG("%s: ACK (checksum OK)\r\n", __FUNCTION__);
+    //LOG("%s: ACK (checksum OK)\r\n", __FUNCTION__);
     break;
   case NAK:
-    LOG("%s: NAK (checksum error)\r\n", __FUNCTION__);
+    LOG("%s: *** WARNING *** NAK (checksum error)\r\n", __FUNCTION__);
     break;
   case CAN:
-    LOG("%s: CAN (unable to process received frame: received frame dropped)\r\n", __FUNCTION__);
+    LOG("%s:*** WARNING ***  CAN (unable to process received frame: received frame dropped)\r\n", __FUNCTION__);
     break;
   default:
     LOG("%s: *** WARNING *** lucResponse = 0x%02X UNKNOWN\r\n", __FUNCTION__, lucResponse);
@@ -1433,14 +1444,14 @@ ZWaveRxParseResult_t ZWave_Handle_CHECKSUM(uint8_t aucRxByte, uint8_t aucIsACKRe
 
   // At this point the received frame (minus the checksum) has been saved to the Rx buffer
   // Display the received frame
-  LOG("%s: gtZWaveRxInterface.buffer_len=%d \t ZWaveSerialFrame->len=%d\r\n", __FUNCTION__, gtZWaveRxInterface.buffer_len, ZWaveSerialFrame->len);
+  //LOG("%s: gtZWaveRxInterface.buffer_len=%d \t ZWaveSerialFrame->len=%d\r\n", __FUNCTION__, gtZWaveRxInterface.buffer_len, ZWaveSerialFrame->len);
   LOG("-----------------------  Z-Wave received frame (minus checksum) START -----------------------\r\n");
   PrintBytes(gtZWaveRxInterface.buffer, gtZWaveRxInterface.buffer_len, false, 0);
-  //PrintBytes(ZWaveSerialFrame, ZWaveSerialFrame->len, false, 0); // length off by -1 because SOF included
+  //PrintBytes(ZWaveSerialFrame, ZWaveSerialFrame->len, false, 0); // length off by -1 because SOF excluded
   LOG("-----------------------  Z-Wave received frame (minus checksum)  END  -----------------------\r\n");
 
   // Set ZWave Rx state to SOF
-  LOG("%s: Transitioning from CHECKSUM to SOF\r\n", __FUNCTION__);
+  //LOG("%s: Transitioning from CHECKSUM to SOF\r\n", __FUNCTION__);
   gtZWaveRxInterface.state = ZWAVE_RX_SOF;
 
   ///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
@@ -1460,7 +1471,7 @@ ZWaveRxParseResult_t ZWave_Handle_CHECKSUM(uint8_t aucRxByte, uint8_t aucIsACKRe
   */
 void ZWave_Handle_CMD(uint8_t aucRxByte)
 {
-  LOG("%s: CMD byte is 0x%02X\r\n", __FUNCTION__, aucRxByte);
+  //LOG("%s: CMD byte is 0x%02X\r\n", __FUNCTION__, aucRxByte);
 
   // Save received byte to ZWave Rx buffer
   gtZWaveRxInterface.buffer[gtZWaveRxInterface.buffer_len] = aucRxByte;
@@ -1473,7 +1484,7 @@ void ZWave_Handle_CMD(uint8_t aucRxByte)
     gtZWaveRxInterface.rx_wait_count = ZWaveSerialFrame->len - 3;
 
     // Set ZWave Rx state to DATA
-    LOG("%s: Transitioning from CMD to DATA\r\n", __FUNCTION__);
+    //LOG("%s: Transitioning from CMD to DATA\r\n", __FUNCTION__);
     gtZWaveRxInterface.state = ZWAVE_RX_DATA;
   }
   // ELSE (no data payload)
@@ -1483,7 +1494,7 @@ void ZWave_Handle_CMD(uint8_t aucRxByte)
     gtZWaveRxInterface.rx_wait_count = 1;
 
     // Set ZWave Rx state to CHECKSUM
-    LOG("%s: Transitioning from CMD to CHECKSUM\r\n", __FUNCTION__);
+    //LOG("%s: Transitioning from CMD to CHECKSUM\r\n", __FUNCTION__);
     gtZWaveRxInterface.state = ZWAVE_RX_CHECKSUM;
   }
   // ENDIF
@@ -1497,7 +1508,7 @@ void ZWave_Handle_CMD(uint8_t aucRxByte)
   */
 void ZWave_Handle_DATA(uint8_t aucRxByte)
 {
-  LOG("%s: DATA byte is 0x%02X\r\n", __FUNCTION__, aucRxByte);
+  //LOG("%s: DATA byte is 0x%02X\r\n", __FUNCTION__, aucRxByte);
 
   // Decrement Rx wait count
   gtZWaveRxInterface.rx_wait_count--;
@@ -1510,7 +1521,7 @@ void ZWave_Handle_DATA(uint8_t aucRxByte)
   if ( (gtZWaveRxInterface.buffer_len >= RECEIVE_BUFFER_SIZE) || (gtZWaveRxInterface.buffer_len > ZWaveSerialFrame->len) )
   {
     // Set ZWave Rx state to CHECKSUM
-    LOG("%s: Transitioning from DATA to CHECKSUM\r\n", __FUNCTION__);
+    //LOG("%s: Transitioning from DATA to CHECKSUM\r\n", __FUNCTION__);
     gtZWaveRxInterface.state = ZWAVE_RX_CHECKSUM;
   }
   // ENDIF
@@ -1528,7 +1539,7 @@ void ZWave_Handle_Default(void)
   // Reset to SOF
 
   // Set ZWave Rx state to SOF
-  LOG("%s: Transitioning to SOF\r\n", __FUNCTION__);
+  //LOG("%s: Transitioning to SOF\r\n", __FUNCTION__);
   gtZWaveRxInterface.state = ZWAVE_RX_SOF;
 
   // Disable Rx active
@@ -1560,7 +1571,7 @@ void ZWave_Handle_LEN(uint8_t aucRxByte)
     LOG("%s: *** WARNING *** Invalid length byte = 0x%02X\r\n", __FUNCTION__, aucRxByte);
 
     // Set ZWave Rx state to SOF
-    LOG("%s: Transitioning from LEN to SOF\r\n", __FUNCTION__);
+    //LOG("%s: Transitioning from LEN to SOF\r\n", __FUNCTION__);
     gtZWaveRxInterface.state = ZWAVE_RX_SOF;
 
     // Disable Rx active
@@ -1574,10 +1585,10 @@ void ZWave_Handle_LEN(uint8_t aucRxByte)
   else
   {
     // (valid length)
-    LOG("%s: Length byte = 0x%02X\r\n", __FUNCTION__, aucRxByte);
+    //LOG("%s: Length byte = 0x%02X\r\n", __FUNCTION__, aucRxByte);
 
     // Set ZWave Rx state to TYPE
-    LOG("%s: Transitioning from LEN to TYPE\r\n", __FUNCTION__);
+    //LOG("%s: Transitioning from LEN to TYPE\r\n", __FUNCTION__);
     gtZWaveRxInterface.state = ZWAVE_RX_TYPE;
 
     // Save received byte to ZWave Rx buffer
@@ -1605,7 +1616,7 @@ ZWaveRxParseResult_t ZWave_Handle_SOF(uint8_t aucRxByte)
     LOG("%s: Received a SOF \r\n", __FUNCTION__);
 
     // Set ZWave Rx state to LEN
-    LOG("%s: Transitioning from SOF to LEN\r\n", __FUNCTION__);
+    //LOG("%s: Transitioning from SOF to LEN\r\n", __FUNCTION__);
     gtZWaveRxInterface.state = ZWAVE_RX_LEN;
 
     // Reset ZWave RX buffer length to 0
@@ -1665,7 +1676,13 @@ ZWaveRxParseResult_t ZWave_Handle_SOF(uint8_t aucRxByte)
       }
       else
       {
-        LOG("%s: Received byte 0x%02X, discarding... \r\n", __FUNCTION__, aucRxByte);
+        switch (aucRxByte)
+        {
+        case ACK: LOG("%s: Received ACK, discarding... \r\n", __FUNCTION__);                     break;
+        case NAK: LOG("%s: Received NAK, discarding... \r\n", __FUNCTION__);                     break;
+        case CAN: LOG("%s: Received CAN, discarding... \r\n", __FUNCTION__);                     break;
+        default:  LOG("%s: Received byte 0x%02X, discarding... \r\n", __FUNCTION__, aucRxByte); break;
+        } // end switch
       }
     }
     // ENDIF
@@ -1681,7 +1698,13 @@ ZWaveRxParseResult_t ZWave_Handle_SOF(uint8_t aucRxByte)
     }
     else
     {
-      LOG("%s: Received byte 0x%02X, discarding... \r\n", __FUNCTION__, aucRxByte);
+      switch (aucRxByte)
+      {
+      case ACK: LOG("%s: Received ACK, discarding... \r\n", __FUNCTION__);                     break;
+      case NAK: LOG("%s: Received NAK, discarding... \r\n", __FUNCTION__);                     break;
+      case CAN: LOG("%s: Received CAN, discarding... \r\n", __FUNCTION__);                     break;
+      default:  LOG("%s: Received byte 0x%02X, discarding... \r\n", __FUNCTION__, aucRxByte); break;
+      } // end switch
     }
 
     // Reset ACK timeout
@@ -1731,7 +1754,7 @@ void ZWave_Handle_TYPE(uint8_t aucRxByte)
       LOG("%s: TYPE byte is RESPONSE (1)\r\n", __FUNCTION__);
     }
     // Set ZWave Rx state to CMD
-    LOG("%s: Transitioning from TYPE to CMD\r\n", __FUNCTION__);
+    //LOG("%s: Transitioning from TYPE to CMD\r\n", __FUNCTION__);
     gtZWaveRxInterface.state = ZWAVE_RX_CMD;
 
     // Save received byte to ZWave Rx buffer
@@ -1741,6 +1764,63 @@ void ZWave_Handle_TYPE(uint8_t aucRxByte)
   // ENDIF
 }
 // end ZWave_Handle_TYPE
+
+/** *****************************************************************************************************************************
+  * @brief  Invoke handler (callback routine) for given command received from the Z-Wave controller
+  * @param  aucCommand - command
+  * @retval None
+  */
+void ZWave_Invoke_Command_Handler(uint8_t aucCommand)
+{
+  switch (aucCommand)
+  {
+  case FUNC_ID_SERIAL_API_STARTED:
+    LOG("%s: Command: FUNC_ID_SERIAL_API_STARTED \r\n", __FUNCTION__);
+    ZWave_REQ_CMD_0A_Serial_API_Started();
+    break;
+  case FUNC_ID_SERIAL_API_SETUP:
+    LOG("%s: Command: FUNC_ID_SERIAL_API_SETUP \r\n", __FUNCTION__);
+    ZWave_RES_CMD_0B_Serial_API_Setup();
+    break;
+  case FUNC_ID_ZW_GET_NODE_PROTOCOL_INFO:
+    LOG("%s: Command: FUNC_ID_ZW_GET_NODE_PROTOCOL_INFO \r\n", __FUNCTION__);
+    ZWave_RES_CMD_41_ZW_Get_Node_Protocol_Info();
+    break;
+  case FUNC_ID_ZW_GET_VERSION:
+    LOG("%s: Command: FUNC_ID_ZW_GET_VERSION \r\n", __FUNCTION__);
+    ZWave_RES_CMD_15_ZW_Get_Version();
+    break;
+  case FUNC_ID_NVR_GET_VALUE:
+    LOG("%s: Command: FUNC_ID_NVR_GET_VALUE \r\n", __FUNCTION__);
+    ZWave_RES_CMD_28_NVR_Get_Value();
+    break;
+  case FUNC_ID_SERIAL_API_GET_INIT_DATA:
+    LOG("%s: Command: FUNC_ID_SERIAL_API_GET_INIT_DATA \r\n", __FUNCTION__);
+    break;
+  case FUNC_ID_SERIAL_API_GET_CAPABILITIES:
+    LOG("%s: Command: FUNC_ID_SERIAL_API_GET_CAPABILITIES \r\n", __FUNCTION__);
+    break;
+  case FUNC_ID_SERIAL_API_GET_LR_NODES:
+    LOG("%s: Command: FUNC_ID_SERIAL_API_GET_LR_NODES \r\n", __FUNCTION__);
+    break;
+  case FUNC_ID_ZW_GET_CONTROLLER_CAPABILITIES:
+    LOG("%s: Command: FUNC_ID_ZW_GET_CONTROLLER_CAPABILITIES \r\n", __FUNCTION__);
+    break;
+  case FUNC_ID_ZW_GET_SUC_NODE_ID:
+    LOG("%s: Command: FUNC_ID_ZW_GET_SUC_NODE_ID \r\n", __FUNCTION__);
+    break;
+  case FUNC_ID_MEMORY_GET_ID:
+    LOG("%s: Command: FUNC_ID_MEMORY_GET_ID \r\n", __FUNCTION__);
+    break;
+  case FUNC_ID_GET_RADIO_PTI:
+    LOG("%s: Command: FUNC_ID_GET_RADIO_PTI \r\n", __FUNCTION__);
+    break;
+  default:
+    LOG("%s: *** WARNING *** Command: 0x%02X not supported yet... \r\n", __FUNCTION__, aucCommand);
+    break;
+  }
+}
+// end ZWave_Invoke_Command_Handler
 
 /** *****************************************************************************************************************************
   * @brief  Parse received FIFO bytes from Z-Wave controller
@@ -1808,7 +1888,7 @@ ZWaveRxParseResult_t ZWave_Parse_Rx_Data(uint8_t aucIsACKRequired)
       gtZWaveRxInterface.byte_timeout = false;
 
       // Reset ZWave Rx state to SOF
-      LOG("%s: Transitioning to SOF\r\n", __FUNCTION__);
+      //LOG("%s: Transitioning to SOF\r\n", __FUNCTION__);
       gtZWaveRxInterface.state = ZWAVE_RX_SOF;
 
       // Disable Rx active
@@ -1825,7 +1905,7 @@ ZWaveRxParseResult_t ZWave_Parse_Rx_Data(uint8_t aucIsACKRequired)
       gtZWaveRxInterface.ack_timeout = false;
 
       // Reset ZWave Rx state to SOF
-      LOG("%s: Transitioning to SOF\r\n", __FUNCTION__);
+      //LOG("%s: Transitioning to SOF\r\n", __FUNCTION__);
       gtZWaveRxInterface.state = ZWAVE_RX_SOF;
 
       // Reset ACK pending
@@ -1886,6 +1966,575 @@ uint16_t ZWave_Receive_Response(uint8_t* aucReceiveBuffer)
   return luiZWaveRxCount;
 }
 // end ZWave_Receive_Response
+
+/** *****************************************************************************************************************************
+  * @brief  Command handler for CMD 0x0A FUNC_ID_SERIAL_API_STARTED ZW->HOST: Cmd | CmdData[]
+  * @param  None
+  * @retval None
+  */
+void ZWave_REQ_CMD_0A_Serial_API_Started(void)
+{
+  // Display received frame data
+  LOG("%s: received frame:\r\n", __FUNCTION__);
+  LOG("------------------------------------------------------------------------------\r\n");
+  PrintBytes(ZWaveSerialFrame, ZWaveSerialFrame->len + 1, false, 0); // Length doesn't include SOF so need to increment length
+  LOG("------------------------------------------------------------------------------\r\n");
+
+  // Example contents of serial frame (excluding checksum byte)
+  // 01 0E 00 0A 00 00 01 02     01 00 00 00 00 00 00
+  // 01 is SOF
+  // 0E is length of data, including the length byte BUT excluding the SOF and checksum bytes
+  // 00 is type: 00 for REQUEST; 01 for RESPONSE
+  // 0A is the command FUNC_ID_SERIAL_API_STARTED
+  // 00 is wakeup reason
+  // 00 is watchdog started
+  // 01 is device option mask
+  // 02 is generic node type
+  // --------
+  // 01 is specific node type
+  // 00 is command class length: number of command classes in the node information frame (uhhh, 0, so no command classes)
+  // 00 is capabilities (e.g. Long Range capable?)
+  // 00 is ZPAL_RETENTION_REGISTER_RESET_INFO bits 31-24
+  // 00 is ZPAL_RETENTION_REGISTER_RESET_INFO bits 23-16
+  // 00 is ZPAL_RETENTION_REGISTER_RESET_INFO bits 15-08
+  // 00 is ZPAL_RETENTION_REGISTER_RESET_INFO bits 07-00
+
+  // ----------------- Wakeup reason -----------------
+  LOG("%s: Wakeup reason             = 0x%02X\r\n", __FUNCTION__, ZWaveSerialFrame->payload[0]);
+  switch (ZWaveSerialFrame->payload[0])
+  {
+  case ZPAL_RESET_REASON_PIN:
+    LOG("%s: - Reset triggered by reset pin \r\n", __FUNCTION__);
+    break;
+  case ZPAL_RESET_REASON_DEEP_SLEEP_WUT:
+    LOG("%s: - Reset triggered by wake up by timer from deep sleep state \r\n", __FUNCTION__);
+    break;
+  case ZPAL_RESET_REASON_WATCHDOG:
+    LOG("%s: - Reset triggered by watchdog \r\n", __FUNCTION__);
+    break;
+  case ZPAL_RESET_REASON_DEEP_SLEEP_EXT_INT:
+    LOG("%s: - Reset triggered by external interrupt event in deep sleep state \r\n", __FUNCTION__);
+    break;
+  case ZPAL_RESET_REASON_POWER_ON:
+    LOG("%s: - Reset triggered by power on \r\n", __FUNCTION__);
+    break;
+  case ZPAL_RESET_REASON_SOFTWARE:
+    LOG("%s: - Reset triggered by software \r\n", __FUNCTION__);
+    break;
+  case ZPAL_RESET_REASON_BROWNOUT:
+    LOG("%s: - Reset triggered by brownout circuit \r\n", __FUNCTION__);
+    break;
+  case ZPAL_RESET_REASON_TAMPER:
+    LOG("%s: - Reset triggered by a tamper attempt \r\n", __FUNCTION__);
+    break;
+  case ZPAL_RESET_REASON_OTHER:
+    LOG("%s: - Reset triggered for unknown reason \r\n", __FUNCTION__);
+    break;
+  default:
+    LOG("%s: - *** WARNING *** Reset reason 0x%02X is undefined \r\n", __FUNCTION__, ZWaveSerialFrame->payload[0]);
+    break;
+  }
+
+  // ----------------- Watchdog started -----------------
+  LOG("%s: Watchdog started          = 0x%02X\r\n", __FUNCTION__, ZWaveSerialFrame->payload[1]);
+  if (ZWaveSerialFrame->payload[1])
+  {
+    LOG("%s: - Z-Wave controller's watchdog timer is started and kicked by the Serial API \r\n", __FUNCTION__);
+  }
+  else
+  {
+    LOG("%s: - Z-Wave controller's watchdog timer is NOT started \r\n", __FUNCTION__);
+  }
+
+  // ----------------- Device option mask -----------------
+  LOG("%s: Device option mask        = 0x%02X\r\n", __FUNCTION__, ZWaveSerialFrame->payload[2]);
+  switch (ZWaveSerialFrame->payload[2])
+  {
+  case APPLICATION_NODEINFO_NOT_LISTENING:
+    LOG("%s: - Not listening Node, corresponds to Reporting Sleeping End Device role type \r\n", __FUNCTION__);
+    break;
+  case APPLICATION_NODEINFO_LISTENING:
+    LOG("%s: - Always On Node, corresponds to Always On (AOS) role type \r\n", __FUNCTION__);
+    break;
+  case APPLICATION_FREQ_LISTENING_MODE_1000ms:
+    LOG("%s: - Frequently Listening, corresponds to FLiRS role type. Wakes up every 1000ms \r\n", __FUNCTION__);
+    break;
+  case APPLICATION_FREQ_LISTENING_MODE_250ms:
+    LOG("%s: -  Frequently Listening, corresponds to FLiRS role type. Wakes up every 250ms \r\n", __FUNCTION__);
+    break;
+  default:
+    LOG("%s: - *** WARNING *** device option mask 0x%02X is UNKNOWN \r\n", __FUNCTION__, ZWaveSerialFrame->payload[2]);
+    break;
+  }
+
+  // ----------------- Generic node type -----------------
+  LOG("%s: Generic node type         = 0x%02X\r\n", __FUNCTION__, ZWaveSerialFrame->payload[3]);
+  switch (ZWaveSerialFrame->payload[3])
+  {
+  case GENERIC_TYPE_AV_CONTROL_POINT:
+    LOG("%s: - AV Control Point \r\n", __FUNCTION__);
+    break;
+  case GENERIC_TYPE_DISPLAY:
+    LOG("%s: - Display \r\n", __FUNCTION__);
+    break;
+  case GENERIC_TYPE_ENTRY_CONTROL:
+    LOG("%s: - Entry Control \r\n", __FUNCTION__);
+    break;
+  case GENERIC_TYPE_GENERIC_CONTROLLER:
+    LOG("%s: - Remote Controller \r\n", __FUNCTION__);
+    break;
+  case GENERIC_TYPE_METER:
+    LOG("%s: - Meter \r\n", __FUNCTION__);
+    break;
+  case GENERIC_TYPE_METER_PULSE:
+    LOG("%s: - Pulse Meter \r\n", __FUNCTION__);
+    break;
+  case GENERIC_TYPE_NON_INTEROPERABLE:
+    LOG("%s: - Non interoperable \r\n", __FUNCTION__);
+    break;
+  case GENERIC_TYPE_REPEATER_END_NODE:
+    LOG("%s: - Repeater End Node \r\n", __FUNCTION__);
+    break;
+  case GENERIC_TYPE_SECURITY_PANEL:
+    LOG("%s: - Security panel \r\n", __FUNCTION__);
+    break;
+  case GENERIC_TYPE_SEMI_INTEROPERABLE:
+    LOG("%s: - Semi Interoperable \r\n", __FUNCTION__);
+    break;
+  case GENERIC_TYPE_SENSOR_ALARM:
+    LOG("%s: - Sensor alarm \r\n", __FUNCTION__);
+    break;
+  case GENERIC_TYPE_SENSOR_BINARY:
+    LOG("%s: - Binary Sensor \r\n", __FUNCTION__);
+    break;
+  case GENERIC_TYPE_SENSOR_MULTILEVEL:
+    LOG("%s: - Multilevel Sensor \r\n", __FUNCTION__);
+    break;
+  case GENERIC_TYPE_STATIC_CONTROLLER:
+    LOG("%s: - Static Controller \r\n", __FUNCTION__);
+    break;
+  case GENERIC_TYPE_SWITCH_BINARY:
+    LOG("%s: - Binary Switch \r\n", __FUNCTION__);
+    break;
+  case GENERIC_TYPE_SWITCH_MULTILEVEL:
+    LOG("%s: - Multilevel Switch \r\n", __FUNCTION__);
+    break;
+  case GENERIC_TYPE_SWITCH_REMOTE:
+    LOG("%s: - Remote Switch \r\n", __FUNCTION__);
+    break;
+  case GENERIC_TYPE_SWITCH_TOGGLE:
+    LOG("%s: - Toggle Switch \r\n", __FUNCTION__);
+    break;
+  case GENERIC_TYPE_THERMOSTAT:
+    LOG("%s: - Thermostat \r\n", __FUNCTION__);
+    break;
+  case GENERIC_TYPE_VENTILATION:
+    LOG("%s: - Ventilation \r\n", __FUNCTION__);
+    break;
+  case GENERIC_TYPE_WINDOW_COVERING:
+    LOG("%s: - Window Covering \r\n", __FUNCTION__);
+    break;
+  case GENERIC_TYPE_ZIP_NODE:
+    LOG("%s: - Zip node \r\n", __FUNCTION__);
+    break;
+  case GENERIC_TYPE_WALL_CONTROLLER:
+    LOG("%s: - Wall controller \r\n", __FUNCTION__);
+    break;
+  case GENERIC_TYPE_NETWORK_EXTENDER:
+    LOG("%s: - Network Extender \r\n", __FUNCTION__);
+    break;
+  case GENERIC_TYPE_APPLIANCE:
+    LOG("%s: - Appliance \r\n", __FUNCTION__);
+    break;
+  case GENERIC_TYPE_SENSOR_NOTIFICATION:
+    LOG("%s: - Sensor Notification \r\n", __FUNCTION__);
+    break;
+  default:
+    LOG("%s: - *** WARNING *** generic device type 0x%02X UNKNOWN \r\n", __FUNCTION__, ZWaveSerialFrame->payload[3]);
+    break;
+  }
+
+  // ----------------- Specific node type -----------------
+  LOG("%s: Specific node type        = 0x%02X\r\n", __FUNCTION__, ZWaveSerialFrame->payload[4]);
+  // MAB 2025.10.24 - For now just list specific types for static controllers
+  if (GENERIC_TYPE_STATIC_CONTROLLER == ZWaveSerialFrame->payload[3])
+  {
+    switch (ZWaveSerialFrame->payload[4])
+    {
+    case SPECIFIC_TYPE_NOT_USED:
+      LOG("%s: - Specific Device Class Not Used \r\n", __FUNCTION__);
+      break;
+    case SPECIFIC_TYPE_PC_CONTROLLER:
+      LOG("%s: - Central Controller Device Type \r\n", __FUNCTION__);
+      break;
+    case SPECIFIC_TYPE_SCENE_CONTROLLER:
+      LOG("%s: - Scene Controller \r\n", __FUNCTION__);
+      break;
+    case SPECIFIC_TYPE_STATIC_INSTALLER_TOOL:
+      LOG("%s: - Static installer tool \r\n", __FUNCTION__);
+      break;
+    case SPECIFIC_TYPE_SET_TOP_BOX:
+      LOG("%s: - Set Top Box \r\n", __FUNCTION__);
+      break;
+    case SPECIFIC_TYPE_SUB_SYSTEM_CONTROLLER:
+      LOG("%s: - Sub System Controller \r\n", __FUNCTION__);
+      break;
+    case SPECIFIC_TYPE_TV:
+      LOG("%s: - Television \r\n", __FUNCTION__);
+      break;
+    case SPECIFIC_TYPE_GATEWAY:
+      LOG("%s: - Gateway \r\n", __FUNCTION__);
+      break;
+    default:
+      LOG("%s: - *** WARNING *** Specific device type 0x%02X UNKNOWN \r\n", __FUNCTION__, ZWaveSerialFrame->payload[4]);
+      break;
+    }
+  }
+
+  // ----------------- Command class list length -----------------
+  LOG("%s: Command class list length = 0x%02X\r\n", __FUNCTION__, ZWaveSerialFrame->payload[5]);
+  int i = ZWaveSerialFrame->payload[9];
+
+  // ----------------- Retained reset info  (doesn't seem to be used) -----------------
+uint32_t lulZpalRetentionResetInfo = (0x1000000*ZWaveSerialFrame->payload[6+i]) +
+                                       (  0x10000*ZWaveSerialFrame->payload[7+i]) +
+                                       (    0x100*ZWaveSerialFrame->payload[8+i]) +
+                                       (          ZWaveSerialFrame->payload[9+i]) ;
+  LOG("%s: Retained reset info       = 0x%08X\r\n", __FUNCTION__, lulZpalRetentionResetInfo);
+
+}
+// end ZWave_REQ_CMD_0A_Serial_API_Started
+
+/** *****************************************************************************************************************************
+  * @brief  Command handler for CMD 0x0B FUNC_ID_SERIAL_API_SETUP ZW->HOST: Cmd | CmdRes[]
+  * @param  None
+  * @retval None
+  */
+void ZWave_RES_CMD_0B_Serial_API_Setup(void)
+{
+  // Display received frame data
+  LOG("%s: received frame:\r\n", __FUNCTION__);
+  LOG("------------------------------------------------------------------------------\r\n");
+  PrintBytes(ZWaveSerialFrame, ZWaveSerialFrame->len + 1, false, 0); // Length doesn't include SOF so need to increment length
+  LOG("------------------------------------------------------------------------------\r\n");
+
+  // Example contents of serial frame (excluding checksum byte)
+  // 01 05 01 0B 80 01
+  // 80 is the SerialAPI Setup command byte - in this case SERIAL_API_SETUP_CMD_NODEID_BASETYPE_SET
+  // 01 for this example is the command result - in this case, OK (requested node ID base type successfully set)
+
+  // ----------------- SerialAPI command -----------------
+  LOG("%s: SerialAPI Setup command = 0x%02X\r\n", __FUNCTION__, ZWaveSerialFrame->payload[0]);
+  switch (ZWaveSerialFrame->payload[0])
+  {
+  case SERIAL_API_SETUP_CMD_UNSUPPORTED:
+    LOG("%s: - SERIAL_API_SETUP_CMD_UNSUPPORTED \r\n", __FUNCTION__);
+    break;
+  case SERIAL_API_SETUP_CMD_SUPPORTED:
+    LOG("%s: - SERIAL_API_SETUP_CMD_SUPPORTED \r\n", __FUNCTION__);
+    break;
+  case SERIAL_API_SETUP_CMD_TX_STATUS_REPORT:
+    LOG("%s: - SERIAL_API_SETUP_CMD_TX_STATUS_REPORT \r\n", __FUNCTION__);
+    break;
+  case SERIAL_API_SETUP_CMD_TX_POWERLEVEL_SET:
+    LOG("%s: - SERIAL_API_SETUP_CMD_TX_POWERLEVEL_SET \r\n", __FUNCTION__);
+    break;
+  case SERIAL_API_SETUP_CMD_TX_POWERLEVEL_GET:
+    LOG("%s: - SERIAL_API_SETUP_CMD_TX_POWERLEVEL_GET \r\n", __FUNCTION__);
+    break;
+  case SERIAL_API_SETUP_CMD_TX_GET_MAX_PAYLOAD_SIZE:
+    LOG("%s: - SERIAL_API_SETUP_CMD_TX_GET_MAX_PAYLOAD_SIZE \r\n", __FUNCTION__);
+    break;
+  case SERIAL_API_SETUP_CMD_RF_REGION_GET:
+    LOG("%s: - SERIAL_API_SETUP_CMD_RF_REGION_GET \r\n", __FUNCTION__);
+    break;
+  case SERIAL_API_SETUP_CMD_RF_REGION_SET:
+    LOG("%s: - SERIAL_API_SETUP_CMD_RF_REGION_SET \r\n", __FUNCTION__);
+    break;
+  case SERIAL_API_SETUP_CMD_NODEID_BASETYPE_SET:
+    LOG("%s: - SERIAL_API_SETUP_CMD_NODEID_BASETYPE_SET \r\n", __FUNCTION__);
+    break;
+  case SERIAL_API_SETUP_CMD_MAX_LR_TX_PWR_SET:
+    LOG("%s: - SERIAL_API_SETUP_CMD_MAX_LR_TX_PWR_SET \r\n", __FUNCTION__);
+    break;
+  case SERIAL_API_SETUP_CMD_MAX_LR_TX_PWR_GET:
+    LOG("%s: - SERIAL_API_SETUP_CMD_MAX_LR_TX_PWR_GET \r\n", __FUNCTION__);
+    break;
+  case SERIAL_API_SETUP_CMD_TX_GET_MAX_LR_PAYLOAD_SIZE:
+    LOG("%s: - SERIAL_API_SETUP_CMD_TX_GET_MAX_LR_PAYLOAD_SIZE \r\n", __FUNCTION__);
+    break;
+  case SERIAL_API_SETUP_CMD_TX_POWERLEVEL_SET_16_BIT:
+    LOG("%s: - SERIAL_API_SETUP_CMD_TX_POWERLEVEL_SET_16_BIT \r\n", __FUNCTION__);
+    break;
+  case SERIAL_API_SETUP_CMD_TX_POWERLEVEL_GET_16_BIT:
+    LOG("%s: - SERIAL_API_SETUP_CMD_TX_POWERLEVEL_GET_16_BIT \r\n", __FUNCTION__);
+    break;
+  case SERIAL_API_SETUP_CMD_GET_SUPPORTED_REGION:
+    LOG("%s: - SERIAL_API_SETUP_CMD_GET_SUPPORTED_REGION \r\n", __FUNCTION__);
+    break;
+  case SERIAL_API_SETUP_CMD_GET_REGION_INFO:
+    LOG("%s: - SERIAL_API_SETUP_CMD_GET_REGION_INFO \r\n", __FUNCTION__);
+    break;
+  default:
+    LOG("%s: - *** WARNING *** SerialAPI Setup command 0x%02X is UNKNOWN \r\n", __FUNCTION__, ZWaveSerialFrame->payload[0]);
+    break;
+  }
+
+  // ----------------- SERIAL_API_SETUP_CMD_NODEID_BASETYPE_SET -----------------
+  if (SERIAL_API_SETUP_CMD_NODEID_BASETYPE_SET == ZWaveSerialFrame->payload[0])
+  {
+    LOG("%s: SerialAPI Setup result  = 0x%02X\r\n", __FUNCTION__, ZWaveSerialFrame->payload[1]);
+    if (ZWaveSerialFrame->payload[1])
+    {
+      LOG("%s: - Requested Node ID Base type successfully set \r\n", __FUNCTION__);
+    }
+    else
+    {
+      LOG("%s: - *** WARNING *** Requested Node ID Base FAILED, set to default 8-bit values \r\n", __FUNCTION__);
+    }
+  }
+}
+// end ZWave_RES_CMD_0B_Serial_API_Setup
+
+/** *****************************************************************************************************************************
+  * @brief  Command handler for CMD 0x15 FUNC_ID_ZW_GET_VERSION ZW->HOST: Cmd | version
+  * @param  None
+  * @retval None
+  */
+void ZWave_RES_CMD_15_ZW_Get_Version(void)
+{
+  // Display received frame data
+  LOG("%s: received frame:\r\n", __FUNCTION__);
+  LOG("------------------------------------------------------------------------------\r\n");
+  PrintBytes(ZWaveSerialFrame, ZWaveSerialFrame->len + 1, false, 0); // Length doesn't include SOF so need to increment length
+  LOG("------------------------------------------------------------------------------\r\n");
+
+  // Example contents of serial frame (excluding checksum byte)
+  // 01 10 01 15 5A 2D 57 61     76 65 20 37 2E 32 34 00
+  // 07
+  // 2D 57 61     76 65 20 37 2E 32 34 00 is a null-terminated string: "Z-Wave 7.24"
+  // 07 is protocol_info ->eLibraryType; see ZW_application_transport_interface.h, ELibraryType
+
+  // ----------------- Version string -----------------
+  LOG("%s: Version string is '%s' \r\n", __FUNCTION__, ZWaveSerialFrame->payload);
+
+  // ----------------- Library -----------------
+  LOG("%s: Library byte is 0x%02X \r\n", __FUNCTION__, ZWaveSerialFrame->payload[strlen(ZWaveSerialFrame->payload)+1]);
+  // The following is from ZW_application_transport_interface.h, ELibraryType
+  switch (ZWaveSerialFrame->payload[strlen(ZWaveSerialFrame->payload)+1])
+  {
+  case 3:
+    LOG("%s: - ELIBRARYTYPE_SLAVE \r\n", __FUNCTION__);
+    break;
+  case 7:
+    LOG("%s: - ELIBRARYTYPE_CONTROLLER \r\n", __FUNCTION__);
+    break;
+  default:
+    LOG("%s: - *** WARNING *** Library byte 0x%02X is unknown or deprecated \r\n", __FUNCTION__);
+    break;
+  }
+}
+// end ZWave_RES_CMD_15_ZW_Get_Version
+
+/** *****************************************************************************************************************************
+  * @brief  Command handler for CMD 0x28 FUNC_ID_NVR_GET_VALUE ZW->HOST: Cmd | NVRdata[]
+  * @param  None
+  * @retval None
+  */
+void ZWave_RES_CMD_28_NVR_Get_Value(void)
+{
+  // Display received frame data
+  LOG("%s: received frame:\r\n", __FUNCTION__);
+  LOG("------------------------------------------------------------------------------\r\n");
+  PrintBytes(ZWaveSerialFrame, ZWaveSerialFrame->len + 1, false, 0); // Length doesn't include SOF so need to increment length
+  LOG("------------------------------------------------------------------------------\r\n");
+
+  LOG("%s: Retrieved NVR values: \r\n", __FUNCTION__);
+  PrintBytes(ZWaveSerialFrame->payload, ZWaveSerialFrame->len - 3, false, 0);
+}
+// end ZWave_RES_CMD_28_NVR_Get_Value
+
+/** *****************************************************************************************************************************
+  * @brief  Command handler for CMD 0x41 FUNC_ID_ZW_GET_NODE_PROTOCOL_INFO ZW->HOST: Cmd | NodeInfo[]
+  * @param  None
+  * @retval None
+  */
+void ZWave_RES_CMD_41_ZW_Get_Node_Protocol_Info(void)
+{
+  // Display received frame data
+  LOG("%s: received frame:\r\n", __FUNCTION__);
+  LOG("------------------------------------------------------------------------------\r\n");
+  PrintBytes(ZWaveSerialFrame, ZWaveSerialFrame->len + 1, false, 0); // Length doesn't include SOF so need to increment length
+  LOG("------------------------------------------------------------------------------\r\n");
+
+  // Example contents of serial frame (excluding checksum byte)
+  // 01 0A 01 41 D3 96 01 02     02 01 00
+  // D3 is network capabilities
+  // 96 is network security
+  // 01 is reserved
+  // 02 is nodeType - basic device type
+  // 02 is nodeType - generic device type
+  // 01 is nodeType - specific device type
+  // 00 is extInfo
+
+  // ----------------- Network capabilities -----------------
+  LOG("%s: Network capabilities = 0x%02X\r\n", __FUNCTION__, ZWaveSerialFrame->payload[0]);
+
+  // ----------------- Network security -----------------
+  LOG("%s: Network security     = 0x%02X\r\n", __FUNCTION__, ZWaveSerialFrame->payload[1]);
+
+  // ----------------- Reserved -----------------
+  LOG("%s: Reserved byte        = 0x%02X\r\n", __FUNCTION__, ZWaveSerialFrame->payload[2]);
+
+  // ----------------- Basic node type -----------------
+  LOG("%s: Basic    device type = 0x%02X\r\n", __FUNCTION__, ZWaveSerialFrame->payload[3]);
+  switch (ZWaveSerialFrame->payload[3])
+  {
+  case BASIC_TYPE_CONTROLLER:
+    LOG("%s: - Node is a portable controller \r\n", __FUNCTION__);
+    break;
+  case BASIC_TYPE_ROUTING_END_NODE:
+    LOG("%s: - Node is an End Node with routing capabilities \r\n", __FUNCTION__);
+    break;
+  case BASIC_TYPE_END_NODE:
+    LOG("%s: - Node is an End Node \r\n", __FUNCTION__);
+    break;
+  case BASIC_TYPE_STATIC_CONTROLLER:
+    LOG("%s: - Node is a static controller \r\n", __FUNCTION__);
+    break;
+  default:
+    LOG("%s: - *** WARNING *** Basic node type 0x%02X is UNKNOWN \r\n", __FUNCTION__, ZWaveSerialFrame->payload[3]);
+    break;
+  }
+
+  // ----------------- Generic node type -----------------
+  LOG("%s: Generic  device type = 0x%02X\r\n", __FUNCTION__, ZWaveSerialFrame->payload[4]);
+  switch (ZWaveSerialFrame->payload[4])
+  {
+  case GENERIC_TYPE_AV_CONTROL_POINT:
+    LOG("%s: - AV Control Point \r\n", __FUNCTION__);
+    break;
+  case GENERIC_TYPE_DISPLAY:
+    LOG("%s: - Display \r\n", __FUNCTION__);
+    break;
+  case GENERIC_TYPE_ENTRY_CONTROL:
+    LOG("%s: - Entry Control \r\n", __FUNCTION__);
+    break;
+  case GENERIC_TYPE_GENERIC_CONTROLLER:
+    LOG("%s: - Remote Controller \r\n", __FUNCTION__);
+    break;
+  case GENERIC_TYPE_METER:
+    LOG("%s: - Meter \r\n", __FUNCTION__);
+    break;
+  case GENERIC_TYPE_METER_PULSE:
+    LOG("%s: - Pulse Meter \r\n", __FUNCTION__);
+    break;
+  case GENERIC_TYPE_NON_INTEROPERABLE:
+    LOG("%s: - Non interoperable \r\n", __FUNCTION__);
+    break;
+  case GENERIC_TYPE_REPEATER_END_NODE:
+    LOG("%s: - Repeater End Node \r\n", __FUNCTION__);
+    break;
+  case GENERIC_TYPE_SECURITY_PANEL:
+    LOG("%s: - Security panel \r\n", __FUNCTION__);
+    break;
+  case GENERIC_TYPE_SEMI_INTEROPERABLE:
+    LOG("%s: - Semi Interoperable \r\n", __FUNCTION__);
+    break;
+  case GENERIC_TYPE_SENSOR_ALARM:
+    LOG("%s: - Sensor alarm \r\n", __FUNCTION__);
+    break;
+  case GENERIC_TYPE_SENSOR_BINARY:
+    LOG("%s: - Binary Sensor \r\n", __FUNCTION__);
+    break;
+  case GENERIC_TYPE_SENSOR_MULTILEVEL:
+    LOG("%s: - Multilevel Sensor \r\n", __FUNCTION__);
+    break;
+  case GENERIC_TYPE_STATIC_CONTROLLER:
+    LOG("%s: - Static Controller \r\n", __FUNCTION__);
+    break;
+  case GENERIC_TYPE_SWITCH_BINARY:
+    LOG("%s: - Binary Switch \r\n", __FUNCTION__);
+    break;
+  case GENERIC_TYPE_SWITCH_MULTILEVEL:
+    LOG("%s: - Multilevel Switch \r\n", __FUNCTION__);
+    break;
+  case GENERIC_TYPE_SWITCH_REMOTE:
+    LOG("%s: - Remote Switch \r\n", __FUNCTION__);
+    break;
+  case GENERIC_TYPE_SWITCH_TOGGLE:
+    LOG("%s: - Toggle Switch \r\n", __FUNCTION__);
+    break;
+  case GENERIC_TYPE_THERMOSTAT:
+    LOG("%s: - Thermostat \r\n", __FUNCTION__);
+    break;
+  case GENERIC_TYPE_VENTILATION:
+    LOG("%s: - Ventilation \r\n", __FUNCTION__);
+    break;
+  case GENERIC_TYPE_WINDOW_COVERING:
+    LOG("%s: - Window Covering \r\n", __FUNCTION__);
+    break;
+  case GENERIC_TYPE_ZIP_NODE:
+    LOG("%s: - Zip node \r\n", __FUNCTION__);
+    break;
+  case GENERIC_TYPE_WALL_CONTROLLER:
+    LOG("%s: - Wall controller \r\n", __FUNCTION__);
+    break;
+  case GENERIC_TYPE_NETWORK_EXTENDER:
+    LOG("%s: - Network Extender \r\n", __FUNCTION__);
+    break;
+  case GENERIC_TYPE_APPLIANCE:
+    LOG("%s: - Appliance \r\n", __FUNCTION__);
+    break;
+  case GENERIC_TYPE_SENSOR_NOTIFICATION:
+    LOG("%s: - Sensor Notification \r\n", __FUNCTION__);
+    break;
+  default:
+    LOG("%s: - *** WARNING *** generic device type 0x%02X UNKNOWN \r\n", __FUNCTION__, ZWaveSerialFrame->payload[4]);
+    break;
+  }
+
+  // ----------------- Specific node type -----------------
+  LOG("%s: Specific device type = 0x%02X\r\n", __FUNCTION__, ZWaveSerialFrame->payload[5]);
+  // MAB 2025.10.24 - For now just list specific types for static controllers
+  if (GENERIC_TYPE_STATIC_CONTROLLER == ZWaveSerialFrame->payload[4])
+  {
+    switch (ZWaveSerialFrame->payload[5])
+    {
+    case SPECIFIC_TYPE_NOT_USED:
+      LOG("%s: - Specific Device Class Not Used \r\n", __FUNCTION__);
+      break;
+    case SPECIFIC_TYPE_PC_CONTROLLER:
+      LOG("%s: - Central Controller Device Type \r\n", __FUNCTION__);
+      break;
+    case SPECIFIC_TYPE_SCENE_CONTROLLER:
+      LOG("%s: - Scene Controller \r\n", __FUNCTION__);
+      break;
+    case SPECIFIC_TYPE_STATIC_INSTALLER_TOOL:
+      LOG("%s: - Static installer tool \r\n", __FUNCTION__);
+      break;
+    case SPECIFIC_TYPE_SET_TOP_BOX:
+      LOG("%s: - Set Top Box \r\n", __FUNCTION__);
+      break;
+    case SPECIFIC_TYPE_SUB_SYSTEM_CONTROLLER:
+      LOG("%s: - Sub System Controller \r\n", __FUNCTION__);
+      break;
+    case SPECIFIC_TYPE_TV:
+      LOG("%s: - Television \r\n", __FUNCTION__);
+      break;
+    case SPECIFIC_TYPE_GATEWAY:
+      LOG("%s: - Gateway \r\n", __FUNCTION__);
+      break;
+    default:
+      LOG("%s: - *** WARNING *** Specific device type 0x%02X UNKNOWN \r\n", __FUNCTION__, ZWaveSerialFrame->payload[5]);
+      break;
+    }
+  }
+
+  LOG("%s: extInfo              = 0x%02X\r\n", __FUNCTION__, ZWaveSerialFrame->payload[6]);
+
+}
+// end ZWave_RES_CMD_41_ZW_Get_Node_Protocol_Info
 
 /** *****************************************************************************************************************************
   * @brief  Z-Wave SerialAPI state machine
@@ -2053,7 +2702,8 @@ ZWaveState ZWave_SerialAPI_StateMachine(ZWaveStateMachineCommand stateMachineCom
     else if (ZWAVE_FRAME_PARSE == leZWaveState)
     {
       // Invoke the handler for the received command
-      LOG("%s: Invoke the handler (callback routine) for the received frame (from the Z-Wave controller)...\r\n", __FUNCTION__);
+      //LOG("%s: Invoke the handler (callback routine) for the received frame (from the Z-Wave controller)...\r\n", __FUNCTION__);
+      ZWave_Invoke_Command_Handler(ZWaveSerialFrame->cmd);
 
       // Set state to IDLE
       LOG("%s: Transitioning from FRAME_PARSE to IDLE\r\n", __FUNCTION__);

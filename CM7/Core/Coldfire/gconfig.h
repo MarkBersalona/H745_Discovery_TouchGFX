@@ -106,7 +106,7 @@
 #define VERSION_C                 "1"
 #define VERSION_D                 "" __DATE__ " " __TIME__
 #define VERSION_ENCODED           0x00000100
-#define VERSION_DATE             "2025.10.23"
+#define VERSION_DATE             "2025.10.24"
 # endif
 #else
 #define VERSION_A		  "1"

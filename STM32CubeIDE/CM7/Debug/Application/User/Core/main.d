@@ -72,7 +72,15 @@ Application/User/Core/main.o: \
  ../../../Drivers/BSP/STM32H745I-DISCO/stm32h745i_discovery.h \
  ../../../Drivers/BSP/STM32H745I-DISCO/stm32h745i_discovery_conf.h \
  ../../../Drivers/BSP/STM32H745I-DISCO/stm32h745i_discovery_errno.h \
- ../../../CM7/Core/Inc/SerialAPI.h
+ ../../../CM7/Core/Inc/SerialAPI.h ../../../CM7/Core/Inc/zpal_init.h \
+ ../../../CM7/Core/Inc/ZW_basis_api.h ../../../CM7/Core/Inc/ZW_typedefs.h \
+ ../../../CM7/Core/Inc/ZW_transport_api.h \
+ ../../../CM7/Core/Inc/ZW_security_api.h \
+ ../../../CM7/Core/Inc/zpal_radio.h ../../../CM7/Core/Inc/zpal_status.h \
+ ../../../CM7/Core/Inc/zpal_misc.h ../../../CM7/Core/Inc/ZW_classcmd.h \
+ ../../../CM7/Core/Inc/zpal_init.h \
+ ../../../CM7/Core/Inc/cmds_management.h \
+ ../../../CM7/Core/Inc/ZAF_types.h
 ../../../CM7/Core/Inc/main.h:
 ../../../Drivers/STM32H7xx_HAL_Driver/Inc/stm32h7xx_hal.h:
 ../../../CM7/Core/Inc/stm32h7xx_hal_conf.h:
@@ -147,3 +155,15 @@ Application/User/Core/main.o: \
 ../../../Drivers/BSP/STM32H745I-DISCO/stm32h745i_discovery_conf.h:
 ../../../Drivers/BSP/STM32H745I-DISCO/stm32h745i_discovery_errno.h:
 ../../../CM7/Core/Inc/SerialAPI.h:
+../../../CM7/Core/Inc/zpal_init.h:
+../../../CM7/Core/Inc/ZW_basis_api.h:
+../../../CM7/Core/Inc/ZW_typedefs.h:
+../../../CM7/Core/Inc/ZW_transport_api.h:
+../../../CM7/Core/Inc/ZW_security_api.h:
+../../../CM7/Core/Inc/zpal_radio.h:
+../../../CM7/Core/Inc/zpal_status.h:
+../../../CM7/Core/Inc/zpal_misc.h:
+../../../CM7/Core/Inc/ZW_classcmd.h:
+../../../CM7/Core/Inc/zpal_init.h:
+../../../CM7/Core/Inc/cmds_management.h:
+../../../CM7/Core/Inc/ZAF_types.h:
