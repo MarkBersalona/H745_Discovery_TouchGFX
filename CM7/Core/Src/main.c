@@ -304,6 +304,13 @@ static ZWaveRxInterface_t gtZWaveRxInterface = {
 
 ZWaveInterfaceFrame_ptr const ZWaveSerialFrame = (ZWaveInterfaceFrame_ptr)gtZWaveRxInterface.buffer;
 
+//
+// Dispatch tables for Z-Wave command callbacks
+//
+typedef void (*zwave_cmd_handler_t)(void);
+
+zwave_cmd_handler_t gtZWave_CMD_Callback[256];
+
 /////////////////////////////
 
 /* USER CODE END PV */
@@ -339,6 +346,7 @@ void ZWave_RES_CMD_0B_Serial_API_Setup(void);
 void ZWave_RES_CMD_15_ZW_Get_Version(void);
 void ZWave_RES_CMD_28_NVR_Get_Value(void);
 void ZWave_RES_CMD_41_ZW_Get_Node_Protocol_Info(void);
+void ZWave_RES_CMD_XX_Unsupported(void);
 
 uint8_t ZWave_XOR_Checksum(uint8_t aucInitialValue, const uint8_t *paucDataBuffer, uint8_t aucLength);
 
@@ -1766,63 +1774,6 @@ void ZWave_Handle_TYPE(uint8_t aucRxByte)
 // end ZWave_Handle_TYPE
 
 /** *****************************************************************************************************************************
-  * @brief  Invoke handler (callback routine) for given command received from the Z-Wave controller
-  * @param  aucCommand - command
-  * @retval None
-  */
-void ZWave_Invoke_Command_Handler(uint8_t aucCommand)
-{
-  switch (aucCommand)
-  {
-  case FUNC_ID_SERIAL_API_STARTED:
-    LOG("%s: Command: FUNC_ID_SERIAL_API_STARTED \r\n", __FUNCTION__);
-    ZWave_REQ_CMD_0A_Serial_API_Started();
-    break;
-  case FUNC_ID_SERIAL_API_SETUP:
-    LOG("%s: Command: FUNC_ID_SERIAL_API_SETUP \r\n", __FUNCTION__);
-    ZWave_RES_CMD_0B_Serial_API_Setup();
-    break;
-  case FUNC_ID_ZW_GET_NODE_PROTOCOL_INFO:
-    LOG("%s: Command: FUNC_ID_ZW_GET_NODE_PROTOCOL_INFO \r\n", __FUNCTION__);
-    ZWave_RES_CMD_41_ZW_Get_Node_Protocol_Info();
-    break;
-  case FUNC_ID_ZW_GET_VERSION:
-    LOG("%s: Command: FUNC_ID_ZW_GET_VERSION \r\n", __FUNCTION__);
-    ZWave_RES_CMD_15_ZW_Get_Version();
-    break;
-  case FUNC_ID_NVR_GET_VALUE:
-    LOG("%s: Command: FUNC_ID_NVR_GET_VALUE \r\n", __FUNCTION__);
-    ZWave_RES_CMD_28_NVR_Get_Value();
-    break;
-  case FUNC_ID_SERIAL_API_GET_INIT_DATA:
-    LOG("%s: Command: FUNC_ID_SERIAL_API_GET_INIT_DATA \r\n", __FUNCTION__);
-    break;
-  case FUNC_ID_SERIAL_API_GET_CAPABILITIES:
-    LOG("%s: Command: FUNC_ID_SERIAL_API_GET_CAPABILITIES \r\n", __FUNCTION__);
-    break;
-  case FUNC_ID_SERIAL_API_GET_LR_NODES:
-    LOG("%s: Command: FUNC_ID_SERIAL_API_GET_LR_NODES \r\n", __FUNCTION__);
-    break;
-  case FUNC_ID_ZW_GET_CONTROLLER_CAPABILITIES:
-    LOG("%s: Command: FUNC_ID_ZW_GET_CONTROLLER_CAPABILITIES \r\n", __FUNCTION__);
-    break;
-  case FUNC_ID_ZW_GET_SUC_NODE_ID:
-    LOG("%s: Command: FUNC_ID_ZW_GET_SUC_NODE_ID \r\n", __FUNCTION__);
-    break;
-  case FUNC_ID_MEMORY_GET_ID:
-    LOG("%s: Command: FUNC_ID_MEMORY_GET_ID \r\n", __FUNCTION__);
-    break;
-  case FUNC_ID_GET_RADIO_PTI:
-    LOG("%s: Command: FUNC_ID_GET_RADIO_PTI \r\n", __FUNCTION__);
-    break;
-  default:
-    LOG("%s: *** WARNING *** Command: 0x%02X not supported yet... \r\n", __FUNCTION__, aucCommand);
-    break;
-  }
-}
-// end ZWave_Invoke_Command_Handler
-
-/** *****************************************************************************************************************************
   * @brief  Parse received FIFO bytes from Z-Wave controller
   * @param  aucIsACKRequired - TRUE if received frame should be ACKed; FALSE otherwise
   * @retval Result of parsing received bytes from Z-Wave controller
@@ -2537,6 +2488,17 @@ void ZWave_RES_CMD_41_ZW_Get_Node_Protocol_Info(void)
 // end ZWave_RES_CMD_41_ZW_Get_Node_Protocol_Info
 
 /** *****************************************************************************************************************************
+  * @brief  Dummy command handler for unsupported Z-Wave command
+  * @param  None
+  * @retval None
+  */
+void ZWave_RES_CMD_XX_Unsupported(void)
+{
+  LOG("%s: *** WARNING *** Command: 0x%02X not supported yet... \r\n", __FUNCTION__, ZWaveSerialFrame->cmd);
+}
+// end ZWave_RES_CMD_XX_Unsupported
+
+/** *****************************************************************************************************************************
   * @brief  Z-Wave SerialAPI state machine
   * @param  stateMachineCommand - INITIALIZE, RUN or STATE
   * @retval Present state
@@ -2703,7 +2665,7 @@ ZWaveState ZWave_SerialAPI_StateMachine(ZWaveStateMachineCommand stateMachineCom
     {
       // Invoke the handler for the received command
       //LOG("%s: Invoke the handler (callback routine) for the received frame (from the Z-Wave controller)...\r\n", __FUNCTION__);
-      ZWave_Invoke_Command_Handler(ZWaveSerialFrame->cmd);
+      gtZWave_CMD_Callback[ZWaveSerialFrame->cmd]();
 
       // Set state to IDLE
       LOG("%s: Transitioning from FRAME_PARSE to IDLE\r\n", __FUNCTION__);
@@ -3286,6 +3248,25 @@ void ZWaveTask(void *argument)
   {
     //LOG("%s: HAL_UART_Receive_IT(&huart2) (for Z-Wave) returned HAL_OK\r\n", __FUNCTION__);
   }
+
+  // Initialize command callback array
+  for (int i = 0; i < 256; ++i)
+  {
+    gtZWave_CMD_Callback[i] = ZWave_RES_CMD_XX_Unsupported;
+  }
+  gtZWave_CMD_Callback[FUNC_ID_SERIAL_API_STARTED]        = ZWave_REQ_CMD_0A_Serial_API_Started;
+  gtZWave_CMD_Callback[FUNC_ID_SERIAL_API_SETUP]          = ZWave_RES_CMD_0B_Serial_API_Setup;
+  gtZWave_CMD_Callback[FUNC_ID_ZW_GET_NODE_PROTOCOL_INFO] = ZWave_RES_CMD_41_ZW_Get_Node_Protocol_Info;
+  gtZWave_CMD_Callback[FUNC_ID_ZW_GET_VERSION]            = ZWave_RES_CMD_15_ZW_Get_Version;
+  gtZWave_CMD_Callback[FUNC_ID_NVR_GET_VALUE]             = ZWave_RES_CMD_28_NVR_Get_Value;
+  //gtZWave_CMD_Callback[FUNC_ID_SERIAL_API_GET_INIT_DATA] = xxxxxxxxxxxxxxxxx;
+  //gtZWave_CMD_Callback[FUNC_ID_SERIAL_API_GET_CAPABILITIES] = xxxxxxxxxxxxxxxxx;
+  //gtZWave_CMD_Callback[FUNC_ID_SERIAL_API_GET_LR_NODES] = xxxxxxxxxxxxxxxxx;
+  //gtZWave_CMD_Callback[FUNC_ID_ZW_GET_CONTROLLER_CAPABILITIES] = xxxxxxxxxxxxxxxxx;
+  //gtZWave_CMD_Callback[FUNC_ID_ZW_GET_SUC_NODE_ID] = xxxxxxxxxxxxxxxxx;
+  //gtZWave_CMD_Callback[FUNC_ID_MEMORY_GET_ID] = xxxxxxxxxxxxxxxxx;
+  //gtZWave_CMD_Callback[FUNC_ID_GET_RADIO_PTI] = xxxxxxxxxxxxxxxxx;
+  //gtZWave_CMD_Callback[xxxxxxxxxxxxxxxxxx] = xxxxxxxxxxxxxxxxx;
 
   // Initialize Z-Wave SerialAPI state machine
   ZWave_SerialAPI_StateMachine(ZWAVE_SM_CMD_INITIALIZE);
