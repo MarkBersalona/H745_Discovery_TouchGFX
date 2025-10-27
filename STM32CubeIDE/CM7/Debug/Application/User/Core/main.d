@@ -80,7 +80,8 @@ Application/User/Core/main.o: \
  ../../../CM7/Core/Inc/zpal_misc.h ../../../CM7/Core/Inc/ZW_classcmd.h \
  ../../../CM7/Core/Inc/zpal_init.h \
  ../../../CM7/Core/Inc/cmds_management.h \
- ../../../CM7/Core/Inc/ZAF_types.h
+ ../../../CM7/Core/Inc/ZAF_types.h ../../../CM7/Core/Inc/NodeMask.h \
+ ../../../CM7/Core/Inc/ZW_controller_api.h
 ../../../CM7/Core/Inc/main.h:
 ../../../Drivers/STM32H7xx_HAL_Driver/Inc/stm32h7xx_hal.h:
 ../../../CM7/Core/Inc/stm32h7xx_hal_conf.h:
@@ -167,3 +168,5 @@ Application/User/Core/main.o: \
 ../../../CM7/Core/Inc/zpal_init.h:
 ../../../CM7/Core/Inc/cmds_management.h:
 ../../../CM7/Core/Inc/ZAF_types.h:
+../../../CM7/Core/Inc/NodeMask.h:
+../../../CM7/Core/Inc/ZW_controller_api.h:
