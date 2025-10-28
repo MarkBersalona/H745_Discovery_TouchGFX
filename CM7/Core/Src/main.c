@@ -39,6 +39,7 @@
 #include "cmds_management.h"
 #include "NodeMask.h"
 #include "ZW_controller_api.h"
+#include "zpal_radio.h"
 
 /* USER CODE END Includes */
 
@@ -311,7 +312,7 @@ ZWaveInterfaceFrame_ptr const ZWaveSerialFrame = (ZWaveInterfaceFrame_ptr)gtZWav
 //
 typedef void (*zwave_cmd_handler_t)(void);
 
-zwave_cmd_handler_t gtZWave_CMD_Callback[256];
+zwave_cmd_handler_t gtZWave_CMD_Handler[256];
 
 /////////////////////////////
 
@@ -348,6 +349,7 @@ void ZWave_RES_CMD_02_Get_Init_Data(void);
 void ZWave_RES_CMD_05_ZW_Get_Controller_Capabilities(void);
 void ZWave_RES_CMD_07_Serial_API_Get_Capabilities(void);
 void ZWave_RES_CMD_0B_Serial_API_Setup(void);
+void ZWave_RSQ_CMD_13_ZW_Send_Data(void);
 void ZWave_RES_CMD_15_ZW_Get_Version(void);
 void ZWave_RES_CMD_20_Memory_Get_ID(void);
 void ZWave_RES_CMD_28_NVR_Get_Value(void);
@@ -356,6 +358,7 @@ void ZWave_RES_CMD_56_ZW_Get_SUC_Node_ID(void);
 void ZWave_RES_CMD_A6_ZW_Is_Virtual_Node(void);
 void ZWave_RES_CMD_DA_Serial_API_Get_LR_Nodes(void);
 void ZWave_RES_CMD_DE_Get_DCDC_Config(void);
+void ZWave_RES_CMD_E8_Get_Radio_PTI(void);
 void ZWave_RES_CMD_XX_Unsupported(void);
 
 uint8_t ZWave_XOR_Checksum(uint8_t aucInitialValue, const uint8_t *paucDataBuffer, uint8_t aucLength);
@@ -2402,6 +2405,20 @@ void ZWave_RES_CMD_0B_Serial_API_Setup(void)
     LOG("%s: Readout   = 0x%04X\r\n", __FUNCTION__, luiReadout);
   }
 
+  // ----------------- SERIAL_API_SETUP_CMD_TX_GET_MAX_PAYLOAD_SIZE -----------------
+  if (SERIAL_API_SETUP_CMD_TX_GET_MAX_PAYLOAD_SIZE == ZWaveSerialFrame->payload[0])
+  {
+    uint8_t lucMaxPayloadSize   = ZWaveSerialFrame->payload[1];
+    LOG("%s: Max payload size   = 0x%02X\r\n", __FUNCTION__, lucMaxPayloadSize);
+  }
+
+  // ----------------- SERIAL_API_SETUP_CMD_TX_GET_MAX_LR_PAYLOAD_SIZE -----------------
+  if (SERIAL_API_SETUP_CMD_TX_GET_MAX_LR_PAYLOAD_SIZE == ZWaveSerialFrame->payload[0])
+  {
+    uint8_t lucMaxLRPayloadSize   = ZWaveSerialFrame->payload[1];
+    LOG("%s: Max LR payload size   = 0x%02X\r\n", __FUNCTION__, lucMaxLRPayloadSize);
+  }
+
   // ----------------- SERIAL_API_SETUP_CMD_TX_POWERLEVEL_GET_16_BIT -----------------
   if (SERIAL_API_SETUP_CMD_TX_POWERLEVEL_GET_16_BIT == ZWaveSerialFrame->payload[0])
   {
@@ -2409,6 +2426,60 @@ void ZWave_RES_CMD_0B_Serial_API_Setup(void)
     uint16_t luiPower0dbmMeasured = 0x100*ZWaveSerialFrame->payload[3] + ZWaveSerialFrame->payload[4];
     LOG("%s: Power level                = 0x%04X\r\n", __FUNCTION__, luiPowerLevel);
     LOG("%s: Power level 0 dbm measured = 0x%04X\r\n", __FUNCTION__, luiPower0dbmMeasured);
+  }
+
+  // ----------------- SERIAL_API_SETUP_CMD_RF_REGION_GET -----------------
+  if (SERIAL_API_SETUP_CMD_RF_REGION_GET == ZWaveSerialFrame->payload[0])
+  {
+    uint8_t lucRfRegion = ZWaveSerialFrame->payload[1];
+    switch (lucRfRegion)
+    {
+    case REGION_EU:
+      LOG("%s: RF region = 0x%02X (EU) \r\n", __FUNCTION__, lucRfRegion);
+      break;
+    case REGION_US:
+      LOG("%s: RF region = 0x%02X (USA) \r\n", __FUNCTION__, lucRfRegion);
+      break;
+    case REGION_ANZ:
+      LOG("%s: RF region = 0x%02X (Australia/New Zealand) \r\n", __FUNCTION__, lucRfRegion);
+      break;
+    case REGION_HK:
+      LOG("%s: RF region = 0x%02X (Hong Kong) \r\n", __FUNCTION__, lucRfRegion);
+      break;
+    case REGION_US_LR:
+      LOG("%s: RF region = 0x%02X (USA - Long Range) \r\n", __FUNCTION__, lucRfRegion);
+      break;
+    case REGION_EU_LR:
+      LOG("%s: RF region = 0x%02X (EU - Long Range) \r\n", __FUNCTION__, lucRfRegion);
+      break;
+    case REGION_IN:
+      LOG("%s: RF region = 0x%02X (India) \r\n", __FUNCTION__, lucRfRegion);
+      break;
+    case REGION_IL:
+      LOG("%s: RF region = 0x%02X (Israel) \r\n", __FUNCTION__, lucRfRegion);
+      break;
+    case REGION_RU:
+      LOG("%s: RF region = 0x%02X (Russia) \r\n", __FUNCTION__, lucRfRegion);
+      break;
+    case REGION_CN:
+      LOG("%s: RF region = 0x%02X (China) \r\n", __FUNCTION__, lucRfRegion);
+      break;
+    case REGION_JP:
+      LOG("%s: RF region = 0x%02X (Japan) \r\n", __FUNCTION__, lucRfRegion);
+      break;
+    case REGION_KR:
+      LOG("%s: RF region = 0x%02X (Korea) \r\n", __FUNCTION__, lucRfRegion);
+      break;
+    case REGION_UNDEFINED:
+      LOG("%s: RF region = 0x%02X (undefined) \r\n", __FUNCTION__, lucRfRegion);
+      break;
+    case REGION_DEFAULT:
+      LOG("%s: RF region = 0x%02X (default - EU) \r\n", __FUNCTION__, lucRfRegion);
+      break;
+    default:
+      LOG("%s: RF region = 0x%02X (unknown) \r\n", __FUNCTION__, lucRfRegion);
+      break;
+    }
   }
 
   // ----------------- SERIAL_API_SETUP_CMD_NODEID_BASETYPE_SET -----------------
@@ -2426,6 +2497,48 @@ void ZWave_RES_CMD_0B_Serial_API_Setup(void)
   }
 }
 // end ZWave_RES_CMD_0B_Serial_API_Setup
+
+/** *****************************************************************************************************************************
+  * @brief  Command handler for CMD 0x13 FUNC_ID_ZW_SEND_DATA ZW->HOST: RES | Cmd | retVal; REQ | Cmd | data[]
+  * @param  None
+  * @retval None
+  */
+void ZWave_RSQ_CMD_13_ZW_Send_Data(void)
+{
+  // This routine handles BOTH cases when Z-Wave controller sends the RESPONSE with a return value, and if the return value
+  // is TRUE, the controller sends a REQUEST with assorted data.
+
+  if (RESPONSE == ZWaveSerialFrame->type)
+  {
+    //////////////////////////////////////////////////////
+    // Handle the RESPONSE with single return value
+    //////////////////////////////////////////////////////
+    LOG("%s: Return value = 0x%02X\r\n", __FUNCTION__, ZWaveSerialFrame->payload[0]);
+    if (ZWaveSerialFrame->payload[0])
+    {
+      LOG("%s: - expect a callback REQUEST with assorted data...\r\n", __FUNCTION__);
+    }
+    else
+    {
+      LOG("%s: - No further data are expected\r\n", __FUNCTION__);
+    }
+  }
+  else
+  {
+    //////////////////////////////////////////////////////
+    // Handle the REQUEST with assorted data
+    //////////////////////////////////////////////////////
+    /* ZW->HOST: funcID | txStatus | wTransmitTicksMSB | wTransmitTicksLSB | bRepeaters | rssi_values.incoming[0] |
+     *           rssi_values.incoming[1] | rssi_values.incoming[2] | rssi_values.incoming[3] | rssi_values.incoming[4] |
+     *           bRouteSchemeState | repeater0 | repeater1 | repeater2 | repeater3 | routespeed |
+     *           bRouteTries | bLastFailedLink.from | bLastFailedLink.to |
+     *           bUsedTxpower | bMeasuredNoiseFloor | bAckDestinationUsedTxPower | bDestinationAckMeasuredRSSI |
+     *           bDestinationckMeasuredNoiseFloor */
+    LOG("%s: Payload data...\r\n", __FUNCTION__);
+    PrintBytes(ZWaveSerialFrame->payload, ZWaveSerialFrame->len - 3, false, 0);
+  }
+}
+// end ZWave_RSQ_CMD_13_ZW_Send_Data
 
 /** *****************************************************************************************************************************
   * @brief  Command handler for CMD 0x15 FUNC_ID_ZW_GET_VERSION ZW->HOST: Cmd | version
@@ -2752,6 +2865,25 @@ void ZWave_RES_CMD_DE_Get_DCDC_Config(void)
 // end ZWave_RES_CMD_DE_Get_DCDC_Config
 
 /** *****************************************************************************************************************************
+  * @brief  Command handler for CMD 0xE8 FUNC_ID_GET_RADIO_PTI ZW->HOST: Cmd | retVal
+  * @param  None
+  * @retval None
+  */
+void ZWave_RES_CMD_E8_Get_Radio_PTI(void)
+{
+  LOG("%s: Radio PTI status = 0x%02X\r\n", __FUNCTION__, ZWaveSerialFrame->payload[0]);
+  if (ZWaveSerialFrame->payload[0])
+  {
+    LOG("%s: - PTI Zniffer is ENABLED \r\n", __FUNCTION__);
+  }
+  else
+  {
+    LOG("%s: - PTI Zniffer is DISABLED \r\n", __FUNCTION__);
+  }
+}
+// end ZWave_RES_CMD_E8_Get_Radio_PTI
+
+/** *****************************************************************************************************************************
   * @brief  Dummy command handler for unsupported Z-Wave command
   * @param  None
   * @retval None
@@ -2929,7 +3061,7 @@ ZWaveState ZWave_SerialAPI_StateMachine(ZWaveStateMachineCommand stateMachineCom
     {
       // Invoke the handler for the received command
       //LOG("%s: Invoke the handler (callback routine) for the received frame (from the Z-Wave controller)...\r\n", __FUNCTION__);
-      gtZWave_CMD_Callback[ZWaveSerialFrame->cmd]();
+      gtZWave_CMD_Handler[ZWaveSerialFrame->cmd]();
 
       // Set state to IDLE
       LOG("%s: Transitioning from FRAME_PARSE to IDLE\r\n", __FUNCTION__);
@@ -3513,26 +3645,27 @@ void ZWaveTask(void *argument)
     //LOG("%s: HAL_UART_Receive_IT(&huart2) (for Z-Wave) returned HAL_OK\r\n", __FUNCTION__);
   }
 
-  // Initialize command callback array
+  // Initialize command handler array
   for (int i = 0; i < 256; ++i)
   {
-    gtZWave_CMD_Callback[i] = ZWave_RES_CMD_XX_Unsupported;
+    gtZWave_CMD_Handler[i] = ZWave_RES_CMD_XX_Unsupported;
   }
-  gtZWave_CMD_Callback[FUNC_ID_SERIAL_API_GET_INIT_DATA]       = ZWave_RES_CMD_02_Get_Init_Data;
-  gtZWave_CMD_Callback[FUNC_ID_ZW_GET_CONTROLLER_CAPABILITIES] = ZWave_RES_CMD_05_ZW_Get_Controller_Capabilities;
-  gtZWave_CMD_Callback[FUNC_ID_SERIAL_API_GET_CAPABILITIES]    = ZWave_RES_CMD_07_Serial_API_Get_Capabilities;
-  gtZWave_CMD_Callback[FUNC_ID_SERIAL_API_STARTED]             = ZWave_REQ_CMD_0A_Serial_API_Started;
-  gtZWave_CMD_Callback[FUNC_ID_SERIAL_API_SETUP]               = ZWave_RES_CMD_0B_Serial_API_Setup;
-  gtZWave_CMD_Callback[FUNC_ID_ZW_GET_VERSION]                 = ZWave_RES_CMD_15_ZW_Get_Version;
-  gtZWave_CMD_Callback[FUNC_ID_MEMORY_GET_ID]                  = ZWave_RES_CMD_20_Memory_Get_ID;
-  gtZWave_CMD_Callback[FUNC_ID_NVR_GET_VALUE]                  = ZWave_RES_CMD_28_NVR_Get_Value;
-  gtZWave_CMD_Callback[FUNC_ID_ZW_GET_NODE_PROTOCOL_INFO]      = ZWave_RES_CMD_41_ZW_Get_Node_Protocol_Info;
-  gtZWave_CMD_Callback[FUNC_ID_ZW_GET_SUC_NODE_ID]             = ZWave_RES_CMD_56_ZW_Get_SUC_Node_ID;
-  gtZWave_CMD_Callback[FUNC_ID_ZW_IS_VIRTUAL_NODE]             = ZWave_RES_CMD_A6_ZW_Is_Virtual_Node;
-  gtZWave_CMD_Callback[FUNC_ID_SERIAL_API_GET_LR_NODES]        = ZWave_RES_CMD_DA_Serial_API_Get_LR_Nodes;
-  gtZWave_CMD_Callback[FUNC_ID_GET_DCDC_CONFIG]                = ZWave_RES_CMD_DE_Get_DCDC_Config;
-  //gtZWave_CMD_Callback[FUNC_ID_GET_RADIO_PTI] = xxxxxxxxxxxxxxxxx;
-  //gtZWave_CMD_Callback[xxxxxxxxxxxxxxxxxx] = xxxxxxxxxxxxxxxxx;
+  gtZWave_CMD_Handler[FUNC_ID_SERIAL_API_GET_INIT_DATA]       = ZWave_RES_CMD_02_Get_Init_Data;
+  gtZWave_CMD_Handler[FUNC_ID_ZW_GET_CONTROLLER_CAPABILITIES] = ZWave_RES_CMD_05_ZW_Get_Controller_Capabilities;
+  gtZWave_CMD_Handler[FUNC_ID_SERIAL_API_GET_CAPABILITIES]    = ZWave_RES_CMD_07_Serial_API_Get_Capabilities;
+  gtZWave_CMD_Handler[FUNC_ID_SERIAL_API_STARTED]             = ZWave_REQ_CMD_0A_Serial_API_Started;
+  gtZWave_CMD_Handler[FUNC_ID_SERIAL_API_SETUP]               = ZWave_RES_CMD_0B_Serial_API_Setup;
+  gtZWave_CMD_Handler[FUNC_ID_ZW_SEND_DATA]                   = ZWave_RSQ_CMD_13_ZW_Send_Data;
+  gtZWave_CMD_Handler[FUNC_ID_ZW_GET_VERSION]                 = ZWave_RES_CMD_15_ZW_Get_Version;
+  gtZWave_CMD_Handler[FUNC_ID_MEMORY_GET_ID]                  = ZWave_RES_CMD_20_Memory_Get_ID;
+  gtZWave_CMD_Handler[FUNC_ID_NVR_GET_VALUE]                  = ZWave_RES_CMD_28_NVR_Get_Value;
+  gtZWave_CMD_Handler[FUNC_ID_ZW_GET_NODE_PROTOCOL_INFO]      = ZWave_RES_CMD_41_ZW_Get_Node_Protocol_Info;
+  gtZWave_CMD_Handler[FUNC_ID_ZW_GET_SUC_NODE_ID]             = ZWave_RES_CMD_56_ZW_Get_SUC_Node_ID;
+  gtZWave_CMD_Handler[FUNC_ID_ZW_IS_VIRTUAL_NODE]             = ZWave_RES_CMD_A6_ZW_Is_Virtual_Node;
+  gtZWave_CMD_Handler[FUNC_ID_SERIAL_API_GET_LR_NODES]        = ZWave_RES_CMD_DA_Serial_API_Get_LR_Nodes;
+  gtZWave_CMD_Handler[FUNC_ID_GET_DCDC_CONFIG]                = ZWave_RES_CMD_DE_Get_DCDC_Config;
+  gtZWave_CMD_Handler[FUNC_ID_GET_RADIO_PTI]                  = ZWave_RES_CMD_E8_Get_Radio_PTI;
+  //gtZWave_CMD_Handler[xxxxxxxxxxxxxxxxxx] = xxxxxxxxxxxxxxxxx;
 
   // Initialize Z-Wave SerialAPI state machine
   ZWave_SerialAPI_StateMachine(ZWAVE_SM_CMD_INITIALIZE);
