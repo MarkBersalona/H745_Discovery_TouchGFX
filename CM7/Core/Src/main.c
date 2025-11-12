@@ -316,6 +316,10 @@ zwave_cmd_handler_t gtZWave_CMD_Handler[256];
 // State variables for ZWave state machine
 uint8_t gucRetryCount = 0;
 
+// Payload buffer for transmitted ZWave frames
+// (comparable to compl_workbuf[] in ZWave_NCP_SerialAPI_Controller_Solution
+uint8_t gucZWaveWorkbuf[BUF_SIZE_TX];
+
 /////////////////////////////
 
 /* USER CODE END PV */
@@ -1527,8 +1531,9 @@ uint8_t ZWave_Enqueue_Request_Unsolicited(uint8_t aucCMD, uint8_t* paucData, uin
 ZWaveRxParseResult_t ZWave_Handle_CHECKSUM(uint8_t aucRxByte, uint8_t aucIsACKRequired)
 {
   static ZWaveRxParseResult_t ltResult;
+  static uint8_t lucResponse;
 
-  //LOG("%s: CHECKSUM byte is 0x%02X\r\n", __FUNCTION__, aucRxByte);
+  LOG("%s: CHECKSUM byte is 0x%02X\r\n", __FUNCTION__, aucRxByte);
 
   // Reset byte timeout
   gtZWaveRxInterface.byte_timeout = false;
@@ -1544,7 +1549,7 @@ ZWaveRxParseResult_t ZWave_Handle_CHECKSUM(uint8_t aucRxByte, uint8_t aucIsACKRe
   // comm_interface.c, SerialAPIStateHandler() state is stateTxSerial, stateCallbackTxSerial or stateCommandTxSerial
   /* Drop the new frame we received - we don't have time to handle it. */
   ltResult = ZWAVE_RX_PARSE_IDLE;
-  uint8_t lucResponse = CAN;
+  lucResponse = CAN;
 
   /* Do we send ACK/NAK according to checksum... */
   /* if not then the received frame is dropped! */
@@ -1554,28 +1559,12 @@ ZWaveRxParseResult_t ZWave_Handle_CHECKSUM(uint8_t aucRxByte, uint8_t aucIsACKRe
     ltResult = (aucRxByte == checksum) ? ZWAVE_RX_PARSE_FRAME_RECEIVED : ZWAVE_RX_PARSE_FRAME_ERROR;
     lucResponse = (aucRxByte == checksum) ? ACK : NAK;
   }
-  switch (lucResponse)
-  {
-  case ACK:
-    //LOG("%s: ACK (checksum OK)\r\n", __FUNCTION__);
-    break;
-  case NAK:
-    LOG("%s: *** WARNING *** NAK (checksum error)\r\n", __FUNCTION__);
-    break;
-  case CAN:
-    LOG("%s:*** WARNING ***  CAN (unable to process received frame: received frame dropped)\r\n", __FUNCTION__);
-    break;
-  default:
-    LOG("%s: *** WARNING *** lucResponse = 0x%02X UNKNOWN\r\n", __FUNCTION__, lucResponse);
-    break;
-  }
 
   // At this point the received frame (minus the checksum) has been saved to the Rx buffer
   // Display the received frame
   //LOG("%s: gtZWaveRxInterface.buffer_len=%d \t ZWaveSerialFrame->len=%d\r\n", __FUNCTION__, gtZWaveRxInterface.buffer_len, ZWaveSerialFrame->len);
   LOG("-----------------------  Z-Wave received frame (minus checksum) START -----------------------\r\n");
   PrintBytes(gtZWaveRxInterface.buffer, gtZWaveRxInterface.buffer_len, false, 0);
-  //PrintBytes(ZWaveSerialFrame, ZWaveSerialFrame->len, false, 0); // length off by -1 because SOF excluded
   LOG("-----------------------  Z-Wave received frame (minus checksum)  END  -----------------------\r\n");
 
   // Set ZWave Rx state to SOF
@@ -1585,7 +1574,22 @@ ZWaveRxParseResult_t ZWave_Handle_CHECKSUM(uint8_t aucRxByte, uint8_t aucIsACKRe
   ///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
   // Transmit ACK (checksum OK), NAK (checksum error) or CAN (unable to process received frame: received frame dropped)
   ///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
-  //HAL_UART_Transmit(&huart2, (uint8_t *)&lucResponse, 1, 1);
+  HAL_UART_Transmit(&huart2, (uint8_t *)&lucResponse, 1, 1);
+  switch (lucResponse)
+  {
+  case ACK:
+    LOG("%s: Transmitting ACK (checksum OK) to Z-Wave controller\r\n", __FUNCTION__);
+    break;
+  case NAK:
+    LOG("%s: *** WARNING *** Transmitting NAK (checksum error) to Z-Wave controller\r\n", __FUNCTION__);
+    break;
+  case CAN:
+    LOG("%s: *** WARNING *** Transmitting CAN (unable to process received frame: received frame dropped) to Z-Wave controller\r\n", __FUNCTION__);
+    break;
+  default:
+    LOG("%s: *** WARNING *** Transmitting 0x%02X UNKNOWN to Z-Wave controller\r\n", __FUNCTION__, lucResponse);
+    break;
+  }
 
   // Return result
   return ltResult;
@@ -1997,6 +2001,64 @@ ZWaveRxParseResult_t ZWave_Parse_Rx_Data(uint8_t aucIsACKRequired)
 // end ZWave_Parse_Rx_Data
 
 /** *****************************************************************************************************************************
+  * @brief  Remove the oldest frame from the transmit callback queue (it has been transmitted)
+  * @param  None
+  * @retval None
+  */
+void ZWave_Pop_Callback_Queue(void)
+{
+  // IF the queue count > 0
+  if (gstructCallbackQueue.requestCnt)
+  {
+    // Decrement queue count
+    gstructCallbackQueue.requestCnt--;
+
+    // Advance the output pointer to the next frame in the queue
+    if (++gstructCallbackQueue.requestOut >= MAX_CALLBACK_QUEUE)
+    {
+      gstructCallbackQueue.requestOut = 0;
+    }
+  }
+  // ELSE
+  else
+  {
+    // Set the output pointer to the input pointer
+    gstructCallbackQueue.requestOut = gstructCallbackQueue.requestIn;
+  }
+  // ENDIF
+}
+// end ZWave_Pop_Callback_Queue
+
+/** *****************************************************************************************************************************
+  * @brief  Remove the oldest frame from the transmit command queue (it has been transmitted)
+  * @param  None
+  * @retval None
+  */
+void ZWave_Pop_Command_Queue(void)
+{
+  // IF the queue count > 0
+  if (gstructCommandQueue.requestCnt)
+  {
+    // Decrement queue count
+    gstructCommandQueue.requestCnt--;
+
+    // Advance the output pointer to the next frame in the queue
+    if (++gstructCommandQueue.requestOut >= MAX_UNSOLICITED_QUEUE)
+    {
+      gstructCommandQueue.requestOut = 0;
+    }
+  }
+  // ELSE
+  else
+  {
+    // Set the output pointer to the input pointer
+    gstructCommandQueue.requestOut = gstructCommandQueue.requestIn;
+  }
+  // ENDIF
+}
+// end ZWave_Pop_Command_Queue
+
+/** *****************************************************************************************************************************
   * @brief  Read received FIFO bytes from Z-Wave controller
   * @param  *aucResponseBuffer - pointer to buffer into which received bytes will be copied
   * @retval Count of bytes received (possibly 0)
@@ -2270,6 +2332,12 @@ uint32_t lulZpalRetentionResetInfo = (0x1000000*ZWaveSerialFrame->payload[6+i]) 
                                        (          ZWaveSerialFrame->payload[9+i]) ;
   LOG("%s: Retained reset info       = 0x%08X\r\n", __FUNCTION__, lulZpalRetentionResetInfo);
 
+  ///////////////////////////////////////////////////////////////////////////
+  //// TEST MAB 2025.11.12
+  //// When the Serial API Started request is received,
+  //// send the Serial API Setup request to the ZWave controller
+  ZWave_Send_REQ_CMD_0B_Serial_API_Setup(SERIAL_API_SETUP_CMD_NODEID_BASETYPE_SET);
+  ///////////////////////////////////////////////////////////////////////////
 }
 // end ZWave_REQ_CMD_0A_Serial_API_Started
 
@@ -2987,6 +3055,24 @@ void ZWave_RES_CMD_XX_Unsupported(void)
 // end ZWave_RES_CMD_XX_Unsupported
 
 /** *****************************************************************************************************************************
+  * @brief  Prepare and send REQ CMD 0B Serial API Setup
+  * @param  aeSetupCommand - SerialAPI setup command
+  * @retval None
+  */
+void ZWave_Send_REQ_CMD_0B_Serial_API_Setup(eSerialAPISetupCmd aeSetupCommand)
+{
+  // SERIAL_API_SETUP_CMD_NODEID_BASETYPE_SET
+  if (SERIAL_API_SETUP_CMD_NODEID_BASETYPE_SET == aeSetupCommand)
+  {
+    gucZWaveWorkbuf[0]  = aeSetupCommand;
+    gucZWaveWorkbuf[1]  = SERIAL_API_SETUP_NODEID_BASE_TYPE_16_BIT;
+    ZWave_Enqueue_Request(FUNC_ID_SERIAL_API_SETUP, gucZWaveWorkbuf, 2);
+    LOG("%s: Sending SERIAL_API_SETUP_CMD_NODEID_BASETYPE_SET\r\n", __FUNCTION__);
+  }
+}
+// end ZWave_Send_REQ_CMD_0B_Serial_API_Setup
+
+/** *****************************************************************************************************************************
   * @brief  Z-Wave SerialAPI state machine
   * @param  stateMachineCommand - INITIALIZE, RUN or STATE
   * @retval Present state
@@ -3124,6 +3210,12 @@ ZWaveState ZWave_SerialAPI_StateMachine(ZWaveStateMachineCommand stateMachineCom
       if (gstructCallbackQueue.requestCnt)
       {
         // Transmit request
+        ZWave_Transmit_Frame(
+                             gstructCallbackQueue.requestQueue[gstructCallbackQueue.requestOut].wCmd,
+                             REQUEST,
+                             (uint8_t*)gstructCallbackQueue.requestQueue[gstructCallbackQueue.requestOut].wBuf,
+                             gstructCallbackQueue.requestQueue[gstructCallbackQueue.requestOut].wLen
+                            );
 
         // Set state to CALLBACK_TX_SERIAL
         LOG("%s: Transitioning from IDLE to CALLBACK_TX_SERIAL\r\n", __FUNCTION__);
@@ -3133,6 +3225,12 @@ ZWaveState ZWave_SerialAPI_StateMachine(ZWaveStateMachineCommand stateMachineCom
       else if (gstructCommandQueue.requestCnt)
       {
         // Transmit request
+        ZWave_Transmit_Frame(
+                             gstructCommandQueue.requestQueue[gstructCommandQueue.requestOut].wCmd,
+                             REQUEST,
+                             (uint8_t*)gstructCommandQueue.requestQueue[gstructCommandQueue.requestOut].wBuf,
+                             gstructCommandQueue.requestQueue[gstructCommandQueue.requestOut].wLen
+                            );
 
         // Set state to COMMAND_TX_SERIAL
         LOG("%s: Transitioning from IDLE to COMMAND_TX_SERIAL\r\n", __FUNCTION__);
@@ -3166,7 +3264,7 @@ ZWaveState ZWave_SerialAPI_StateMachine(ZWaveStateMachineCommand stateMachineCom
     else if (ZWAVE_TX_SERIAL == leZWaveState)
     {
       // IF the response was ACKed
-      ltParseResult = ZWave_Parse_Rx_Data(FALSE);
+      ltParseResult = ZWave_Parse_Rx_Data(TRUE);
       if (ZWAVE_RX_PARSE_FRAME_SENT == ltParseResult)
       {
         // Reset retry count
@@ -3207,18 +3305,45 @@ ZWaveState ZWave_SerialAPI_StateMachine(ZWaveStateMachineCommand stateMachineCom
     else if (ZWAVE_CALLBACK_TX_SERIAL == leZWaveState)
     {
       // IF the callback was ACKed
+      ltParseResult = ZWave_Parse_Rx_Data(TRUE);
+      if (ZWAVE_RX_PARSE_FRAME_SENT == ltParseResult)
+      {
         // Pop the request from the callback queue
+        ZWave_Pop_Callback_Queue();
+
         // Reset retry count
+        gucRetryCount = 0;
+
         // Set state to IDLE
+        LOG("%s: Transitioning from CALLBACK_TX_SERIAL to IDLE\r\n", __FUNCTION__);
+        leZWaveState = ZWAVE_IDLE;
+      }
       // ELSE IF TX timeout
+      else if (ZWAVE_RX_PARSE_TX_TIMEOUT == ltParseResult)
+      {
         // Increment retry count
+        ++gucRetryCount;
+
         // IF retry count < maximum retry count
-           // Retransmit the request
+        if (gucRetryCount < MAX_SERIAL_RETRY)
+        {
+          // Retransmit the request
+        }
         // ELSE
+        else
+        {
           // Pop the request from the callback queue
+          ZWave_Pop_Callback_Queue();
+
           // Reset retry count
+          gucRetryCount = 0;
+
           // Set state to IDLE
+          LOG("%s: Transitioning from CALLBACK_TX_SERIAL to IDLE\r\n", __FUNCTION__);
+          leZWaveState = ZWAVE_IDLE;
+        }
         // ENDIF
+      }
       // ENDIF
     }
 
@@ -3227,18 +3352,45 @@ ZWaveState ZWave_SerialAPI_StateMachine(ZWaveStateMachineCommand stateMachineCom
     else if (ZWAVE_COMMAND_TX_SERIAL == leZWaveState)
     {
       // IF the command was ACKed
-       // Pop the request from the command queue
-       // Reset retry count
-       // Set state to IDLE
+      ltParseResult = ZWave_Parse_Rx_Data(TRUE);
+      if (ZWAVE_RX_PARSE_FRAME_SENT == ltParseResult)
+      {
+        // Pop the request from the command queue
+        ZWave_Pop_Command_Queue();
+
+        // Reset retry count
+        gucRetryCount = 0;
+
+        // Set state to IDLE
+        LOG("%s: Transitioning from COMMAND_TX_SERIAL to IDLE\r\n", __FUNCTION__);
+        leZWaveState = ZWAVE_IDLE;
+      }
      // ELSE IF TX timeout
-       // Increment retry count
-       // IF retry count < maximum retry count
-         // Retransmit the request
-       // ELSE
-         // Pop the request from the command queue
-         // Reset retry count
-         // Set state to IDLE
-       // ENDIF
+      else if (ZWAVE_RX_PARSE_TX_TIMEOUT == ltParseResult)
+      {
+        // Increment retry count
+        ++gucRetryCount;
+
+        // IF retry count < maximum retry count
+        if (gucRetryCount < MAX_SERIAL_RETRY)
+        {
+          // Retransmit the request
+        }
+        // ELSE
+        else
+        {
+          // Pop the request from the command queue
+          ZWave_Pop_Command_Queue();
+
+          // Reset retry count
+          gucRetryCount = 0;
+
+          // Set state to IDLE
+          LOG("%s: Transitioning from COMMAND_TX_SERIAL to IDLE\r\n", __FUNCTION__);
+          leZWaveState = ZWAVE_IDLE;
+        }
+        // ENDIF
+      }
      // ENDIF
     }
 
@@ -3283,6 +3435,80 @@ ZWaveState ZWave_SerialAPI_StateMachine(ZWaveStateMachineCommand stateMachineCom
   return leZWaveState;
 }
 // end ZWave_SerialAPI_StateMachine
+
+/** *****************************************************************************************************************************
+  * @brief  Transit a Z-Wave frame
+  * @param  uint8_t  aucCMD      - Z-Wave command
+  * @param  uint8_t  aucType     - 0=REQUEST 1=RESPONSE
+  * @param  uint8_t* paucPayload - pointer to data buffer
+  * @param  uint8_t  aucLength   - length of data buffer in bytes (includes length, type and command bytes plus payload but not SOF nor checksum bytes)
+  * @retval None
+  */
+void ZWave_Transmit_Frame(uint8_t aucCMD, uint8_t aucType, const uint8_t* paucPayload, uint8_t aucLength)
+{
+  static ZWaveTxFrame_t ltFrame =
+  {
+      .sof=SOF
+  };
+  static uint8_t lucCMD;
+  static uint8_t lucType;
+  static uint8_t lucLength;
+  static uint8_t lucChecksum;
+  static const uint8_t* plucPayload;
+
+  // Stop ACK, byte and buffer check timers
+  // Disable ACK and byte timeouts
+
+  // IF a payload is present
+  if (paucPayload != NULL)
+  {
+    // Set up a new frame to transmit
+    ltFrame.sof = SOF;
+    ltFrame.len = aucLength+3;
+    ltFrame.type = aucType;
+    ltFrame.cmd = aucCMD;
+    memcpy(ltFrame.payload, paucPayload, aucLength);
+    ltFrame.payload[aucLength] = ZWave_XOR_Checksum(0xFF, &ltFrame.len, ltFrame.len);
+
+    // Save the new frame for possible retransmission
+    lucLength = aucLength;
+    lucType = aucType;
+    lucCMD = aucCMD;
+    plucPayload = paucPayload;
+    lucChecksum = ltFrame.payload[aucLength];
+  }
+  // ELSE
+  else
+  {
+    // Retransmit the previous frame
+    ltFrame.sof = SOF;
+    ltFrame.len = lucLength + 3;
+    ltFrame.type = lucType;
+    ltFrame.cmd = lucCMD;
+    if (plucPayload)
+    {
+      memcpy(ltFrame.payload, plucPayload, lucLength);
+    }
+    ltFrame.payload[lucLength] = lucChecksum;
+  }
+  // ENDIF
+
+  // Enable ACK needed
+  gtZWaveRxInterface.ack_needed = TRUE;
+
+  // Set expected bytes to ACK
+
+  // Transmit the frame
+  HAL_UART_Transmit(&huart2, (uint8_t *)&ltFrame, ltFrame.len + 2, 100);
+  LOG("%s: Transmitting to Z-Wave controller\r\n", __FUNCTION__);
+  LOG("******************** Transmitting to Z-Wave controller START ******************** \r\n");
+  PrintBytes(&ltFrame, ltFrame.len + 2, false, 0);
+  LOG("******************** Transmitting to Z-Wave controller  END  ******************** \r\n");
+
+  // Start the ACK and buffer check timers
+
+}
+// end ZWave_Transmit_Frame
 
 /** *****************************************************************************************************************************
   * @brief  Calculate Z-Wave checksum
