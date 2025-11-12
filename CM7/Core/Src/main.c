@@ -308,11 +308,13 @@ static ZWaveRxInterface_t gtZWaveRxInterface = {
 ZWaveInterfaceFrame_ptr const ZWaveSerialFrame = (ZWaveInterfaceFrame_ptr)gtZWaveRxInterface.buffer;
 
 //
-// Dispatch tables for Z-Wave command callbacks
+// Dispatch tables for Z-Wave command handlers
 //
 typedef void (*zwave_cmd_handler_t)(void);
-
 zwave_cmd_handler_t gtZWave_CMD_Handler[256];
+
+// State variables for ZWave state machine
+uint8_t gucRetryCount = 0;
 
 /////////////////////////////
 
@@ -1427,6 +1429,96 @@ void ZWave_Display_Received_Frame_Data(void)
 // end ZWave_Display_Received_Frame_Data
 
 /** *****************************************************************************************************************************
+  * @brief  Add callback request to transmit callback queue
+  * @param  aucCMD    - Command byte
+  * @param  paucData  - pointer to data buffer
+  * @param  aucLength - length of data buffer, in bytes
+  * @retval TRUE if slot in transmit queue is available; FALSE if no slot available
+  */
+uint8_t ZWave_Enqueue_Request(uint8_t aucCMD, uint8_t* paucData, uint8_t aucLength)
+{
+  uint8_t lucReturnValue;
+
+  // IF slot available in transmit callback queue
+  if (gstructCallbackQueue.requestCnt < MAX_CALLBACK_QUEUE)
+  {
+    // Add to transmit callback queue
+    gstructCallbackQueue.requestCnt++;
+    gstructCallbackQueue.requestQueue[gstructCallbackQueue.requestIn].wCmd = aucCMD;
+    if (aucLength > (uint8_t)BUF_SIZE_TX)
+    {
+      aucLength = (uint8_t)BUF_SIZE_TX;
+    }
+    gstructCallbackQueue.requestQueue[gstructCallbackQueue.requestIn].wLen = aucLength;
+    memcpy(&gstructCallbackQueue.requestQueue[gstructCallbackQueue.requestIn].wBuf[0], paucData, aucLength);
+
+    // Move queue input pointer to next slot
+    if (++gstructCallbackQueue.requestIn >= MAX_CALLBACK_QUEUE)
+    {
+      gstructCallbackQueue.requestIn = 0;
+    }
+
+    // Return TRUE
+    lucReturnValue = TRUE;
+  }
+  // ELSE
+  else
+  {
+    // Return FALSE
+    lucReturnValue = FALSE;
+  }
+  // ENDIF
+
+  return lucReturnValue;
+}
+// end ZWave_Enqueue_Request
+
+/** *****************************************************************************************************************************
+  * @brief  Add command request to transmit command queue
+  * @param  aucCMD    - Command byte
+  * @param  paucData  - pointer to data buffer
+  * @param  aucLength - length of data buffer, in bytes
+  * @retval TRUE if slot in transmit queue is available; FALSE if no slot available
+  */
+uint8_t ZWave_Enqueue_Request_Unsolicited(uint8_t aucCMD, uint8_t* paucData, uint8_t aucLength)
+{
+  uint8_t lucReturnValue;
+
+  // IF slot available in transmit command queue
+  if (gstructCommandQueue.requestCnt < MAX_CALLBACK_QUEUE)
+  {
+    // Add to transmit command queue
+    gstructCommandQueue.requestCnt++;
+    gstructCommandQueue.requestQueue[gstructCommandQueue.requestIn].wCmd = aucCMD;
+    if (aucLength > (uint8_t)BUF_SIZE_TX)
+    {
+      aucLength = (uint8_t)BUF_SIZE_TX;
+    }
+    gstructCommandQueue.requestQueue[gstructCommandQueue.requestIn].wLen = aucLength;
+    memcpy(&gstructCommandQueue.requestQueue[gstructCommandQueue.requestIn].wBuf[0], paucData, aucLength);
+
+    // Move queue input pointer to next slot
+    if (++gstructCommandQueue.requestIn >= MAX_CALLBACK_QUEUE)
+    {
+      gstructCommandQueue.requestIn = 0;
+    }
+
+    // Return TRUE
+    lucReturnValue = TRUE;
+  }
+  // ELSE
+  else
+  {
+    // Return FALSE
+    lucReturnValue = FALSE;
+  }
+  // ENDIF
+
+  return lucReturnValue;
+}
+// end ZWave_Enqueue_Request_Unsolicited
+
+/** *****************************************************************************************************************************
   * @brief  Parse received byte from Z-Wave controller when ZWave Rx state is CHECKSUM
   * @param  aucRxByte - received byte from ZWave controller
   * @param  aucIsACKRequired - TRUE if ACK/NAK should be sent based on checksum; FALSE otherwise
@@ -2506,7 +2598,7 @@ void ZWave_RES_CMD_0B_Serial_API_Setup(void)
 void ZWave_RSQ_CMD_13_ZW_Send_Data(void)
 {
   // This routine handles BOTH cases when Z-Wave controller sends the RESPONSE with a return value, and if the return value
-  // is TRUE, the controller sends a REQUEST with assorted data.
+  // is TRUE, the controller sends a callback REQUEST with assorted data.
 
   if (RESPONSE == ZWaveSerialFrame->type)
   {
@@ -2993,6 +3085,7 @@ ZWaveState ZWave_SerialAPI_StateMachine(ZWaveStateMachineCommand stateMachineCom
   static ZWaveState leZWaveState = ZWAVE_IDLE;
   static uint32_t lulElapsedTime_sec = 0;
   static uint8_t lucOldSecond = 100; // Nonsense initial value guarantees update when RTC first read
+  ZWaveRxParseResult_t ltParseResult = ZWAVE_RX_PARSE_IDLE;  // Do not make this a static variable; or at least always initialize to IDLE
 
   //////////////////////////////////////////////////////////////////////////
   // IF command is INITIALIZE
@@ -3060,7 +3153,7 @@ ZWaveState ZWave_SerialAPI_StateMachine(ZWaveStateMachineCommand stateMachineCom
     else if (ZWAVE_FRAME_PARSE == leZWaveState)
     {
       // Invoke the handler for the received command
-      //LOG("%s: Invoke the handler (callback routine) for the received frame (from the Z-Wave controller)...\r\n", __FUNCTION__);
+      //LOG("%s: Invoke the handler for the received frame (from the Z-Wave controller)...\r\n", __FUNCTION__);
       gtZWave_CMD_Handler[ZWaveSerialFrame->cmd]();
 
       // Set state to IDLE
@@ -3073,16 +3166,39 @@ ZWaveState ZWave_SerialAPI_StateMachine(ZWaveStateMachineCommand stateMachineCom
     else if (ZWAVE_TX_SERIAL == leZWaveState)
     {
       // IF the response was ACKed
+      ltParseResult = ZWave_Parse_Rx_Data(FALSE);
+      if (ZWAVE_RX_PARSE_FRAME_SENT == ltParseResult)
+      {
         // Reset retry count
+        gucRetryCount = 0;
+
         // Set state to IDLE
+        LOG("%s: Transitioning from TX_SERIAL to IDLE\r\n", __FUNCTION__);
+        leZWaveState = ZWAVE_IDLE;
+      }
       // ELSE IF TX timeout
+      else if (ZWAVE_RX_PARSE_TX_TIMEOUT == ltParseResult)
+      {
         // Increment retry count
+        ++gucRetryCount;
+
         // IF retry count < maximum retry count
+        if (gucRetryCount < MAX_SERIAL_RETRY)
+        {
           // Retransmit the response
+        }
         // ELSE
+        else
+        {
           // Reset retry count
+          gucRetryCount = 0;
+
           // Set state to IDLE
+          LOG("%s: Transitioning from TX_SERIAL to IDLE\r\n", __FUNCTION__);
+          leZWaveState = ZWAVE_IDLE;
+        }
         // ENDIF
+      }
       // ENDIF
     }
 

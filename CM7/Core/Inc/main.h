@@ -270,6 +270,12 @@ extern uint32_t gulStandbyCounter;  /* In Standby mode when When <> 0 */
 //extern uint8_t gucZWaveTxBuffer[SERIAL_BUFFER_SIZE];
 extern uint8_t gucZWaveRxBuffer[SERIAL_BUFFER_SIZE];
 
+/* Max number of times a frame will be transmitted to PC */
+#define MAX_SERIAL_RETRY 3
+
+/* Number of bytes in a homeID */
+#define HOMEID_LENGTH 4
+
 /////////////////////////////
 
 
