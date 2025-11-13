@@ -267,6 +267,7 @@ uint8_t gucIsDHCPEnabled = true;
 uint8_t gucStandbyMode=eSTANDBY_OFF;
 //  Standby Mode
 uint32_t gulStandbyCounter=0;  /* In Standby mode when When <> 0 */
+/////////////////////////////
 
 // Received bytes from Z-Wave controller and Diagnostic ports
 uint8_t gucReceivedByteFromZWave;
@@ -320,7 +321,10 @@ uint8_t gucRetryCount = 0;
 // (comparable to compl_workbuf[] in ZWave_NCP_SerialAPI_Controller_Solution
 uint8_t gucZWaveWorkbuf[BUF_SIZE_TX];
 
-/////////////////////////////
+// Z-Wave controller Home and Node IDs
+uint32_t gulZWaveHomeID = 0;
+uint16_t guiZWaveNodeID = 0;
+
 
 /* USER CODE END PV */
 
@@ -366,6 +370,11 @@ void ZWave_RES_CMD_DA_Serial_API_Get_LR_Nodes(void);
 void ZWave_RES_CMD_DE_Get_DCDC_Config(void);
 void ZWave_RES_CMD_E8_Get_Radio_PTI(void);
 void ZWave_RES_CMD_XX_Unsupported(void);
+void ZWave_Send_REQ_CMD_07_Serial_API_Get_Capabilities(void);
+void ZWave_Send_REQ_CMD_08_Serial_API_Soft_Reset(void);
+void ZWave_Send_REQ_CMD_0B_Serial_API_Setup(eSerialAPISetupCmd aeSetupCommand);
+void ZWave_Send_REQ_CMD_20_Memory_Get_ID(void);
+void ZWave_Send_REQ_CMD_41_Get_Node_Protocol_Info(void);
 
 uint8_t ZWave_XOR_Checksum(uint8_t aucInitialValue, const uint8_t *paucDataBuffer, uint8_t aucLength);
 
@@ -1446,6 +1455,7 @@ uint8_t ZWave_Enqueue_Request(uint8_t aucCMD, uint8_t* paucData, uint8_t aucLeng
   // IF slot available in transmit callback queue
   if (gstructCallbackQueue.requestCnt < MAX_CALLBACK_QUEUE)
   {
+    LOG("%s: Adding CMD 0x%02X to callback queue\r\n", __FUNCTION__, aucCMD);
     // Add to transmit callback queue
     gstructCallbackQueue.requestCnt++;
     gstructCallbackQueue.requestQueue[gstructCallbackQueue.requestIn].wCmd = aucCMD;
@@ -1469,6 +1479,7 @@ uint8_t ZWave_Enqueue_Request(uint8_t aucCMD, uint8_t* paucData, uint8_t aucLeng
   else
   {
     // Return FALSE
+    LOG("%s: *** WARNING *** unable to enqueue CMD 0x%02X to callback queue\r\n", __FUNCTION__, aucCMD);
     lucReturnValue = FALSE;
   }
   // ENDIF
@@ -1491,7 +1502,8 @@ uint8_t ZWave_Enqueue_Request_Unsolicited(uint8_t aucCMD, uint8_t* paucData, uin
   // IF slot available in transmit command queue
   if (gstructCommandQueue.requestCnt < MAX_CALLBACK_QUEUE)
   {
-    // Add to transmit command queue
+    LOG("%s: Adding CMD 0x%02X to command queue\r\n", __FUNCTION__, aucCMD);
+   // Add to transmit command queue
     gstructCommandQueue.requestCnt++;
     gstructCommandQueue.requestQueue[gstructCommandQueue.requestIn].wCmd = aucCMD;
     if (aucLength > (uint8_t)BUF_SIZE_TX)
@@ -1514,6 +1526,7 @@ uint8_t ZWave_Enqueue_Request_Unsolicited(uint8_t aucCMD, uint8_t* paucData, uin
   else
   {
     // Return FALSE
+    LOG("%s: *** WARNING *** unable to enqueue CMD 0x%02X to command queue\r\n", __FUNCTION__, aucCMD);
     lucReturnValue = FALSE;
   }
   // ENDIF
@@ -1604,7 +1617,7 @@ ZWaveRxParseResult_t ZWave_Handle_CHECKSUM(uint8_t aucRxByte, uint8_t aucIsACKRe
   */
 void ZWave_Handle_CMD(uint8_t aucRxByte)
 {
-  //LOG("%s: CMD byte is 0x%02X\r\n", __FUNCTION__, aucRxByte);
+  LOG("%s: CMD byte is 0x%02X\r\n", __FUNCTION__, aucRxByte);
 
   // Save received byte to ZWave Rx buffer
   gtZWaveRxInterface.buffer[gtZWaveRxInterface.buffer_len] = aucRxByte;
@@ -1672,7 +1685,7 @@ void ZWave_Handle_Default(void)
   // Reset to SOF
 
   // Set ZWave Rx state to SOF
-  //LOG("%s: Transitioning to SOF\r\n", __FUNCTION__);
+  LOG("%s: Transitioning to SOF\r\n", __FUNCTION__);
   gtZWaveRxInterface.state = ZWAVE_RX_SOF;
 
   // Disable Rx active
@@ -2351,6 +2364,13 @@ uint32_t lulZpalRetentionResetInfo = (0x1000000*ZWaveSerialFrame->payload[6+i]) 
   //// When the Serial API Started request is received,
   //// send the Serial API Setup request to the ZWave controller
   ZWave_Send_REQ_CMD_0B_Serial_API_Setup(SERIAL_API_SETUP_CMD_NODEID_BASETYPE_SET);
+  /// TEST MAB 2025.11.13
+  /// Also send Memory Get ID to get the HomeID and NodeID values
+  ZWave_Send_REQ_CMD_20_Memory_Get_ID();
+  /// Send Get Node Protocol Info for the Z-Wave controller's NodeID
+  //ZWave_Send_REQ_CMD_41_Get_Node_Protocol_Info();
+  /// Send Serial API Get Capabilities
+  ZWave_Send_REQ_CMD_07_Serial_API_Get_Capabilities();
   ///////////////////////////////////////////////////////////////////////////
 }
 // end ZWave_REQ_CMD_0A_Serial_API_Started
@@ -2769,6 +2789,17 @@ void ZWave_RES_CMD_20_Memory_Get_ID(void)
                         ZWaveSerialFrame->payload[5];
   LOG("%s: HomeID = 0x%08X \r\n", __FUNCTION__, lulHomeID);
   LOG("%s: NodeID =     0x%04X \r\n", __FUNCTION__, luiNodeID);
+
+  gulZWaveHomeID = lulHomeID;
+  guiZWaveNodeID = luiNodeID;
+
+  ///////////////////////////////////////////////////////////////////////////
+  /// TEST MAB 2025.11.13
+  /// Send Get Node Protocol Info for the Z-Wave controller's NodeID
+  ZWave_Send_REQ_CMD_41_Get_Node_Protocol_Info();
+  /// Send Serial API Get Capabilities
+  //ZWave_Send_REQ_CMD_07_Serial_API_Get_Capabilities();
+  ///////////////////////////////////////////////////////////////////////////
 }
 // end ZWave_RES_CMD_20_Memory_Get_ID
 
@@ -3069,13 +3100,25 @@ void ZWave_RES_CMD_XX_Unsupported(void)
 // end ZWave_RES_CMD_XX_Unsupported
 
 /** *****************************************************************************************************************************
+  * @brief  Prepare and send REQ CMD 07 Serial API Get Capabilities
+  * @param  None
+  * @retval None
+  */
+void ZWave_Send_REQ_CMD_07_Serial_API_Get_Capabilities(void)
+{
+  ZWave_Enqueue_Request(FUNC_ID_SERIAL_API_GET_CAPABILITIES, gucZWaveWorkbuf, 0);
+  LOG("%s: Sending FUNC_ID_SERIAL_API_GET_CAPABILITIES\r\n", __FUNCTION__);
+}
+// end ZWave_Send_REQ_CMD_07_Serial_API_Get_Capabilities
+
+/** *****************************************************************************************************************************
   * @brief  Prepare and send REQ CMD 08 Serial API Soft Reset
   * @param  None
   * @retval None
   */
 void ZWave_Send_REQ_CMD_08_Serial_API_Soft_Reset(void)
 {
-  ZWave_Enqueue_Request(FUNC_ID_SERIAL_API_SOFT_RESET, gucZWaveWorkbuf, 0);
+  ZWave_Enqueue_Request_Unsolicited(FUNC_ID_SERIAL_API_SOFT_RESET, gucZWaveWorkbuf, 0);
   LOG("%s: Sending FUNC_ID_SERIAL_API_SOFT_RESET\r\n", __FUNCTION__);
 }
 // end ZWave_Send_REQ_CMD_08_Serial_API_Soft_Reset
@@ -3097,6 +3140,42 @@ void ZWave_Send_REQ_CMD_0B_Serial_API_Setup(eSerialAPISetupCmd aeSetupCommand)
   }
 }
 // end ZWave_Send_REQ_CMD_0B_Serial_API_Setup
+
+/** *****************************************************************************************************************************
+  * @brief  Prepare and send REQ CMD 20 Memory Get ID
+  * @param  None
+  * @retval None
+  */
+void ZWave_Send_REQ_CMD_20_Memory_Get_ID(void)
+{
+  ZWave_Enqueue_Request(FUNC_ID_MEMORY_GET_ID, gucZWaveWorkbuf, 0);
+  LOG("%s: Sending FUNC_ID_MEMORY_GET_ID\r\n", __FUNCTION__);
+}
+// end ZWave_Send_REQ_CMD_20_Memory_Get_ID
+
+/** *****************************************************************************************************************************
+  * @brief  Prepare and send REQ CMD 41 Get Node Protocol Info
+  * @param  None
+  * @retval None
+  */
+void ZWave_Send_REQ_CMD_41_Get_Node_Protocol_Info(void)
+{
+  // IF NodeID is nonzero
+  if (guiZWaveNodeID)
+  {
+    gucZWaveWorkbuf[0]  = (uint8_t)(guiZWaveNodeID/0x100);
+    gucZWaveWorkbuf[1]  = (uint8_t)(guiZWaveNodeID & 0xFF);
+    ZWave_Enqueue_Request(FUNC_ID_ZW_GET_NODE_PROTOCOL_INFO, gucZWaveWorkbuf, 2);
+    LOG("%s: Sending FUNC_ID_ZW_GET_NODE_PROTOCOL_INFO\r\n", __FUNCTION__);
+  }
+  // ELSE
+  else
+  {
+    LOG("%s: *** WARNING *** NodeID is still 0x0000, expected a nonzero value. FUNC_ID_ZW_GET_NODE_PROTOCOL_INFO aborted.\r\n", __FUNCTION__);
+  }
+  // ENDIF
+}
+// end ZWave_Send_REQ_CMD_41_Get_Node_Protocol_Info
 
 /** *****************************************************************************************************************************
   * @brief  Z-Wave SerialAPI state machine
@@ -3232,8 +3311,15 @@ ZWaveState ZWave_SerialAPI_StateMachine(ZWaveStateMachineCommand stateMachineCom
     // IF state is IDLE
     if (ZWAVE_IDLE == leZWaveState)
     {
-      // IF any callback requests are pending
-      if (gstructCallbackQueue.requestCnt)
+      // IF a frame has been received
+      if (ZWave_Parse_Rx_Data(true) == ZWAVE_RX_PARSE_FRAME_RECEIVED)
+      {
+        // Set state to FRAME_PARSE
+        LOG("%s: Transitioning from IDLE to FRAME_PARSE\r\n", __FUNCTION__);
+        leZWaveState = ZWAVE_FRAME_PARSE;
+      }
+      // ELSE IF any callback requests are pending
+      else if (gstructCallbackQueue.requestCnt)
       {
         // Transmit request
         ZWave_Transmit_Frame(
@@ -3261,13 +3347,6 @@ ZWaveState ZWave_SerialAPI_StateMachine(ZWaveStateMachineCommand stateMachineCom
         // Set state to COMMAND_TX_SERIAL
         LOG("%s: Transitioning from IDLE to COMMAND_TX_SERIAL\r\n", __FUNCTION__);
         leZWaveState = ZWAVE_COMMAND_TX_SERIAL;
-      }
-      // ELSE IF a frame has been received
-      else if (ZWave_Parse_Rx_Data(true) == ZWAVE_RX_PARSE_FRAME_RECEIVED)
-      {
-        // Set state to FRAME_PARSE
-        LOG("%s: Transitioning from IDLE to FRAME_PARSE\r\n", __FUNCTION__);
-        leZWaveState = ZWAVE_FRAME_PARSE;
       }
       // ENDIF
     }
@@ -3321,6 +3400,7 @@ ZWaveState ZWave_SerialAPI_StateMachine(ZWaveStateMachineCommand stateMachineCom
         if (gucRetryCount < MAX_SERIAL_RETRY)
         {
           // Retransmit the response
+          LOG("%s: RETRANSMITTING response...\r\n", __FUNCTION__);
           ZWave_Transmit_Frame(0, RESPONSE, NULL, 0);
         }
         // ELSE
@@ -3366,11 +3446,13 @@ ZWaveState ZWave_SerialAPI_StateMachine(ZWaveStateMachineCommand stateMachineCom
         if (gucRetryCount < MAX_SERIAL_RETRY)
         {
           // Retransmit the request
+          LOG("%s: RETRANSMITTING request...\r\n", __FUNCTION__);
           ZWave_Transmit_Frame(0, REQUEST, NULL, 0);
         }
         // ELSE
         else
         {
+          LOG("%s: *** WARNING *** too many retries; popping the request from the callback queue\r\n");
           // Pop the request from the callback queue
           ZWave_Pop_Callback_Queue();
 
@@ -3414,11 +3496,13 @@ ZWaveState ZWave_SerialAPI_StateMachine(ZWaveStateMachineCommand stateMachineCom
         if (gucRetryCount < MAX_SERIAL_RETRY)
         {
           // Retransmit the request
+          LOG("%s: RETRANSMITTING request...\r\n", __FUNCTION__);
           ZWave_Transmit_Frame(0, REQUEST, NULL, 0);
         }
         // ELSE
         else
         {
+          LOG("%s: *** WARNING *** too many retries; popping the request from the command queue\r\n");
           // Pop the request from the command queue
           ZWave_Pop_Command_Queue();
 
