@@ -1539,6 +1539,7 @@ ZWaveRxParseResult_t ZWave_Handle_CHECKSUM(uint8_t aucRxByte, uint8_t aucIsACKRe
   gtZWaveRxInterface.byte_timeout = false;
 
   // Stop byte timer
+  gtZWaveRxInterface.byte_timeout_ms = 0; // stop the timer
 
   // Disable Rx active
   gtZWaveRxInterface.rx_active = false;  // Not really active now...
@@ -1684,7 +1685,10 @@ void ZWave_Handle_Default(void)
   gtZWaveRxInterface.byte_timeout = false;
 
   // Stop ACK timer
+  gtZWaveRxInterface.ack_timeout_ms = 0; // stop the timer
+
   // Stop byte timer
+  gtZWaveRxInterface.byte_timeout_ms = 0; // stop the timer
 
 }
 // end ZWave_Handle_Default
@@ -1713,6 +1717,7 @@ void ZWave_Handle_LEN(uint8_t aucRxByte)
     gtZWaveRxInterface.byte_timeout = false;
 
     // Stop byte timer
+    gtZWaveRxInterface.byte_timeout_ms = 0; // stop the timer
   }
   else
   {
@@ -1781,7 +1786,10 @@ ZWaveRxParseResult_t ZWave_Handle_SOF(uint8_t aucRxByte)
       gtZWaveRxInterface.byte_timeout = false;
 
       // Stop ACK timer
+      gtZWaveRxInterface.ack_timeout_ms = 0; // stop the timer
+
       // Stop byte timer
+      gtZWaveRxInterface.byte_timeout_ms = 0; // stop the timer
     }
     // ENDIF
     // IF received byte is ACK
@@ -1843,6 +1851,7 @@ ZWaveRxParseResult_t ZWave_Handle_SOF(uint8_t aucRxByte)
     gtZWaveRxInterface.ack_timeout = false;
 
     // Stop ACK timer
+    gtZWaveRxInterface.ack_timeout_ms = 0; // stop the timer
   }
   // ENDIF
 
@@ -1873,6 +1882,7 @@ void ZWave_Handle_TYPE(uint8_t aucRxByte)
     gtZWaveRxInterface.byte_timeout = false;
 
     // Stop byte timer
+    gtZWaveRxInterface.byte_timeout_ms = 0; // stop the timer
   }
   // ELSE
   else
@@ -1904,6 +1914,10 @@ void ZWave_Handle_TYPE(uint8_t aucRxByte)
   */
 ZWaveRxParseResult_t ZWave_Parse_Rx_Data(uint8_t aucIsACKRequired)
 {
+  //
+  // Based on ZWave_NCP_SerialAPI_Controller_Solution, comm_interface.c, comm_interface_parse_data()
+  //
+
   uint8_t lucRxByte = 0;
   ZWaveRxParseResult_t ltParseResult = ZWAVE_RX_PARSE_IDLE;  // Do not make this a static variable; or at least always initialize to IDLE
   static osStatus_t ltZWaveRxQueueStatus;
@@ -3055,6 +3069,18 @@ void ZWave_RES_CMD_XX_Unsupported(void)
 // end ZWave_RES_CMD_XX_Unsupported
 
 /** *****************************************************************************************************************************
+  * @brief  Prepare and send REQ CMD 08 Serial API Soft Reset
+  * @param  None
+  * @retval None
+  */
+void ZWave_Send_REQ_CMD_08_Serial_API_Soft_Reset(void)
+{
+  ZWave_Enqueue_Request(FUNC_ID_SERIAL_API_SOFT_RESET, gucZWaveWorkbuf, 0);
+  LOG("%s: Sending FUNC_ID_SERIAL_API_SOFT_RESET\r\n", __FUNCTION__);
+}
+// end ZWave_Send_REQ_CMD_08_Serial_API_Soft_Reset
+
+/** *****************************************************************************************************************************
   * @brief  Prepare and send REQ CMD 0B Serial API Setup
   * @param  aeSetupCommand - SerialAPI setup command
   * @retval None
@@ -3171,7 +3197,7 @@ ZWaveState ZWave_SerialAPI_StateMachine(ZWaveStateMachineCommand stateMachineCom
   static ZWaveState leZWaveState = ZWAVE_IDLE;
   static uint32_t lulElapsedTime_sec = 0;
   static uint8_t lucOldSecond = 100; // Nonsense initial value guarantees update when RTC first read
-  ZWaveRxParseResult_t ltParseResult = ZWAVE_RX_PARSE_IDLE;  // Do not make this a static variable; or at least always initialize to IDLE
+  ZWaveRxParseResult_t ltParseResult = ZWAVE_RX_PARSE_IDLE;
 
   //////////////////////////////////////////////////////////////////////////
   // IF command is INITIALIZE
@@ -3263,6 +3289,17 @@ ZWaveState ZWave_SerialAPI_StateMachine(ZWaveStateMachineCommand stateMachineCom
     // ELSE IF state is TX_SERIAL
     else if (ZWAVE_TX_SERIAL == leZWaveState)
     {
+      ////////////////////////////////////////////////////////////////////////////////////
+      // MAB 2025.11.12
+      // Note that this state is reached when there's a need for transmitting
+      // an *immediate* RESPONSE to a received REQUEST. Since this state machine
+      // typically deals with queued callback or command frames, and since this
+      // state wasn't reached by a queued frame, there's no need to pop a frame
+      // from a queue.
+      // Will there ever be a need for this ZWave host to send an
+      // immediate response to the ZWave controller?
+      ////////////////////////////////////////////////////////////////////////////////////
+
       // IF the response was ACKed
       ltParseResult = ZWave_Parse_Rx_Data(TRUE);
       if (ZWAVE_RX_PARSE_FRAME_SENT == ltParseResult)
@@ -3284,6 +3321,7 @@ ZWaveState ZWave_SerialAPI_StateMachine(ZWaveStateMachineCommand stateMachineCom
         if (gucRetryCount < MAX_SERIAL_RETRY)
         {
           // Retransmit the response
+          ZWave_Transmit_Frame(0, RESPONSE, NULL, 0);
         }
         // ELSE
         else
@@ -3328,6 +3366,7 @@ ZWaveState ZWave_SerialAPI_StateMachine(ZWaveStateMachineCommand stateMachineCom
         if (gucRetryCount < MAX_SERIAL_RETRY)
         {
           // Retransmit the request
+          ZWave_Transmit_Frame(0, REQUEST, NULL, 0);
         }
         // ELSE
         else
@@ -3375,6 +3414,7 @@ ZWaveState ZWave_SerialAPI_StateMachine(ZWaveStateMachineCommand stateMachineCom
         if (gucRetryCount < MAX_SERIAL_RETRY)
         {
           // Retransmit the request
+          ZWave_Transmit_Frame(0, REQUEST, NULL, 0);
         }
         // ELSE
         else
@@ -3457,7 +3497,12 @@ void ZWave_Transmit_Frame(uint8_t aucCMD, uint8_t aucType, const uint8_t* paucPa
   static const uint8_t* plucPayload;
 
   // Stop ACK, byte and buffer check timers
+  gtZWaveRxInterface.ack_timeout_ms = 0; // stop the timer
+  gtZWaveRxInterface.byte_timeout_ms = 0; // stop the timer
+
   // Disable ACK and byte timeouts
+  gtZWaveRxInterface.ack_timeout = false;
+  gtZWaveRxInterface.byte_timeout = false;
 
   // IF a payload is present
   if (paucPayload != NULL)
@@ -3506,6 +3551,7 @@ void ZWave_Transmit_Frame(uint8_t aucCMD, uint8_t aucType, const uint8_t* paucPa
   LOG("******************** Transmitting to Z-Wave controller  END  ******************** \r\n");
 
   // Start the ACK and buffer check timers
+  gtZWaveRxInterface.ack_timeout_ms = 1; // start the timer
 
 }
 // end ZWave_Transmit_Frame
@@ -4012,6 +4058,17 @@ void ZWaveTask(void *argument)
   // Initialize Z-Wave SerialAPI state machine
   ZWave_SerialAPI_StateMachine(ZWAVE_SM_CMD_INITIALIZE);
 
+  //////////////////////////////////////////////
+  //
+  // Reset the EFR32ZG23 Z-Wave controller
+  //
+  //////////////////////////////////////////////
+  // TEST MAB 2025.11.13
+  // Soft reset the ZWave controller
+  ZWave_Send_REQ_CMD_08_Serial_API_Soft_Reset();
+
+
+
   /* Infinite loop */
   for(;;)
   {
@@ -4020,17 +4077,6 @@ void ZWaveTask(void *argument)
     if (lucOldSecond != sMainRTCTime.Seconds)
     {
       lucOldSecond = sMainRTCTime.Seconds;
-
-      //////////////////////////////////////////////////////////////////////////////////
-      //// TEST MAB 2025.10.17
-      //// Every second, transmit to the Z-Wave controller
-      //static uint8_t lucZWaveTxBuffer[5];
-      //LOG("%s: Transmitting 'Hello' to Z-Wave controller\r\n", __FUNCTION__);
-      //HAL_UART_Transmit(&huart2, (uint8_t *)"Hello", 5, 5);
-      //LOG("%s: Transmitting NAK to Z-Wave controller\r\n", __FUNCTION__);
-      //lucZWaveTxBuffer[0] = 0x15; // NAK
-      //HAL_UART_Transmit(&huart2, (uint8_t *)lucZWaveTxBuffer, 1, 1);
-      //////////////////////////////////////////////////////////////////////////////////
 
     } // updates on seconds
     ///////////////////////////////
@@ -4046,6 +4092,25 @@ void ZWaveTask(void *argument)
       lucOldHour = sMainRTCTime.Hours;
     } // updates on hours
     ///////////////////////////////
+
+    //////////////////////////////////////////////
+    //
+    // Update msec-based timing variables
+    //
+    //////////////////////////////////////////////
+    if (gtZWaveRxInterface.ack_timeout_ms  > 0 && gtZWaveRxInterface.ack_timeout_ms  < DEFAULT_ACK_TIMEOUT_MS)  gtZWaveRxInterface.ack_timeout_ms  += ZWAVE_TASK_PERIOD;
+    if (gtZWaveRxInterface.byte_timeout_ms > 0 && gtZWaveRxInterface.byte_timeout_ms < DEFAULT_BYTE_TIMEOUT_MS) gtZWaveRxInterface.byte_timeout_ms += ZWAVE_TASK_PERIOD;
+    // Trigger any timeouts
+    if (gtZWaveRxInterface.ack_timeout_ms >= DEFAULT_ACK_TIMEOUT_MS)
+    {
+      gtZWaveRxInterface.ack_timeout_ms = 0; // stop the timer
+      gtZWaveRxInterface.ack_timeout = TRUE; // timeout occurred
+    }
+    if (gtZWaveRxInterface.byte_timeout >= DEFAULT_BYTE_TIMEOUT_MS)
+    {
+      gtZWaveRxInterface.byte_timeout_ms = 0; // stop the timer
+      gtZWaveRxInterface.byte_timeout = TRUE; // timeout occurred
+    }
 
 //    //////////////////////////////////////////////
 //    //

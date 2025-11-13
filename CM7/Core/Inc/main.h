@@ -276,6 +276,14 @@ extern uint8_t gucZWaveRxBuffer[SERIAL_BUFFER_SIZE];
 /* Number of bytes in a homeID */
 #define HOMEID_LENGTH 4
 
+// from comm_interface.h
+#define BUFFER_CHECK_TIME_MS    250
+#define DEFAULT_ACK_TIMEOUT_MS  1500
+#define DEFAULT_BYTE_TIMEOUT_MS 150
+#define HEADER_LEN              4
+#define ACK_LEN                 1
+#define CRC_LEN                 1
+
 /////////////////////////////
 
 
