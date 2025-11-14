@@ -370,11 +370,13 @@ void ZWave_RES_CMD_DA_Serial_API_Get_LR_Nodes(void);
 void ZWave_RES_CMD_DE_Get_DCDC_Config(void);
 void ZWave_RES_CMD_E8_Get_Radio_PTI(void);
 void ZWave_RES_CMD_XX_Unsupported(void);
+void ZWave_Send_REQ_CMD_02_Serial_API_Get_Init_Data(void);
 void ZWave_Send_REQ_CMD_07_Serial_API_Get_Capabilities(void);
 void ZWave_Send_REQ_CMD_08_Serial_API_Soft_Reset(void);
 void ZWave_Send_REQ_CMD_0B_Serial_API_Setup(eSerialAPISetupCmd aeSetupCommand);
 void ZWave_Send_REQ_CMD_20_Memory_Get_ID(void);
-void ZWave_Send_REQ_CMD_41_Get_Node_Protocol_Info(void);
+void ZWave_Send_REQ_CMD_41_Get_Node_Protocol_Info(uint16_t auiNodeID);
+void ZWave_Send_REQ_CMD_DA_Serial_API_Get_LR_Nodes(void);
 
 uint8_t ZWave_XOR_Checksum(uint8_t aucInitialValue, const uint8_t *paucDataBuffer, uint8_t aucLength);
 
@@ -2128,6 +2130,143 @@ uint16_t ZWave_Receive_Response(uint8_t* aucReceiveBuffer)
 // end ZWave_Receive_Response
 
 /** *****************************************************************************************************************************
+  * @brief  Command handler for CMD 0x02 FUNC_ID_SERIAL_API_GET_INIT_DATA ZW->HOST: Cmd | ver | capabilities | 29 | nodes[29] | chip_type | chip_version
+  * @param  None
+  * @retval None
+  */
+void ZWave_RES_CMD_02_Get_Init_Data(void)
+{
+  // Display received frame data
+  //ZWave_Display_Received_Frame_Data();
+
+  // ----------------- Version -----------------
+  LOG("%s: SerialAPI Version      = 0x%02X\r\n", __FUNCTION__, ZWaveSerialFrame->payload[0]);
+
+  // ----------------- Capabilities -----------------
+  LOG("%s: SerialAPI Capabilities = 0x%02X\r\n", __FUNCTION__, ZWaveSerialFrame->payload[1]);
+  if (ZWaveSerialFrame->payload[0] & 0x01)
+  {
+    LOG("%s: - End device API\r\n", __FUNCTION__);
+  }
+  else
+  {
+    LOG("%s: - Controller API \r\n", __FUNCTION__);
+  }
+  if (ZWaveSerialFrame->payload[0] & 0x02)
+  {
+    LOG("%s: - Timer functions supported\r\n", __FUNCTION__);
+  }
+  else
+  {
+    LOG("%s: - Timer functions NOT supported\r\n", __FUNCTION__);
+  }
+  if (ZWaveSerialFrame->payload[0] & 0x04)
+  {
+    LOG("%s: - Secondary controller\r\n", __FUNCTION__);
+  }
+  else
+  {
+    LOG("%s: - Primary controller\r\n", __FUNCTION__);
+  }
+  if (ZWaveSerialFrame->payload[0] & 0x08)
+  {
+    LOG("%s: - Controller is SIS\r\n", __FUNCTION__);
+  }
+  else
+  {
+    LOG("%s: - Controller is NOT SIS\r\n", __FUNCTION__);
+  }
+
+  // ----------------- MAX_NODES/8 -----------------
+  LOG("%s: SerialAPI MAX_NODES/8  = 0x%02X\r\n", __FUNCTION__, ZWaveSerialFrame->payload[2]);
+  LOG("%s: - should be 29 (0x1D) or possibly 0\r\n", __FUNCTION__);
+
+  // ----------------- Nodes -----------------
+  if (ZWaveSerialFrame->payload[2])
+  {
+    for (int i = 0; i < ZWaveSerialFrame->payload[2]; ++i)
+    {
+      LOG("%s: SerialAPI node[%02d]  = 0x%02X\r\n", __FUNCTION__, i, ZWaveSerialFrame->payload[3+i]);
+    }
+  }
+
+  // ----------------- chip_type -----------------
+  LOG("%s: SerialAPI chip_type    = 0x%02X\r\n", __FUNCTION__, ZWaveSerialFrame->payload[3 +  ZWaveSerialFrame->payload[2]]);
+
+  // ----------------- chip_version -----------------
+  LOG("%s: SerialAPI chip_version = 0x%02X\r\n", __FUNCTION__, ZWaveSerialFrame->payload[4 +  ZWaveSerialFrame->payload[2]]);
+
+  //
+  // Validate Z-Wave chip type
+  //
+  if (0x08 == ZWaveSerialFrame->payload[3 +  ZWaveSerialFrame->payload[2]] &&
+      0x00 == ZWaveSerialFrame->payload[4 +  ZWaveSerialFrame->payload[2]]     )
+  {
+    LOG("%s: ZWave chip identified as ZG23/ZGM230S - OK\r\n", __FUNCTION__);
+  }
+  else
+  {
+    LOG("%s: **** WARNING *** ZWave chip identified as something other than ZG23/ZGM230S\r\n", __FUNCTION__);
+  }
+}
+// end ZWave_RES_CMD_02_Get_Init_Data
+
+/** *****************************************************************************************************************************
+  * @brief  Command handler for CMD 0x05 FUNC_ID_ZW_GET_CONTROLLER_CAPABILITIES ZW->HOST: Cmd | retVal
+  * @param  None
+  * @retval None
+  */
+void ZWave_RES_CMD_05_ZW_Get_Controller_Capabilities(void)
+{
+  CONTROLLER_CONFIGURATION ltCapability;
+
+  LOG("%s: bitmask  = 0x%02X\r\n", __FUNCTION__, ZWaveSerialFrame->payload[0]);
+  memcpy(&ltCapability, &ZWaveSerialFrame->payload[0], 1);
+  if (ltCapability.controller_is_secondary)          LOG("%s: - controller is secondary\r\n", __FUNCTION__);
+  if (ltCapability.controller_on_other_network)      LOG("%s: - controller on other network\r\n", __FUNCTION__);
+  if (ltCapability.controller_nodeid_server_present) LOG("%s: - controller NodeID server is present\r\n", __FUNCTION__);
+  if (ltCapability.controller_is_real_primary)       LOG("%s: - controller is real primary\r\n", __FUNCTION__);
+  if (ltCapability.controller_is_suc)                LOG("%s: - controller is SUC\r\n", __FUNCTION__);
+  if (ltCapability.no_nodes_included)                LOG("%s: - no nodes included\r\n", __FUNCTION__);
+}
+// end ZWave_RES_CMD_05_ZW_Get_Controller_Capabilities
+
+/** *****************************************************************************************************************************
+  * @brief  Command handler for CMD 0x07 FUNC_ID_SERIAL_API_GET_CAPABILITIES ZW->HOST: Cmd | data[]
+  * @param  None
+  * @retval None
+  */
+void ZWave_RES_CMD_07_Serial_API_Get_Capabilities(void)
+{
+  // Display received frame data
+  //ZWave_Display_Received_Frame_Data();
+
+  LOG("%s: SERIAL_APP_VERSION                     = 0x%02X\r\n", __FUNCTION__, ZWaveSerialFrame->payload[0]);
+  LOG("%s: SERIAL_APP_REVISION                    = 0x%02X\r\n", __FUNCTION__, ZWaveSerialFrame->payload[1]);
+  LOG("%s: SERIAL_APP_MANUFACTURER_ID1            = 0x%02X\r\n", __FUNCTION__, ZWaveSerialFrame->payload[2]);
+  LOG("%s: SERIAL_APP_MANUFACTURER_ID2            = 0x%02X\r\n", __FUNCTION__, ZWaveSerialFrame->payload[3]);
+  LOG("%s: SERIAL_APP_MANUFACTURER_PRODUCT_TYPE1  = 0x%02X\r\n", __FUNCTION__, ZWaveSerialFrame->payload[4]);
+  LOG("%s: SERIAL_APP_MANUFACTURER_PRODUCT_TYPE2  = 0x%02X\r\n", __FUNCTION__, ZWaveSerialFrame->payload[5]);
+  LOG("%s: SERIAL_APP_MANUFACTURER_PRODUCT_ID1    = 0x%02X\r\n", __FUNCTION__, ZWaveSerialFrame->payload[6]);
+  LOG("%s: SERIAL_APP_MANUFACTURER_PRODUCT_ID2    = 0x%02X\r\n", __FUNCTION__, ZWaveSerialFrame->payload[7]);
+  uint8_t lucSupportedCMD = 0;
+  for (int i = 0; i < 32; ++i)
+  {
+    LOG("%s: FUNCID_SUPPORTED_BITMASK[%02d] = 0x%02X\r\n", __FUNCTION__, i, ZWaveSerialFrame->payload[8+i]);
+    for (int j=0; j < 8; ++j)
+    {
+      ++lucSupportedCMD;
+      if (ZWaveSerialFrame->payload[8+i] & (1<<j))
+      {
+        LOG("%s: - CMD 0x%02X implemented in Z-Wave controller\r\n", __FUNCTION__, lucSupportedCMD);
+      }
+    }
+  }
+
+}
+// end ZWave_RES_CMD_07_Serial_API_Get_Capabilities
+
+/** *****************************************************************************************************************************
   * @brief  Command handler for CMD 0x0A FUNC_ID_SERIAL_API_STARTED ZW->HOST: Cmd | CmdData[]
   * @param  None
   * @retval None
@@ -2371,135 +2510,14 @@ uint32_t lulZpalRetentionResetInfo = (0x1000000*ZWaveSerialFrame->payload[6+i]) 
   //ZWave_Send_REQ_CMD_41_Get_Node_Protocol_Info();
   /// Send Serial API Get Capabilities
   ZWave_Send_REQ_CMD_07_Serial_API_Get_Capabilities();
+  /// TEST MAB 2025.11.14
+  // Send Serial API Get LR Nodes
+  ZWave_Send_REQ_CMD_DA_Serial_API_Get_LR_Nodes();
+  // Send Serial API Get Init Data
+  ZWave_Send_REQ_CMD_02_Serial_API_Get_Init_Data();
   ///////////////////////////////////////////////////////////////////////////
 }
 // end ZWave_REQ_CMD_0A_Serial_API_Started
-
-/** *****************************************************************************************************************************
-  * @brief  Command handler for CMD 0x02 FUNC_ID_SERIAL_API_GET_INIT_DATA ZW->HOST: Cmd | ver | capabilities | 29 | nodes[29] | chip_type | chip_version
-  * @param  None
-  * @retval None
-  */
-void ZWave_RES_CMD_02_Get_Init_Data(void)
-{
-  // Display received frame data
-  //ZWave_Display_Received_Frame_Data();
-
-  // ----------------- Version -----------------
-  LOG("%s: SerialAPI Version      = 0x%02X\r\n", __FUNCTION__, ZWaveSerialFrame->payload[0]);
-
-  // ----------------- Capabilities -----------------
-  LOG("%s: SerialAPI Capabilities = 0x%02X\r\n", __FUNCTION__, ZWaveSerialFrame->payload[1]);
-  if (ZWaveSerialFrame->payload[0] & 0x01)
-  {
-    LOG("%s: - End device API\r\n", __FUNCTION__);
-  }
-  else
-  {
-    LOG("%s: - Controller API \r\n", __FUNCTION__);
-  }
-  if (ZWaveSerialFrame->payload[0] & 0x02)
-  {
-    LOG("%s: - Timer functions supported\r\n", __FUNCTION__);
-  }
-  else
-  {
-    LOG("%s: - Timer functions NOT supported\r\n", __FUNCTION__);
-  }
-  if (ZWaveSerialFrame->payload[0] & 0x04)
-  {
-    LOG("%s: - Secondary controller\r\n", __FUNCTION__);
-  }
-  else
-  {
-    LOG("%s: - Primary controller\r\n", __FUNCTION__);
-  }
-  if (ZWaveSerialFrame->payload[0] & 0x08)
-  {
-    LOG("%s: - Controller is SIS\r\n", __FUNCTION__);
-  }
-  else
-  {
-    LOG("%s: - Controller is NOT SIS\r\n", __FUNCTION__);
-  }
-
-  // ----------------- MAX_NODES/8 -----------------
-  LOG("%s: SerialAPI MAX_NODES/8  = 0x%02X\r\n", __FUNCTION__, ZWaveSerialFrame->payload[2]);
-  LOG("%s: - should be 29 (0x1D) or possibly 0\r\n", __FUNCTION__);
-
-  // ----------------- Nodes -----------------
-  if (ZWaveSerialFrame->payload[2])
-  {
-    for (int i = 0; i < ZWaveSerialFrame->payload[2]; ++i)
-    {
-      LOG("%s: SerialAPI node[%02d]  = 0x%02X\r\n", __FUNCTION__, i, ZWaveSerialFrame->payload[3+i]);
-    }
-  }
-
-  // ----------------- chip_type -----------------
-  LOG("%s: SerialAPI chip_type    = 0x%02X\r\n", __FUNCTION__, ZWaveSerialFrame->payload[3 +  ZWaveSerialFrame->payload[2]]);
-  switch (ZWaveSerialFrame->payload[3 +  ZWaveSerialFrame->payload[2]])
-
-  // ----------------- chip_version -----------------
-  LOG("%s: SerialAPI chip_version = 0x%02X\r\n", __FUNCTION__, ZWaveSerialFrame->payload[4 +  ZWaveSerialFrame->payload[2]]);
-
-}
-// end ZWave_RES_CMD_02_Get_Init_Data
-
-/** *****************************************************************************************************************************
-  * @brief  Command handler for CMD 0x05 FUNC_ID_ZW_GET_CONTROLLER_CAPABILITIES ZW->HOST: Cmd | retVal
-  * @param  None
-  * @retval None
-  */
-void ZWave_RES_CMD_05_ZW_Get_Controller_Capabilities(void)
-{
-  CONTROLLER_CONFIGURATION ltCapability;
-
-  LOG("%s: bitmask  = 0x%02X\r\n", __FUNCTION__, ZWaveSerialFrame->payload[0]);
-  memcpy(&ltCapability, &ZWaveSerialFrame->payload[0], 1);
-  if (ltCapability.controller_is_secondary)          LOG("%s: - controller is secondary\r\n", __FUNCTION__);
-  if (ltCapability.controller_on_other_network)      LOG("%s: - controller on other network\r\n", __FUNCTION__);
-  if (ltCapability.controller_nodeid_server_present) LOG("%s: - controller NodeID server is present\r\n", __FUNCTION__);
-  if (ltCapability.controller_is_real_primary)       LOG("%s: - controller is real primary\r\n", __FUNCTION__);
-  if (ltCapability.controller_is_suc)                LOG("%s: - controller is SUC\r\n", __FUNCTION__);
-  if (ltCapability.no_nodes_included)                LOG("%s: - no nodes included\r\n", __FUNCTION__);
-}
-// end ZWave_RES_CMD_05_ZW_Get_Controller_Capabilities
-
-/** *****************************************************************************************************************************
-  * @brief  Command handler for CMD 0x07 FUNC_ID_SERIAL_API_GET_CAPABILITIES ZW->HOST: Cmd | data[]
-  * @param  None
-  * @retval None
-  */
-void ZWave_RES_CMD_07_Serial_API_Get_Capabilities(void)
-{
-  // Display received frame data
-  //ZWave_Display_Received_Frame_Data();
-
-  LOG("%s: SERIAL_APP_VERSION                     = 0x%02X\r\n", __FUNCTION__, ZWaveSerialFrame->payload[0]);
-  LOG("%s: SERIAL_APP_REVISION                    = 0x%02X\r\n", __FUNCTION__, ZWaveSerialFrame->payload[1]);
-  LOG("%s: SERIAL_APP_MANUFACTURER_ID1            = 0x%02X\r\n", __FUNCTION__, ZWaveSerialFrame->payload[2]);
-  LOG("%s: SERIAL_APP_MANUFACTURER_ID2            = 0x%02X\r\n", __FUNCTION__, ZWaveSerialFrame->payload[3]);
-  LOG("%s: SERIAL_APP_MANUFACTURER_PRODUCT_TYPE1  = 0x%02X\r\n", __FUNCTION__, ZWaveSerialFrame->payload[4]);
-  LOG("%s: SERIAL_APP_MANUFACTURER_PRODUCT_TYPE2  = 0x%02X\r\n", __FUNCTION__, ZWaveSerialFrame->payload[5]);
-  LOG("%s: SERIAL_APP_MANUFACTURER_PRODUCT_ID1    = 0x%02X\r\n", __FUNCTION__, ZWaveSerialFrame->payload[6]);
-  LOG("%s: SERIAL_APP_MANUFACTURER_PRODUCT_ID2    = 0x%02X\r\n", __FUNCTION__, ZWaveSerialFrame->payload[7]);
-  uint8_t lucSupportedCMD = 0;
-  for (int i = 0; i < 32; ++i)
-  {
-    LOG("%s: FUNCID_SUPPORTED_BITMASK[%02d] = 0x%02X\r\n", __FUNCTION__, i, ZWaveSerialFrame->payload[8+i]);
-    for (int j=0; j < 8; ++j)
-    {
-      ++lucSupportedCMD;
-      if (ZWaveSerialFrame->payload[8+i] & (1<<j))
-      {
-        LOG("%s: - CMD 0x%02X implemented in Z-Wave controller\r\n", __FUNCTION__, lucSupportedCMD);
-      }
-    }
-  }
-
-}
-// end ZWave_RES_CMD_07_Serial_API_Get_Capabilities
 
 /** *****************************************************************************************************************************
   * @brief  Command handler for CMD 0x0B FUNC_ID_SERIAL_API_SETUP ZW->HOST: Cmd | CmdRes[]
@@ -2796,9 +2814,10 @@ void ZWave_RES_CMD_20_Memory_Get_ID(void)
   ///////////////////////////////////////////////////////////////////////////
   /// TEST MAB 2025.11.13
   /// Send Get Node Protocol Info for the Z-Wave controller's NodeID
-  ZWave_Send_REQ_CMD_41_Get_Node_Protocol_Info();
-  /// Send Serial API Get Capabilities
-  //ZWave_Send_REQ_CMD_07_Serial_API_Get_Capabilities();
+  ZWave_Send_REQ_CMD_41_Get_Node_Protocol_Info(guiZWaveNodeID);
+  /// TEST MAB 2025.11.14
+  /// Try an invalid NodeID
+  ZWave_Send_REQ_CMD_41_Get_Node_Protocol_Info(guiZWaveNodeID+1);
   ///////////////////////////////////////////////////////////////////////////
 }
 // end ZWave_RES_CMD_20_Memory_Get_ID
@@ -3100,6 +3119,18 @@ void ZWave_RES_CMD_XX_Unsupported(void)
 // end ZWave_RES_CMD_XX_Unsupported
 
 /** *****************************************************************************************************************************
+  * @brief  Prepare and send REQ CMD 02 Serial API Get Init Data
+  * @param  None
+  * @retval None
+  */
+void ZWave_Send_REQ_CMD_02_Serial_API_Get_Init_Data(void)
+{
+  ZWave_Enqueue_Request(FUNC_ID_SERIAL_API_GET_INIT_DATA, gucZWaveWorkbuf, 0);
+  LOG("%s: Sending FUNC_ID_SERIAL_API_GET_INIT_DATA\r\n", __FUNCTION__);
+}
+// end ZWave_Send_REQ_CMD_02_Serial_API_Get_Init_Data
+
+/** *****************************************************************************************************************************
   * @brief  Prepare and send REQ CMD 07 Serial API Get Capabilities
   * @param  None
   * @retval None
@@ -3158,15 +3189,15 @@ void ZWave_Send_REQ_CMD_20_Memory_Get_ID(void)
   * @param  None
   * @retval None
   */
-void ZWave_Send_REQ_CMD_41_Get_Node_Protocol_Info(void)
+void ZWave_Send_REQ_CMD_41_Get_Node_Protocol_Info(uint16_t auiNodeID)
 {
   // IF NodeID is nonzero
-  if (guiZWaveNodeID)
+  if (auiNodeID)
   {
-    gucZWaveWorkbuf[0]  = (uint8_t)(guiZWaveNodeID/0x100);
-    gucZWaveWorkbuf[1]  = (uint8_t)(guiZWaveNodeID & 0xFF);
+    gucZWaveWorkbuf[0]  = (uint8_t)(auiNodeID/0x100);
+    gucZWaveWorkbuf[1]  = (uint8_t)(auiNodeID & 0xFF);
     ZWave_Enqueue_Request(FUNC_ID_ZW_GET_NODE_PROTOCOL_INFO, gucZWaveWorkbuf, 2);
-    LOG("%s: Sending FUNC_ID_ZW_GET_NODE_PROTOCOL_INFO\r\n", __FUNCTION__);
+    LOG("%s: Sending FUNC_ID_ZW_GET_NODE_PROTOCOL_INFO, NodeID = 0x%04X\r\n", __FUNCTION__, auiNodeID);
   }
   // ELSE
   else
@@ -3176,6 +3207,19 @@ void ZWave_Send_REQ_CMD_41_Get_Node_Protocol_Info(void)
   // ENDIF
 }
 // end ZWave_Send_REQ_CMD_41_Get_Node_Protocol_Info
+
+/** *****************************************************************************************************************************
+  * @brief  Prepare and send REQ CMD DA Serial API Get LR Nodes
+  * @param  None
+  * @retval None
+  */
+void ZWave_Send_REQ_CMD_DA_Serial_API_Get_LR_Nodes(void)
+{
+  gucZWaveWorkbuf[0]  = 0; // BITMASK_OFFSET; currently 0 is the only realistic value
+  ZWave_Enqueue_Request(FUNC_ID_SERIAL_API_GET_LR_NODES, gucZWaveWorkbuf, 1);
+  LOG("%s: Sending FUNC_ID_SERIAL_API_GET_LR_NODES\r\n", __FUNCTION__);
+}
+// end ZWave_Send_REQ_CMD_DA_Serial_API_Get_LR_Nodes
 
 /** *****************************************************************************************************************************
   * @brief  Z-Wave SerialAPI state machine
@@ -3194,14 +3238,14 @@ ZWave_SerialAPI_StateMachine
     Update elapsed time
 
     IF state is IDLE
-      IF any callback requests are pending
+      IF a frame has been received
+        Set state to FRAME_PARSE
+      ELSE IF any callback requests are pending
         Transmit request
         Set state to CALLBACK_TX_SERIAL
       ELSE IF any command requests are pending
         Transmit request
         Set state to COMMAND_TX_SERIAL
-      ELSE IF a frame has been received
-        Set state to FRAME_PARSE
       ENDIF
 
     ELSE IF state is FRAME_PARSE
@@ -3209,7 +3253,9 @@ ZWave_SerialAPI_StateMachine
       Set state to IDLE
 
     ELSE IF state is TX_SERIAL
-      IF the response was ACKed
+      IF received a frame
+        Invoke the handler for the received command
+      ELSE IF the response was ACKed
         Reset retry count
         Set state to IDLE
       ELSE IF TX timeout
@@ -3223,7 +3269,9 @@ ZWave_SerialAPI_StateMachine
       ENDIF
 
     ELSE IF state is CALLBACK_TX_SERIAL
-      IF the callback was ACKed
+      IF received a frame
+        Invoke the handler for the received command
+      ELSE IF the callback was ACKed
         Pop the request from the callback queue
         Reset retry count
         Set state to IDLE
@@ -3239,7 +3287,9 @@ ZWave_SerialAPI_StateMachine
       ENDIF
 
     ELSE IF state is COMMAND_TX_SERIAL
-       IF the command was ACKed
+      IF received a frame
+        Invoke the handler for the received command
+      ELSE IF the command was ACKed
         Pop the request from the command queue
         Reset retry count
         Set state to IDLE
@@ -3379,9 +3429,17 @@ ZWaveState ZWave_SerialAPI_StateMachine(ZWaveStateMachineCommand stateMachineCom
       // immediate response to the ZWave controller?
       ////////////////////////////////////////////////////////////////////////////////////
 
-      // IF the response was ACKed
       ltParseResult = ZWave_Parse_Rx_Data(TRUE);
-      if (ZWAVE_RX_PARSE_FRAME_SENT == ltParseResult)
+
+      // IF received a frame
+      if (ZWAVE_RX_PARSE_FRAME_RECEIVED == ltParseResult)
+      {
+        // Invoke the handler for the received command
+        //LOG("%s: Invoke the handler for the received frame (from the Z-Wave controller)...\r\n", __FUNCTION__);
+        gtZWave_CMD_Handler[ZWaveSerialFrame->cmd]();
+      }
+      // ELSE IF the response was ACKed
+      else if (ZWAVE_RX_PARSE_FRAME_SENT == ltParseResult)
       {
         // Reset retry count
         gucRetryCount = 0;
@@ -3422,9 +3480,17 @@ ZWaveState ZWave_SerialAPI_StateMachine(ZWaveStateMachineCommand stateMachineCom
     // ELSE IF state is CALLBACK_TX_SERIAL
     else if (ZWAVE_CALLBACK_TX_SERIAL == leZWaveState)
     {
-      // IF the callback was ACKed
       ltParseResult = ZWave_Parse_Rx_Data(TRUE);
-      if (ZWAVE_RX_PARSE_FRAME_SENT == ltParseResult)
+
+      // IF received a frame
+      if (ZWAVE_RX_PARSE_FRAME_RECEIVED == ltParseResult)
+      {
+        // Invoke the handler for the received command
+        //LOG("%s: Invoke the handler for the received frame (from the Z-Wave controller)...\r\n", __FUNCTION__);
+        gtZWave_CMD_Handler[ZWaveSerialFrame->cmd]();
+      }
+      // ELSE IF the callback was ACKed
+      else if (ZWAVE_RX_PARSE_FRAME_SENT == ltParseResult)
       {
         // Pop the request from the callback queue
         ZWave_Pop_Callback_Queue();
@@ -3472,9 +3538,17 @@ ZWaveState ZWave_SerialAPI_StateMachine(ZWaveStateMachineCommand stateMachineCom
     // ELSE IF state is COMMAND_TX_SERIAL
     else if (ZWAVE_COMMAND_TX_SERIAL == leZWaveState)
     {
-      // IF the command was ACKed
       ltParseResult = ZWave_Parse_Rx_Data(TRUE);
-      if (ZWAVE_RX_PARSE_FRAME_SENT == ltParseResult)
+
+      // IF received a frame
+      if (ZWAVE_RX_PARSE_FRAME_RECEIVED == ltParseResult)
+      {
+        // Invoke the handler for the received command
+        //LOG("%s: Invoke the handler for the received frame (from the Z-Wave controller)...\r\n", __FUNCTION__);
+        gtZWave_CMD_Handler[ZWaveSerialFrame->cmd]();
+      }
+      // ELSE IF the command was ACKed
+      else if (ZWAVE_RX_PARSE_FRAME_SENT == ltParseResult)
       {
         // Pop the request from the command queue
         ZWave_Pop_Command_Queue();
@@ -4117,11 +4191,16 @@ void ZWaveTask(void *argument)
     //LOG("%s: HAL_UART_Receive_IT(&huart2) (for Z-Wave) returned HAL_OK\r\n", __FUNCTION__);
   }
 
-  // Initialize command handler array
+  //
+  // Initialize received command handler array
+  // (the command-indexed jump table of handler routines for received commands)
+  //
+  // First, initialize the entire jump table with the "unsupported command" routine
   for (int i = 0; i < 256; ++i)
   {
     gtZWave_CMD_Handler[i] = ZWave_RES_CMD_XX_Unsupported;
   }
+  // Now fill in the entries for supported command handler routines
   gtZWave_CMD_Handler[FUNC_ID_SERIAL_API_GET_INIT_DATA]       = ZWave_RES_CMD_02_Get_Init_Data;
   gtZWave_CMD_Handler[FUNC_ID_ZW_GET_CONTROLLER_CAPABILITIES] = ZWave_RES_CMD_05_ZW_Get_Controller_Capabilities;
   gtZWave_CMD_Handler[FUNC_ID_SERIAL_API_GET_CAPABILITIES]    = ZWave_RES_CMD_07_Serial_API_Get_Capabilities;
@@ -4137,6 +4216,7 @@ void ZWaveTask(void *argument)
   gtZWave_CMD_Handler[FUNC_ID_SERIAL_API_GET_LR_NODES]        = ZWave_RES_CMD_DA_Serial_API_Get_LR_Nodes;
   gtZWave_CMD_Handler[FUNC_ID_GET_DCDC_CONFIG]                = ZWave_RES_CMD_DE_Get_DCDC_Config;
   gtZWave_CMD_Handler[FUNC_ID_GET_RADIO_PTI]                  = ZWave_RES_CMD_E8_Get_Radio_PTI;
+  // Here's a handy template when implementing command handlers in the future
   //gtZWave_CMD_Handler[xxxxxxxxxxxxxxxxxx] = xxxxxxxxxxxxxxxxx;
 
   // Initialize Z-Wave SerialAPI state machine
@@ -4189,11 +4269,13 @@ void ZWaveTask(void *argument)
     {
       gtZWaveRxInterface.ack_timeout_ms = 0; // stop the timer
       gtZWaveRxInterface.ack_timeout = TRUE; // timeout occurred
+      LOG("%s: *** WARNING *** ACK timeout occurred\r\n", __FUNCTION__);
     }
     if (gtZWaveRxInterface.byte_timeout >= DEFAULT_BYTE_TIMEOUT_MS)
     {
       gtZWaveRxInterface.byte_timeout_ms = 0; // stop the timer
       gtZWaveRxInterface.byte_timeout = TRUE; // timeout occurred
+      LOG("%s: *** WARNING *** byte timeout occurred\r\n", __FUNCTION__);
     }
 
 //    //////////////////////////////////////////////
