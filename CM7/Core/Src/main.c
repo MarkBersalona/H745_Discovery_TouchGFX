@@ -274,7 +274,7 @@ uint8_t gucReceivedByteFromZWave;
 uint8_t gucReceivedByteFromDiagnostic;
 
 /* Queue for frames transmitted to Z-Wave controller (EFR32ZG23) */
-#define MAX_CALLBACK_QUEUE  8
+#define MAX_CALLBACK_QUEUE  16
 #define MAX_UNSOLICITED_QUEUE 8
 
 typedef struct _callback_element_{
@@ -371,13 +371,16 @@ void ZWave_RES_CMD_DE_Get_DCDC_Config(void);
 void ZWave_RES_CMD_E8_Get_Radio_PTI(void);
 void ZWave_RES_CMD_XX_Unsupported(void);
 void ZWave_Send_REQ_CMD_02_Serial_API_Get_Init_Data(void);
+void ZWave_Send_REQ_CMD_05_Get_Controller_Capabilities(void);
 void ZWave_Send_REQ_CMD_07_Serial_API_Get_Capabilities(void);
 void ZWave_Send_REQ_CMD_08_Serial_API_Soft_Reset(void);
 void ZWave_Send_REQ_CMD_0B_Serial_API_Setup(eSerialAPISetupCmd aeSetupCommand);
 void ZWave_Send_REQ_CMD_20_Memory_Get_ID(void);
 void ZWave_Send_REQ_CMD_41_Get_Node_Protocol_Info(uint16_t auiNodeID);
+void ZWave_Send_REQ_CMD_56_Get_SUC_Node_ID(void);
 void ZWave_Send_REQ_CMD_DA_Serial_API_Get_LR_Nodes(void);
-
+void ZWave_Send_REQ_CMD_DE_Get_DCDC_Config(void);
+void ZWave_Send_REQ_CMD_E8_Get_Radio_PTI(void);
 uint8_t ZWave_XOR_Checksum(uint8_t aucInitialValue, const uint8_t *paucDataBuffer, uint8_t aucLength);
 
 /* USER CODE END PFP */
@@ -1457,6 +1460,12 @@ uint8_t ZWave_Enqueue_Request(uint8_t aucCMD, uint8_t* paucData, uint8_t aucLeng
   // IF slot available in transmit callback queue
   if (gstructCallbackQueue.requestCnt < MAX_CALLBACK_QUEUE)
   {
+    if (gstructCallbackQueue.requestCnt > (MAX_CALLBACK_QUEUE-3))
+    {
+      LOG("%s: *** WARNING *** gstructCallbackQueue.requestCnt=%d, MAX_CALLBACK_QUEUE=%d \r\n",
+          __FUNCTION__, gstructCallbackQueue.requestCnt, MAX_CALLBACK_QUEUE);
+    }
+
     LOG("%s: Adding CMD 0x%02X to callback queue\r\n", __FUNCTION__, aucCMD);
     // Add to transmit callback queue
     gstructCallbackQueue.requestCnt++;
@@ -1502,9 +1511,15 @@ uint8_t ZWave_Enqueue_Request_Unsolicited(uint8_t aucCMD, uint8_t* paucData, uin
   uint8_t lucReturnValue;
 
   // IF slot available in transmit command queue
-  if (gstructCommandQueue.requestCnt < MAX_CALLBACK_QUEUE)
+  if (gstructCommandQueue.requestCnt < MAX_UNSOLICITED_QUEUE)
   {
-    LOG("%s: Adding CMD 0x%02X to command queue\r\n", __FUNCTION__, aucCMD);
+    if (gstructCommandQueue.requestCnt > (MAX_UNSOLICITED_QUEUE-3))
+    {
+      LOG("%s: *** WARNING *** gstructCommandQueue.requestCnt=%d, MAX_UNSOLICITED_QUEUE=%d \r\n",
+          __FUNCTION__, gstructCommandQueue.requestCnt, MAX_UNSOLICITED_QUEUE);
+    }
+
+   LOG("%s: Adding CMD 0x%02X to command queue\r\n", __FUNCTION__, aucCMD);
    // Add to transmit command queue
     gstructCommandQueue.requestCnt++;
     gstructCommandQueue.requestQueue[gstructCommandQueue.requestIn].wCmd = aucCMD;
@@ -1516,7 +1531,7 @@ uint8_t ZWave_Enqueue_Request_Unsolicited(uint8_t aucCMD, uint8_t* paucData, uin
     memcpy(&gstructCommandQueue.requestQueue[gstructCommandQueue.requestIn].wBuf[0], paucData, aucLength);
 
     // Move queue input pointer to next slot
-    if (++gstructCommandQueue.requestIn >= MAX_CALLBACK_QUEUE)
+    if (++gstructCommandQueue.requestIn >= MAX_UNSOLICITED_QUEUE)
     {
       gstructCommandQueue.requestIn = 0;
     }
@@ -2515,6 +2530,21 @@ uint32_t lulZpalRetentionResetInfo = (0x1000000*ZWaveSerialFrame->payload[6+i]) 
   ZWave_Send_REQ_CMD_DA_Serial_API_Get_LR_Nodes();
   // Send Serial API Get Init Data
   ZWave_Send_REQ_CMD_02_Serial_API_Get_Init_Data();
+  // Send Get Controller Capabilities
+  ZWave_Send_REQ_CMD_05_Get_Controller_Capabilities();
+  // Send Get SUC Node ID
+  ZWave_Send_REQ_CMD_56_Get_SUC_Node_ID();
+  // Send Get DCDC Config
+  ZWave_Send_REQ_CMD_DE_Get_DCDC_Config();
+  // Send Get Radio PTI
+  ZWave_Send_REQ_CMD_E8_Get_Radio_PTI();
+  // Send other Serial API Setup requests
+  ZWave_Send_REQ_CMD_0B_Serial_API_Setup(SERIAL_API_SETUP_CMD_SUPPORTED);
+  ZWave_Send_REQ_CMD_0B_Serial_API_Setup(SERIAL_API_SETUP_CMD_TX_POWERLEVEL_GET_16_BIT);
+  ZWave_Send_REQ_CMD_0B_Serial_API_Setup(SERIAL_API_SETUP_CMD_MAX_LR_TX_PWR_GET);
+  ZWave_Send_REQ_CMD_0B_Serial_API_Setup(SERIAL_API_SETUP_CMD_RF_REGION_GET);
+  ZWave_Send_REQ_CMD_0B_Serial_API_Setup(SERIAL_API_SETUP_CMD_TX_GET_MAX_PAYLOAD_SIZE);
+  ZWave_Send_REQ_CMD_0B_Serial_API_Setup(SERIAL_API_SETUP_CMD_TX_GET_MAX_LR_PAYLOAD_SIZE);
   ///////////////////////////////////////////////////////////////////////////
 }
 // end ZWave_REQ_CMD_0A_Serial_API_Started
@@ -3035,6 +3065,8 @@ void ZWave_RES_CMD_56_ZW_Get_SUC_Node_ID(void)
   */
 void ZWave_RES_CMD_A6_ZW_Is_Virtual_Node(void)
 {
+  // MAB 2025.11.14 Virtual nodes not implemented for LR nodes?
+
   LOG("%s: IsVirtualNode      = 0x%02X\r\n", __FUNCTION__, ZWaveSerialFrame->payload[0]);
   if (ZWaveSerialFrame->payload[0])
   {
@@ -3131,6 +3163,18 @@ void ZWave_Send_REQ_CMD_02_Serial_API_Get_Init_Data(void)
 // end ZWave_Send_REQ_CMD_02_Serial_API_Get_Init_Data
 
 /** *****************************************************************************************************************************
+  * @brief  Prepare and send REQ CMD 05 Get Controller Capabilities
+  * @param  None
+  * @retval None
+  */
+void ZWave_Send_REQ_CMD_05_Get_Controller_Capabilities(void)
+{
+  ZWave_Enqueue_Request(FUNC_ID_ZW_GET_CONTROLLER_CAPABILITIES, gucZWaveWorkbuf, 0);
+  LOG("%s: Sending FUNC_ID_ZW_GET_CONTROLLER_CAPABILITIES\r\n", __FUNCTION__);
+}
+// end ZWave_Send_REQ_CMD_05_Get_Controller_Capabilities
+
+/** *****************************************************************************************************************************
   * @brief  Prepare and send REQ CMD 07 Serial API Get Capabilities
   * @param  None
   * @retval None
@@ -3169,6 +3213,22 @@ void ZWave_Send_REQ_CMD_0B_Serial_API_Setup(eSerialAPISetupCmd aeSetupCommand)
     ZWave_Enqueue_Request(FUNC_ID_SERIAL_API_SETUP, gucZWaveWorkbuf, 2);
     LOG("%s: Sending SERIAL_API_SETUP_CMD_NODEID_BASETYPE_SET\r\n", __FUNCTION__);
   }
+  else
+  {
+    gucZWaveWorkbuf[0]  = aeSetupCommand;
+    ZWave_Enqueue_Request(FUNC_ID_SERIAL_API_SETUP, gucZWaveWorkbuf, 1);
+    switch (aeSetupCommand)
+    {
+    case SERIAL_API_SETUP_CMD_SUPPORTED:                  LOG("%s: Sending SERIAL_API_SETUP_CMD_SUPPORTED\r\n", __FUNCTION__);                  break;
+    case SERIAL_API_SETUP_CMD_TX_GET_MAX_PAYLOAD_SIZE:    LOG("%s: Sending SERIAL_API_SETUP_CMD_TX_GET_MAX_PAYLOAD_SIZE\r\n", __FUNCTION__);    break;
+    case SERIAL_API_SETUP_CMD_RF_REGION_GET:              LOG("%s: Sending SERIAL_API_SETUP_CMD_RF_REGION_GET\r\n", __FUNCTION__);              break;
+    case SERIAL_API_SETUP_CMD_MAX_LR_TX_PWR_GET:          LOG("%s: Sending SERIAL_API_SETUP_CMD_MAX_LR_TX_PWR_GET\r\n", __FUNCTION__);          break;
+    case SERIAL_API_SETUP_CMD_TX_GET_MAX_LR_PAYLOAD_SIZE: LOG("%s: Sending SERIAL_API_SETUP_CMD_TX_GET_MAX_LR_PAYLOAD_SIZE\r\n", __FUNCTION__); break;
+    case SERIAL_API_SETUP_CMD_TX_POWERLEVEL_GET_16_BIT:   LOG("%s: Sending SERIAL_API_SETUP_CMD_TX_POWERLEVEL_GET_16_BIT\r\n", __FUNCTION__);   break;
+    default: LOG("%s: *** WARNING *** Sending unknown Serial API Setup command 0x%02X\r\n", __FUNCTION__, aeSetupCommand); break;
+    }
+  }
+
 }
 // end ZWave_Send_REQ_CMD_0B_Serial_API_Setup
 
@@ -3209,6 +3269,18 @@ void ZWave_Send_REQ_CMD_41_Get_Node_Protocol_Info(uint16_t auiNodeID)
 // end ZWave_Send_REQ_CMD_41_Get_Node_Protocol_Info
 
 /** *****************************************************************************************************************************
+  * @brief  Prepare and send REQ CMD 56 Get SUC Node ID
+  * @param  None
+  * @retval None
+  */
+void ZWave_Send_REQ_CMD_56_Get_SUC_Node_ID(void)
+{
+  ZWave_Enqueue_Request(FUNC_ID_ZW_GET_SUC_NODE_ID, gucZWaveWorkbuf, 0);
+  LOG("%s: Sending FUNC_ID_ZW_GET_SUC_NODE_ID\r\n", __FUNCTION__);
+}
+// end ZWave_Send_REQ_CMD_56_Get_SUC_Node_ID
+
+/** *****************************************************************************************************************************
   * @brief  Prepare and send REQ CMD DA Serial API Get LR Nodes
   * @param  None
   * @retval None
@@ -3220,6 +3292,30 @@ void ZWave_Send_REQ_CMD_DA_Serial_API_Get_LR_Nodes(void)
   LOG("%s: Sending FUNC_ID_SERIAL_API_GET_LR_NODES\r\n", __FUNCTION__);
 }
 // end ZWave_Send_REQ_CMD_DA_Serial_API_Get_LR_Nodes
+
+/** *****************************************************************************************************************************
+  * @brief  Prepare and send REQ CMD DE Get DCDC Config
+  * @param  None
+  * @retval None
+  */
+void ZWave_Send_REQ_CMD_DE_Get_DCDC_Config(void)
+{
+  ZWave_Enqueue_Request(FUNC_ID_GET_DCDC_CONFIG, gucZWaveWorkbuf, 0);
+  LOG("%s: Sending FUNC_ID_GET_DCDC_CONFIG\r\n", __FUNCTION__);
+}
+// end ZWave_Send_REQ_CMD_DE_Get_DCDC_Config
+
+/** *****************************************************************************************************************************
+  * @brief  Prepare and send REQ CMD E8 Get Radio PTI
+  * @param  None
+  * @retval None
+  */
+void ZWave_Send_REQ_CMD_E8_Get_Radio_PTI(void)
+{
+  ZWave_Enqueue_Request(FUNC_ID_GET_RADIO_PTI, gucZWaveWorkbuf, 0);
+  LOG("%s: Sending FUNC_ID_GET_RADIO_PTI\r\n", __FUNCTION__);
+}
+// end ZWave_Send_REQ_CMD_E8_Get_Radio_PTI
 
 /** *****************************************************************************************************************************
   * @brief  Z-Wave SerialAPI state machine
@@ -4248,6 +4344,45 @@ void ZWaveTask(void *argument)
     if (lucOldMinute != sMainRTCTime.Minutes)
     {
       lucOldMinute = sMainRTCTime.Minutes;
+
+      ////////////////////////////////////////////////////////////////////////
+      //// TEST MAB 2025.11.14
+      //// Every N minutes, requeue a bunch of commands to send to ZWave controller
+      static uint8_t lucCountdownToRepeatedZWaveCommands_minutes = 10;
+      if (--lucCountdownToRepeatedZWaveCommands_minutes == 0)
+      {
+        lucCountdownToRepeatedZWaveCommands_minutes = 10;
+
+        //// send the Serial API Setup request to the ZWave controller
+        ZWave_Send_REQ_CMD_0B_Serial_API_Setup(SERIAL_API_SETUP_CMD_NODEID_BASETYPE_SET);
+        /// Also send Memory Get ID to get the HomeID and NodeID values
+        ZWave_Send_REQ_CMD_20_Memory_Get_ID();
+        /// Send Get Node Protocol Info for the Z-Wave controller's NodeID
+        //ZWave_Send_REQ_CMD_41_Get_Node_Protocol_Info();
+        /// Send Serial API Get Capabilities
+        ZWave_Send_REQ_CMD_07_Serial_API_Get_Capabilities();
+        /// TEST MAB 2025.11.14
+        // Send Serial API Get LR Nodes
+        ZWave_Send_REQ_CMD_DA_Serial_API_Get_LR_Nodes();
+        // Send Serial API Get Init Data
+        ZWave_Send_REQ_CMD_02_Serial_API_Get_Init_Data();
+        // Send Get Controller Capabilities
+        ZWave_Send_REQ_CMD_05_Get_Controller_Capabilities();
+        // Send Get SUC Node ID
+        ZWave_Send_REQ_CMD_56_Get_SUC_Node_ID();
+        // Send Get DCDC Config
+        ZWave_Send_REQ_CMD_DE_Get_DCDC_Config();
+        // Send Get Radio PTI
+        ZWave_Send_REQ_CMD_E8_Get_Radio_PTI();
+        // Send other Serial API Setup requests
+        ZWave_Send_REQ_CMD_0B_Serial_API_Setup(SERIAL_API_SETUP_CMD_SUPPORTED);
+        ZWave_Send_REQ_CMD_0B_Serial_API_Setup(SERIAL_API_SETUP_CMD_TX_POWERLEVEL_GET_16_BIT);
+        ZWave_Send_REQ_CMD_0B_Serial_API_Setup(SERIAL_API_SETUP_CMD_MAX_LR_TX_PWR_GET);
+        ZWave_Send_REQ_CMD_0B_Serial_API_Setup(SERIAL_API_SETUP_CMD_RF_REGION_GET);
+        ZWave_Send_REQ_CMD_0B_Serial_API_Setup(SERIAL_API_SETUP_CMD_TX_GET_MAX_PAYLOAD_SIZE);
+        ZWave_Send_REQ_CMD_0B_Serial_API_Setup(SERIAL_API_SETUP_CMD_TX_GET_MAX_LR_PAYLOAD_SIZE);
+      }
+      ////////////////////////////////////////////////////////////////////////
     } // updates on minutes
     ///////////////////////////////
     // updates on hours
