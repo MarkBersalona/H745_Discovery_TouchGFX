@@ -284,6 +284,16 @@ extern uint8_t gucZWaveRxBuffer[SERIAL_BUFFER_SIZE];
 #define ACK_LEN                 1
 #define CRC_LEN                 1
 
+// from sl_dcdc.h
+typedef enum sl_dcdc_config_t{
+  EDCDCMODE_AUTO,
+  EDCDCMODE_BYPASS,
+  EDCDCMODE_DCDC_LOW_NOISE
+} sl_dcdc_config_t;
+
+// Define a "don't care" constant
+#define IGNORE (0)
+
 /////////////////////////////
 
 

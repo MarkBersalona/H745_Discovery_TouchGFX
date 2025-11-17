@@ -368,6 +368,7 @@ void ZWave_RES_CMD_56_ZW_Get_SUC_Node_ID(void);
 void ZWave_RES_CMD_A6_ZW_Is_Virtual_Node(void);
 void ZWave_RES_CMD_DA_Serial_API_Get_LR_Nodes(void);
 void ZWave_RES_CMD_DE_Get_DCDC_Config(void);
+void ZWave_RES_CMD_DF_Set_DCDC_Config(void);
 void ZWave_RES_CMD_E8_Get_Radio_PTI(void);
 void ZWave_RES_CMD_XX_Unsupported(void);
 void ZWave_Send_REQ_CMD_02_Serial_API_Get_Init_Data(void);
@@ -380,6 +381,7 @@ void ZWave_Send_REQ_CMD_41_Get_Node_Protocol_Info(uint16_t auiNodeID);
 void ZWave_Send_REQ_CMD_56_Get_SUC_Node_ID(void);
 void ZWave_Send_REQ_CMD_DA_Serial_API_Get_LR_Nodes(void);
 void ZWave_Send_REQ_CMD_DE_Get_DCDC_Config(void);
+void ZWave_Send_REQ_CMD_DF_Set_DCDC_Config(sl_dcdc_config_t atDCDCMode);
 void ZWave_Send_REQ_CMD_E8_Get_Radio_PTI(void);
 uint8_t ZWave_XOR_Checksum(uint8_t aucInitialValue, const uint8_t *paucDataBuffer, uint8_t aucLength);
 
@@ -2517,7 +2519,7 @@ uint32_t lulZpalRetentionResetInfo = (0x1000000*ZWaveSerialFrame->payload[6+i]) 
   //// TEST MAB 2025.11.12
   //// When the Serial API Started request is received,
   //// send the Serial API Setup request to the ZWave controller
-  ZWave_Send_REQ_CMD_0B_Serial_API_Setup(SERIAL_API_SETUP_CMD_NODEID_BASETYPE_SET, NULL, NULL);
+  ZWave_Send_REQ_CMD_0B_Serial_API_Setup(SERIAL_API_SETUP_CMD_NODEID_BASETYPE_SET, IGNORE, IGNORE);
   /// Send Memory Get ID to get the HomeID and NodeID values
   ZWave_Send_REQ_CMD_20_Memory_Get_ID();
   /// Send Serial API Get Capabilities
@@ -2530,33 +2532,38 @@ uint32_t lulZpalRetentionResetInfo = (0x1000000*ZWaveSerialFrame->payload[6+i]) 
   ZWave_Send_REQ_CMD_05_Get_Controller_Capabilities();
   // Send Get SUC Node ID
   ZWave_Send_REQ_CMD_56_Get_SUC_Node_ID();
+
+  // Set DCDC mode
+  ZWave_Send_REQ_CMD_DF_Set_DCDC_Config(EDCDCMODE_AUTO);
   // Send Get DCDC Config
   ZWave_Send_REQ_CMD_DE_Get_DCDC_Config();
+
   // Send Get Radio PTI
   ZWave_Send_REQ_CMD_E8_Get_Radio_PTI();
 
   // Set region
-  //ZWave_Send_REQ_CMD_0B_Serial_API_Setup(SERIAL_API_SETUP_CMD_RF_REGION_SET, REGION_US, NULL); // OK
-  //ZWave_Send_REQ_CMD_0B_Serial_API_Setup(SERIAL_API_SETUP_CMD_RF_REGION_SET, REGION_EU, NULL); // OK
-  ZWave_Send_REQ_CMD_0B_Serial_API_Setup(SERIAL_API_SETUP_CMD_RF_REGION_SET, REGION_US_LR, NULL); // OK
-  //ZWave_Send_REQ_CMD_0B_Serial_API_Setup(SERIAL_API_SETUP_CMD_RF_REGION_SET, REGION_DEPRECATED_48, NULL); // FAILS; region unchanged
-  //ZWave_Send_REQ_CMD_0B_Serial_API_Setup(SERIAL_API_SETUP_CMD_RF_REGION_SET, REGION_JP, NULL); // OK
+  //ZWave_Send_REQ_CMD_0B_Serial_API_Setup(SERIAL_API_SETUP_CMD_RF_REGION_SET, REGION_US, IGNORE); // OK
+  //ZWave_Send_REQ_CMD_0B_Serial_API_Setup(SERIAL_API_SETUP_CMD_RF_REGION_SET, REGION_EU, IGNORE); // OK
+  ZWave_Send_REQ_CMD_0B_Serial_API_Setup(SERIAL_API_SETUP_CMD_RF_REGION_SET, REGION_US_LR, IGNORE); // OK
+  //ZWave_Send_REQ_CMD_0B_Serial_API_Setup(SERIAL_API_SETUP_CMD_RF_REGION_SET, REGION_DEPRECATED_48, IGNORE); // FAILS; region unchanged
+  //ZWave_Send_REQ_CMD_0B_Serial_API_Setup(SERIAL_API_SETUP_CMD_RF_REGION_SET, REGION_JP, IGNORE); // OK
   // Set TX power level
   //ZWave_Send_REQ_CMD_0B_Serial_API_Setup(SERIAL_API_SETUP_CMD_TX_POWERLEVEL_SET_16_BIT, 200, 0); // OK
   //ZWave_Send_REQ_CMD_0B_Serial_API_Setup(SERIAL_API_SETUP_CMD_TX_POWERLEVEL_SET_16_BIT, 205, 0); // FAILS; TX power unchanged
   ZWave_Send_REQ_CMD_0B_Serial_API_Setup(SERIAL_API_SETUP_CMD_TX_POWERLEVEL_SET_16_BIT, 200, 5); // OK
   // Set LR TX power level
-  ZWave_Send_REQ_CMD_0B_Serial_API_Setup(SERIAL_API_SETUP_CMD_MAX_LR_TX_PWR_SET, 200, NULL); // OK
-  //ZWave_Send_REQ_CMD_0B_Serial_API_Setup(SERIAL_API_SETUP_CMD_MAX_LR_TX_PWR_SET, 190, NULL); // OK
-  //ZWave_Send_REQ_CMD_0B_Serial_API_Setup(SERIAL_API_SETUP_CMD_MAX_LR_TX_PWR_SET, 205, NULL); // FAILS; LR TX power unchanged
+  ZWave_Send_REQ_CMD_0B_Serial_API_Setup(SERIAL_API_SETUP_CMD_MAX_LR_TX_PWR_SET, 200, IGNORE); // OK
+  //ZWave_Send_REQ_CMD_0B_Serial_API_Setup(SERIAL_API_SETUP_CMD_MAX_LR_TX_PWR_SET, 190, IGNORE); // OK
+  //ZWave_Send_REQ_CMD_0B_Serial_API_Setup(SERIAL_API_SETUP_CMD_MAX_LR_TX_PWR_SET, 205, IGNORE); // FAILS; LR TX power unchanged
+
 
   // Send other Serial API Setup requests
-  ZWave_Send_REQ_CMD_0B_Serial_API_Setup(SERIAL_API_SETUP_CMD_SUPPORTED, NULL, NULL);
-  ZWave_Send_REQ_CMD_0B_Serial_API_Setup(SERIAL_API_SETUP_CMD_TX_POWERLEVEL_GET_16_BIT, NULL, NULL);
-  ZWave_Send_REQ_CMD_0B_Serial_API_Setup(SERIAL_API_SETUP_CMD_MAX_LR_TX_PWR_GET, NULL, NULL);
-  ZWave_Send_REQ_CMD_0B_Serial_API_Setup(SERIAL_API_SETUP_CMD_RF_REGION_GET, NULL, NULL);
-  ZWave_Send_REQ_CMD_0B_Serial_API_Setup(SERIAL_API_SETUP_CMD_TX_GET_MAX_PAYLOAD_SIZE, NULL, NULL);
-  ZWave_Send_REQ_CMD_0B_Serial_API_Setup(SERIAL_API_SETUP_CMD_TX_GET_MAX_LR_PAYLOAD_SIZE, NULL, NULL);
+  ZWave_Send_REQ_CMD_0B_Serial_API_Setup(SERIAL_API_SETUP_CMD_SUPPORTED, IGNORE, IGNORE);
+  ZWave_Send_REQ_CMD_0B_Serial_API_Setup(SERIAL_API_SETUP_CMD_TX_POWERLEVEL_GET_16_BIT, IGNORE, IGNORE);
+  ZWave_Send_REQ_CMD_0B_Serial_API_Setup(SERIAL_API_SETUP_CMD_MAX_LR_TX_PWR_GET, IGNORE, IGNORE);
+  ZWave_Send_REQ_CMD_0B_Serial_API_Setup(SERIAL_API_SETUP_CMD_RF_REGION_GET, IGNORE, IGNORE);
+  ZWave_Send_REQ_CMD_0B_Serial_API_Setup(SERIAL_API_SETUP_CMD_TX_GET_MAX_PAYLOAD_SIZE, IGNORE, IGNORE);
+  ZWave_Send_REQ_CMD_0B_Serial_API_Setup(SERIAL_API_SETUP_CMD_TX_GET_MAX_LR_PAYLOAD_SIZE, IGNORE, IGNORE);
   ///////////////////////////////////////////////////////////////////////////
 }
 // end ZWave_REQ_CMD_0A_Serial_API_Started
@@ -3159,13 +3166,13 @@ void ZWave_RES_CMD_DE_Get_DCDC_Config(void)
   LOG("%s: DC/DC configuration = 0x%02X\r\n", __FUNCTION__, ZWaveSerialFrame->payload[0]);
   switch (ZWaveSerialFrame->payload[0])
   {
-  case 0x00:
+  case EDCDCMODE_AUTO:
     LOG("%s: - Auto \r\n", __FUNCTION__);
     break;
-  case 0x01:
+  case EDCDCMODE_BYPASS:
     LOG("%s: - Bypass \r\n", __FUNCTION__);
     break;
-  case 0x02:
+  case EDCDCMODE_DCDC_LOW_NOISE:
     LOG("%s: - DC/DC Low Noise \r\n", __FUNCTION__);
     break;
   default:
@@ -3174,6 +3181,25 @@ void ZWave_RES_CMD_DE_Get_DCDC_Config(void)
   }
 }
 // end ZWave_RES_CMD_DE_Get_DCDC_Config
+
+/** *****************************************************************************************************************************
+  * @brief  Command handler for CMD 0xDF FUNC_ID_SET_DCDC_CONFIG ZW->HOST: Cmd | retVal
+  * @param  None
+  * @retval None
+  */
+void ZWave_RES_CMD_DF_Set_DCDC_Config(void)
+{
+  LOG("%s: Set DCDC Config result  = 0x%02X\r\n", __FUNCTION__, ZWaveSerialFrame->payload[1]);
+  if (ZWaveSerialFrame->payload[0])
+  {
+    LOG("%s: - Requested DCDC Config successfully set \r\n", __FUNCTION__);
+  }
+  else
+  {
+    LOG("%s: - *** WARNING *** Requested DCDC Config FAILED \r\n", __FUNCTION__);
+  }
+}
+// end ZWave_RES_CMD_DF_Set_DCDC_Config
 
 /** *****************************************************************************************************************************
   * @brief  Command handler for CMD 0xE8 FUNC_ID_GET_RADIO_PTI ZW->HOST: Cmd | retVal
@@ -3415,6 +3441,19 @@ void ZWave_Send_REQ_CMD_DE_Get_DCDC_Config(void)
   LOG("%s: Sending FUNC_ID_GET_DCDC_CONFIG\r\n", __FUNCTION__);
 }
 // end ZWave_Send_REQ_CMD_DE_Get_DCDC_Config
+
+/** *****************************************************************************************************************************
+  * @brief  Prepare and send REQ CMD DF Set DCDC Config
+  * @param  None
+  * @retval None
+  */
+void ZWave_Send_REQ_CMD_DF_Set_DCDC_Config(sl_dcdc_config_t atDCDCMode)
+{
+  gucZWaveWorkbuf[0]  = (uint8_t)atDCDCMode;  // For now, hard-code the value for Auto
+  ZWave_Enqueue_Request(FUNC_ID_SET_DCDC_CONFIG, gucZWaveWorkbuf, 1);
+  LOG("%s: Sending FUNC_ID_SET_DCDC_CONFIG\r\n", __FUNCTION__);
+}
+// end ZWave_Send_REQ_CMD_DF_Set_DCDC_Config
 
 /** *****************************************************************************************************************************
   * @brief  Prepare and send REQ CMD E8 Get Radio PTI
@@ -4422,6 +4461,7 @@ void ZWaveTask(void *argument)
   gtZWave_CMD_Handler[FUNC_ID_ZW_IS_VIRTUAL_NODE]             = ZWave_RES_CMD_A6_ZW_Is_Virtual_Node;
   gtZWave_CMD_Handler[FUNC_ID_SERIAL_API_GET_LR_NODES]        = ZWave_RES_CMD_DA_Serial_API_Get_LR_Nodes;
   gtZWave_CMD_Handler[FUNC_ID_GET_DCDC_CONFIG]                = ZWave_RES_CMD_DE_Get_DCDC_Config;
+  gtZWave_CMD_Handler[FUNC_ID_SET_DCDC_CONFIG]                = ZWave_RES_CMD_DF_Set_DCDC_Config;
   gtZWave_CMD_Handler[FUNC_ID_GET_RADIO_PTI]                  = ZWave_RES_CMD_E8_Get_Radio_PTI;
   // Here's a handy template when implementing command handlers in the future
   //gtZWave_CMD_Handler[xxxxxxxxxxxxxxxxxx] = xxxxxxxxxxxxxxxxx;
