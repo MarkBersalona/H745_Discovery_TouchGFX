@@ -359,6 +359,7 @@ void ZWave_RES_CMD_02_Get_Init_Data(void);
 void ZWave_RES_CMD_05_ZW_Get_Controller_Capabilities(void);
 void ZWave_RES_CMD_07_Serial_API_Get_Capabilities(void);
 void ZWave_RES_CMD_0B_Serial_API_Setup(void);
+void ZWave_RSQ_CMD_12_ZW_Send_Node_Information(void);
 void ZWave_RSQ_CMD_13_ZW_Send_Data(void);
 void ZWave_RES_CMD_15_ZW_Get_Version(void);
 void ZWave_RES_CMD_20_Memory_Get_ID(void);
@@ -2803,6 +2804,62 @@ void ZWave_RES_CMD_0B_Serial_API_Setup(void)
 // end ZWave_RES_CMD_0B_Serial_API_Setup
 
 /** *****************************************************************************************************************************
+  * @brief  Command handler for CMD 0x12 FUNC_ID_ZW_SEND_NODE_INFORMATION ZW->HOST: RES | Cmd | retVal; REQ | Cmd | funcID | txStatus
+  * @param  None
+  * @retval None
+  */
+void ZWave_RSQ_CMD_12_ZW_Send_Node_Information(void)
+{
+  // This routine handles BOTH cases when Z-Wave controller sends the RESPONSE with a return value, and if the return value
+  // is TRUE, the controller sends a callback REQUEST with assorted data.
+
+  if (RESPONSE == ZWaveSerialFrame->type)
+  {
+    //////////////////////////////////////////////////////
+    // Handle the RESPONSE with single return value
+    //////////////////////////////////////////////////////
+    LOG("%s: Return value = 0x%02X\r\n", __FUNCTION__, ZWaveSerialFrame->payload[0]);
+    if (ZWaveSerialFrame->payload[0])
+    {
+      LOG("%s: - expect a callback REQUEST with assorted data...\r\n", __FUNCTION__);
+    }
+    else
+    {
+      LOG("%s: - No further data are expected\r\n", __FUNCTION__);
+    }
+  }
+  else
+  {
+    //////////////////////////////////////////////////////
+    // Handle the REQUEST with assorted data
+    //////////////////////////////////////////////////////
+    /* ZW->HOST: funcID | txStatus */
+    LOG("%s: funcID   = 0x%02X\r\n", __FUNCTION__, ZWaveSerialFrame->payload[0]);
+
+    LOG("%s: txStatus = 0x%02X\r\n", __FUNCTION__, ZWaveSerialFrame->payload[1]);
+    switch (ZWaveSerialFrame->payload[1])
+    {
+    case TRANSMIT_COMPLETE_OK:
+      LOG("%s: - transmit OK \r\n", __FUNCTION__);
+      break;
+    case TRANSMIT_COMPLETE_NO_ACK:
+      LOG("%s: - transmit ERROR (no ACK received) \r\n", __FUNCTION__);
+      break;
+    case TRANSMIT_COMPLETE_FAIL:
+      LOG("%s: - transmit ERROR (FAIL; network busy or jammed) \r\n", __FUNCTION__);
+      break;
+    case TRANSMIT_ROUTING_NOT_IDLE:
+      LOG("%s: - transmit ERROR (routing not idle) \r\n", __FUNCTION__);
+      break;
+    default:
+      LOG("%s: - *** WARNING *** txStatus value UNKNOWN \r\n", __FUNCTION__);
+      break;
+    }
+  }
+}
+// end ZWave_RSQ_CMD_12_ZW_Send_Node_Information
+
+/** *****************************************************************************************************************************
   * @brief  Command handler for CMD 0x13 FUNC_ID_ZW_SEND_DATA ZW->HOST: RES | Cmd | retVal; REQ | Cmd | data[]
   * @param  None
   * @retval None
@@ -2909,7 +2966,7 @@ void ZWave_RES_CMD_20_Memory_Get_ID(void)
   ZWave_Send_REQ_CMD_41_Get_Node_Protocol_Info(guiZWaveNodeID);
   /// TEST MAB 2025.11.14
   /// Try an invalid NodeID
-  ZWave_Send_REQ_CMD_41_Get_Node_Protocol_Info(guiZWaveNodeID+1);
+  //ZWave_Send_REQ_CMD_41_Get_Node_Protocol_Info(guiZWaveNodeID+1);
   ///////////////////////////////////////////////////////////////////////////
 }
 // end ZWave_RES_CMD_20_Memory_Get_ID
@@ -2951,9 +3008,29 @@ void ZWave_RES_CMD_41_ZW_Get_Node_Protocol_Info(void)
 
   // ----------------- Network capabilities -----------------
   LOG("%s: Network capabilities = 0x%02X\r\n", __FUNCTION__, ZWaveSerialFrame->payload[0]);
+  if (ZWaveSerialFrame->payload[0] & NODEINFO_LISTENING_SUPPORT)
+  {
+    LOG("%s: - Node is listening \r\n", __FUNCTION__);
+  }
+  if (ZWaveSerialFrame->payload[0] & NODEINFO_ROUTING_SUPPORT)
+  {
+    LOG("%s: - Node supports routing \r\n", __FUNCTION__);
+  }
 
   // ----------------- Network security -----------------
   LOG("%s: Network security     = 0x%02X\r\n", __FUNCTION__, ZWaveSerialFrame->payload[1]);
+  if (ZWaveSerialFrame->payload[1] & NODEINFO_OPTIONAL_FUNC_SUPPORT)
+  {
+    LOG("%s: - Node supports optional functionality \r\n", __FUNCTION__);
+  }
+  if (ZWaveSerialFrame->payload[1] & NODEINFO_ZWAVE_SENSOR_MODE_WAKEUP_1000)
+  {
+    LOG("%s: - Node supports wakeup 1000 msec \r\n", __FUNCTION__);
+  }
+  if (ZWaveSerialFrame->payload[1] & NODEINFO_ZWAVE_SENSOR_MODE_WAKEUP_250)
+  {
+    LOG("%s: - Node supports wakeup  250 msec \r\n", __FUNCTION__);
+  }
 
   // ----------------- Reserved -----------------
   LOG("%s: Reserved byte        = 0x%02X\r\n", __FUNCTION__, ZWaveSerialFrame->payload[2]);
@@ -4452,6 +4529,7 @@ void ZWaveTask(void *argument)
   gtZWave_CMD_Handler[FUNC_ID_SERIAL_API_GET_CAPABILITIES]    = ZWave_RES_CMD_07_Serial_API_Get_Capabilities;
   gtZWave_CMD_Handler[FUNC_ID_SERIAL_API_STARTED]             = ZWave_REQ_CMD_0A_Serial_API_Started;
   gtZWave_CMD_Handler[FUNC_ID_SERIAL_API_SETUP]               = ZWave_RES_CMD_0B_Serial_API_Setup;
+  gtZWave_CMD_Handler[FUNC_ID_ZW_SEND_NODE_INFORMATION]       = ZWave_RSQ_CMD_12_ZW_Send_Node_Information;
   gtZWave_CMD_Handler[FUNC_ID_ZW_SEND_DATA]                   = ZWave_RSQ_CMD_13_ZW_Send_Data;
   gtZWave_CMD_Handler[FUNC_ID_ZW_GET_VERSION]                 = ZWave_RES_CMD_15_ZW_Get_Version;
   gtZWave_CMD_Handler[FUNC_ID_MEMORY_GET_ID]                  = ZWave_RES_CMD_20_Memory_Get_ID;
@@ -4499,18 +4577,15 @@ void ZWaveTask(void *argument)
 //      ////////////////////////////////////////////////////////////////////////
 //      //// TEST MAB 2025.11.14
 //      //// Every N minutes, requeue a bunch of commands to send to ZWave controller
-//      static uint8_t lucCountdownToRepeatedZWaveCommands_minutes = 10;
+//      static uint8_t lucCountdownToRepeatedZWaveCommands_minutes = 30;
 //      if (--lucCountdownToRepeatedZWaveCommands_minutes == 0)
 //      {
-//        lucCountdownToRepeatedZWaveCommands_minutes = 10;
+//        lucCountdownToRepeatedZWaveCommands_minutes = 30;
 //
-//        //// send the Serial API Setup request to the ZWave controller
-//        ZWave_Send_REQ_CMD_0B_Serial_API_Setup(SERIAL_API_SETUP_CMD_NODEID_BASETYPE_SET);
-//        /// Also send Memory Get ID to get the HomeID and NodeID values
+//        /// Send Memory Get ID to get the HomeID and NodeID values
 //        ZWave_Send_REQ_CMD_20_Memory_Get_ID();
 //        /// Send Serial API Get Capabilities
 //        ZWave_Send_REQ_CMD_07_Serial_API_Get_Capabilities();
-//        /// TEST MAB 2025.11.14
 //        // Send Serial API Get LR Nodes
 //        ZWave_Send_REQ_CMD_DA_Serial_API_Get_LR_Nodes();
 //        // Send Serial API Get Init Data
@@ -4519,17 +4594,38 @@ void ZWaveTask(void *argument)
 //        ZWave_Send_REQ_CMD_05_Get_Controller_Capabilities();
 //        // Send Get SUC Node ID
 //        ZWave_Send_REQ_CMD_56_Get_SUC_Node_ID();
+//
+//        // Set DCDC mode
+//        ZWave_Send_REQ_CMD_DF_Set_DCDC_Config(EDCDCMODE_AUTO);
 //        // Send Get DCDC Config
 //        ZWave_Send_REQ_CMD_DE_Get_DCDC_Config();
+//
 //        // Send Get Radio PTI
 //        ZWave_Send_REQ_CMD_E8_Get_Radio_PTI();
+//
+//        // Set region
+//        //ZWave_Send_REQ_CMD_0B_Serial_API_Setup(SERIAL_API_SETUP_CMD_RF_REGION_SET, REGION_US, IGNORE); // OK
+//        //ZWave_Send_REQ_CMD_0B_Serial_API_Setup(SERIAL_API_SETUP_CMD_RF_REGION_SET, REGION_EU, IGNORE); // OK
+//        ZWave_Send_REQ_CMD_0B_Serial_API_Setup(SERIAL_API_SETUP_CMD_RF_REGION_SET, REGION_US_LR, IGNORE); // OK
+//        //ZWave_Send_REQ_CMD_0B_Serial_API_Setup(SERIAL_API_SETUP_CMD_RF_REGION_SET, REGION_DEPRECATED_48, IGNORE); // FAILS; region unchanged
+//        //ZWave_Send_REQ_CMD_0B_Serial_API_Setup(SERIAL_API_SETUP_CMD_RF_REGION_SET, REGION_JP, IGNORE); // OK
+//        // Set TX power level
+//        //ZWave_Send_REQ_CMD_0B_Serial_API_Setup(SERIAL_API_SETUP_CMD_TX_POWERLEVEL_SET_16_BIT, 200, 0); // OK
+//        //ZWave_Send_REQ_CMD_0B_Serial_API_Setup(SERIAL_API_SETUP_CMD_TX_POWERLEVEL_SET_16_BIT, 205, 0); // FAILS; TX power unchanged
+//        ZWave_Send_REQ_CMD_0B_Serial_API_Setup(SERIAL_API_SETUP_CMD_TX_POWERLEVEL_SET_16_BIT, 200, 5); // OK
+//        // Set LR TX power level
+//        ZWave_Send_REQ_CMD_0B_Serial_API_Setup(SERIAL_API_SETUP_CMD_MAX_LR_TX_PWR_SET, 200, IGNORE); // OK
+//        //ZWave_Send_REQ_CMD_0B_Serial_API_Setup(SERIAL_API_SETUP_CMD_MAX_LR_TX_PWR_SET, 190, IGNORE); // OK
+//        //ZWave_Send_REQ_CMD_0B_Serial_API_Setup(SERIAL_API_SETUP_CMD_MAX_LR_TX_PWR_SET, 205, IGNORE); // FAILS; LR TX power unchanged
+//
+//
 //        // Send other Serial API Setup requests
-//        ZWave_Send_REQ_CMD_0B_Serial_API_Setup(SERIAL_API_SETUP_CMD_SUPPORTED);
-//        ZWave_Send_REQ_CMD_0B_Serial_API_Setup(SERIAL_API_SETUP_CMD_TX_POWERLEVEL_GET_16_BIT);
-//        ZWave_Send_REQ_CMD_0B_Serial_API_Setup(SERIAL_API_SETUP_CMD_MAX_LR_TX_PWR_GET);
-//        ZWave_Send_REQ_CMD_0B_Serial_API_Setup(SERIAL_API_SETUP_CMD_RF_REGION_GET);
-//        ZWave_Send_REQ_CMD_0B_Serial_API_Setup(SERIAL_API_SETUP_CMD_TX_GET_MAX_PAYLOAD_SIZE);
-//        ZWave_Send_REQ_CMD_0B_Serial_API_Setup(SERIAL_API_SETUP_CMD_TX_GET_MAX_LR_PAYLOAD_SIZE);
+//        ZWave_Send_REQ_CMD_0B_Serial_API_Setup(SERIAL_API_SETUP_CMD_SUPPORTED, IGNORE, IGNORE);
+//        ZWave_Send_REQ_CMD_0B_Serial_API_Setup(SERIAL_API_SETUP_CMD_TX_POWERLEVEL_GET_16_BIT, IGNORE, IGNORE);
+//        ZWave_Send_REQ_CMD_0B_Serial_API_Setup(SERIAL_API_SETUP_CMD_MAX_LR_TX_PWR_GET, IGNORE, IGNORE);
+//        ZWave_Send_REQ_CMD_0B_Serial_API_Setup(SERIAL_API_SETUP_CMD_RF_REGION_GET, IGNORE, IGNORE);
+//        ZWave_Send_REQ_CMD_0B_Serial_API_Setup(SERIAL_API_SETUP_CMD_TX_GET_MAX_PAYLOAD_SIZE, IGNORE, IGNORE);
+//        ZWave_Send_REQ_CMD_0B_Serial_API_Setup(SERIAL_API_SETUP_CMD_TX_GET_MAX_LR_PAYLOAD_SIZE, IGNORE, IGNORE);
 //      }
 //      ////////////////////////////////////////////////////////////////////////
     } // updates on minutes
