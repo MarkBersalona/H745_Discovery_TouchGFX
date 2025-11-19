@@ -365,6 +365,7 @@ void ZWave_RES_CMD_15_ZW_Get_Version(void);
 void ZWave_RES_CMD_20_Memory_Get_ID(void);
 void ZWave_RES_CMD_28_NVR_Get_Value(void);
 void ZWave_RES_CMD_41_ZW_Get_Node_Protocol_Info(void);
+void ZWave_RES_CMD_50_ZW_Set_Learn_Mode(void);
 void ZWave_RES_CMD_56_ZW_Get_SUC_Node_ID(void);
 void ZWave_RES_CMD_A6_ZW_Is_Virtual_Node(void);
 void ZWave_RES_CMD_DA_Serial_API_Get_LR_Nodes(void);
@@ -373,6 +374,7 @@ void ZWave_RES_CMD_DF_Set_DCDC_Config(void);
 void ZWave_RES_CMD_E8_Get_Radio_PTI(void);
 void ZWave_RES_CMD_XX_Unsupported(void);
 void ZWave_Send_REQ_CMD_02_Serial_API_Get_Init_Data(void);
+void ZWave_Send_REQ_CMD_03_Serial_API_Application_Node_Information(void);
 void ZWave_Send_REQ_CMD_05_Get_Controller_Capabilities(void);
 void ZWave_Send_REQ_CMD_07_Serial_API_Get_Capabilities(void);
 void ZWave_Send_REQ_CMD_08_Serial_API_Soft_Reset(void);
@@ -2362,23 +2364,25 @@ void ZWave_REQ_CMD_0A_Serial_API_Started(void)
 
   // ----------------- Device option mask -----------------
   LOG("%s: Device option mask        = 0x%02X\r\n", __FUNCTION__, ZWaveSerialFrame->payload[2]);
-  switch (ZWaveSerialFrame->payload[2])
+  if (ZWaveSerialFrame->payload[2] & APPLICATION_NODEINFO_LISTENING)
   {
-  case APPLICATION_NODEINFO_NOT_LISTENING:
-    LOG("%s: - Not listening Node, corresponds to Reporting Sleeping End Device role type \r\n", __FUNCTION__);
-    break;
-  case APPLICATION_NODEINFO_LISTENING:
     LOG("%s: - Always On Node, corresponds to Always On (AOS) role type \r\n", __FUNCTION__);
-    break;
-  case APPLICATION_FREQ_LISTENING_MODE_1000ms:
+  }
+  if (ZWaveSerialFrame->payload[2] & APPLICATION_FREQ_LISTENING_MODE_1000ms)
+  {
     LOG("%s: - Frequently Listening, corresponds to FLiRS role type. Wakes up every 1000ms \r\n", __FUNCTION__);
-    break;
-  case APPLICATION_FREQ_LISTENING_MODE_250ms:
-    LOG("%s: -  Frequently Listening, corresponds to FLiRS role type. Wakes up every 250ms \r\n", __FUNCTION__);
-    break;
-  default:
-    LOG("%s: - *** WARNING *** device option mask 0x%02X is UNKNOWN \r\n", __FUNCTION__, ZWaveSerialFrame->payload[2]);
-    break;
+  }
+  if (ZWaveSerialFrame->payload[2] & APPLICATION_FREQ_LISTENING_MODE_250ms)
+  {
+    LOG("%s: - Frequently Listening, corresponds to FLiRS role type. Wakes up every 250ms \r\n", __FUNCTION__);
+  }
+  if (ZWaveSerialFrame->payload[2] & NODEINFO_OPTIONAL_FUNC_SUPPORT)
+  {
+    LOG("%s: - Optional functionality supported \r\n", __FUNCTION__);
+  }
+  if (ZWaveSerialFrame->payload[2] & ~(APPLICATION_NODEINFO_LISTENING | APPLICATION_FREQ_LISTENING_MODE_1000ms | APPLICATION_FREQ_LISTENING_MODE_250ms | NODEINFO_OPTIONAL_FUNC_SUPPORT) )
+  {
+    LOG("%s: - *** WARNING *** unknown device options enabled \r\n", __FUNCTION__);
   }
 
   // ----------------- Generic node type -----------------
@@ -2507,13 +2511,32 @@ void ZWave_REQ_CMD_0A_Serial_API_Started(void)
 
   // ----------------- Command class list length -----------------
   LOG("%s: Command class list length = 0x%02X\r\n", __FUNCTION__, ZWaveSerialFrame->payload[5]);
-  int i = ZWaveSerialFrame->payload[9];
 
-  // ----------------- Retained reset info  (doesn't seem to be used) -----------------
-uint32_t lulZpalRetentionResetInfo = (0x1000000*ZWaveSerialFrame->payload[6+i]) +
-                                       (  0x10000*ZWaveSerialFrame->payload[7+i]) +
-                                       (    0x100*ZWaveSerialFrame->payload[8+i]) +
-                                       (          ZWaveSerialFrame->payload[9+i]) ;
+  // ----------------- Command class list -----------------
+  int i = ZWaveSerialFrame->payload[5];
+  if (i)
+  {
+    LOG("-----------------------  Command class list START -----------------------\r\n");
+    PrintBytes(&ZWaveSerialFrame->payload[6], i, false, 0);
+    LOG("-----------------------  Command class list  END  -----------------------\r\n");
+  }
+
+  // ----------------- Capabilities -----------------
+  LOG("%s: Capabilities              = 0x%02X\r\n", __FUNCTION__, ZWaveSerialFrame->payload[6+i]);
+  if (ZWaveSerialFrame->payload[6+i] & ((uint8_t)SERIAL_API_STARTED_CAPABILITIES_L0NG_RANGE) )
+  {
+    LOG("%s: - Long Range is supported \r\n", __FUNCTION__);
+  }
+  else
+  {
+    LOG("%s: - *** WARNING *** Long Range is NOT supported \r\n", __FUNCTION__);
+  }
+
+  // ----------------- Retained reset info  -----------------
+uint32_t lulZpalRetentionResetInfo = (0x1000000*ZWaveSerialFrame->payload[7+i]) +
+                                       (  0x10000*ZWaveSerialFrame->payload[8+i]) +
+                                       (    0x100*ZWaveSerialFrame->payload[9+i]) +
+                                       (          ZWaveSerialFrame->payload[10+i]) ;
   LOG("%s: Retained reset info       = 0x%08X\r\n", __FUNCTION__, lulZpalRetentionResetInfo);
 
   ///////////////////////////////////////////////////////////////////////////
@@ -3186,6 +3209,25 @@ void ZWave_RES_CMD_41_ZW_Get_Node_Protocol_Info(void)
 // end ZWave_RES_CMD_41_ZW_Get_Node_Protocol_Info
 
 /** *****************************************************************************************************************************
+  * @brief  Command handler for CMD 0x50 FUNC_ID_ZW_SET_LEARN_MODE ZW->HOST: Cmd | retVal
+  * @param  None
+  * @retval None
+  */
+void ZWave_RES_CMD_50_ZW_Set_Learn_Mode(void)
+{
+  LOG("%s: Set Learn Mode result  = 0x%02X\r\n", __FUNCTION__, ZWaveSerialFrame->payload[1]);
+  if (ZWaveSerialFrame->payload[0])
+  {
+    LOG("%s: - Requested Learn Mode successfully set \r\n", __FUNCTION__);
+  }
+  else
+  {
+    LOG("%s: - *** WARNING *** Requested Learn Mode setting FAILED \r\n", __FUNCTION__);
+  }
+}
+// end ZWave_RES_CMD_50_ZW_Set_Learn_Mode
+
+/** *****************************************************************************************************************************
   * @brief  Command handler for CMD 0x56 FUNC_ID_ZW_GET_SUC_NODE_ID ZW->HOST: Cmd | SUC nodeID
   * @param  None
   * @retval None
@@ -3319,6 +3361,32 @@ void ZWave_Send_REQ_CMD_02_Serial_API_Get_Init_Data(void)
   LOG("%s: Sending FUNC_ID_SERIAL_API_GET_INIT_DATA\r\n", __FUNCTION__);
 }
 // end ZWave_Send_REQ_CMD_02_Serial_API_Get_Init_Data
+
+/** *****************************************************************************************************************************
+  * @brief  Prepare and send REQ CMD 03 Serial API Application Node Information
+  * @param  None
+  * @retval None
+  */
+void ZWave_Send_REQ_CMD_03_Serial_API_Application_Node_Information(void)
+{
+  // The PC ZWave Controller application at one point (I think I was trying to
+  // set up the Learn Mode as Smart Start) sent this out
+  // 0x01 SOF
+  // 0x18 length
+  // 0x03 command FUNC_ID_SERIAL_API_APPL_NODE_INFORMATION
+  // Payload:
+  // 03 02 01 11 5E 22 85 70 56 7A 72 73 8A 55 86 59 5A 6C 74 98 9F
+  // 0x14 checksum
+
+  // Payload breakdown
+  // 0x03 Device option mask  - in this case, possibly Always On mode + Optional Functionality supported
+  // 0x02 Node type, generic  - in this case, GENERIC_TYPE_STATIC_CONTROLLER
+  // 0x01 Node type, specific - in this case, SPECIFIC_TYPE_PC_CONTROLLER
+  // 0x11 Parameter length    - in this case, 17 bytes
+  // 5E 22 85 70 56 7A 72 73    8A 55 86 59 5A 6C 74 98    9F
+  //      Parameter data - in this case, 17 bytes of unsecure included command classes
+}
+// end ZWave_Send_REQ_CMD_03_Serial_API_Application_Node_Information
 
 /** *****************************************************************************************************************************
   * @brief  Prepare and send REQ CMD 05 Get Controller Capabilities
@@ -4535,6 +4603,7 @@ void ZWaveTask(void *argument)
   gtZWave_CMD_Handler[FUNC_ID_MEMORY_GET_ID]                  = ZWave_RES_CMD_20_Memory_Get_ID;
   gtZWave_CMD_Handler[FUNC_ID_NVR_GET_VALUE]                  = ZWave_RES_CMD_28_NVR_Get_Value;
   gtZWave_CMD_Handler[FUNC_ID_ZW_GET_NODE_PROTOCOL_INFO]      = ZWave_RES_CMD_41_ZW_Get_Node_Protocol_Info;
+  gtZWave_CMD_Handler[FUNC_ID_ZW_SET_LEARN_MODE]              = ZWave_RES_CMD_50_ZW_Set_Learn_Mode;
   gtZWave_CMD_Handler[FUNC_ID_ZW_GET_SUC_NODE_ID]             = ZWave_RES_CMD_56_ZW_Get_SUC_Node_ID;
   gtZWave_CMD_Handler[FUNC_ID_ZW_IS_VIRTUAL_NODE]             = ZWave_RES_CMD_A6_ZW_Is_Virtual_Node;
   gtZWave_CMD_Handler[FUNC_ID_SERIAL_API_GET_LR_NODES]        = ZWave_RES_CMD_DA_Serial_API_Get_LR_Nodes;

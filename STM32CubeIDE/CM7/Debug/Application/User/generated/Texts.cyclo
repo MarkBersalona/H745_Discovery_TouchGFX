@@ -16,6 +16,6 @@ F:/400_Cellular/Projects/H745_Discovery_TouchGFX/CM7/TouchGFX/generated/texts/sr
 F:/400_Cellular/Projects/H745_Discovery_TouchGFX/CM7/TouchGFX/generated/texts/src/Texts.cpp:31:32:touchgfx::Unicode::UnicodeChar touchgfx::TextProvider::getNextLigature(touchgfx::TextDirection)	7
 F:/400_Cellular/Projects/H745_Discovery_TouchGFX/CM7/TouchGFX/generated/texts/src/Texts.cpp:45:6:void touchgfx::TextProvider::initializeInternal()	1
 F:/400_Cellular/Projects/H745_Discovery_TouchGFX/CM7/TouchGFX/generated/texts/src/Texts.cpp:50:6:)	1
-F:/400_Cellular/Projects/H745_Discovery_TouchGFX/CM7/TouchGFX/generated/texts/src/Texts.cpp:200:6:static void touchgfx::Texts::setLanguage(touchgfx::LanguageId)	4
-F:/400_Cellular/Projects/H745_Discovery_TouchGFX/CM7/TouchGFX/generated/texts/src/Texts.cpp:230:6:static void touchgfx::Texts::setTranslation(touchgfx::LanguageId, const void*)	1
-F:/400_Cellular/Projects/H745_Discovery_TouchGFX/CM7/TouchGFX/generated/texts/src/Texts.cpp:235:39:const touchgfx::Unicode::UnicodeChar* touchgfx::Texts::getText(touchgfx::TypedTextId) const	1
+F:/400_Cellular/Projects/H745_Discovery_TouchGFX/CM7/TouchGFX/generated/texts/src/Texts.cpp:199:6:static void touchgfx::Texts::setLanguage(touchgfx::LanguageId)	4
+F:/400_Cellular/Projects/H745_Discovery_TouchGFX/CM7/TouchGFX/generated/texts/src/Texts.cpp:229:6:static void touchgfx::Texts::setTranslation(touchgfx::LanguageId, const void*)	1
+F:/400_Cellular/Projects/H745_Discovery_TouchGFX/CM7/TouchGFX/generated/texts/src/Texts.cpp:234:39:const touchgfx::Unicode::UnicodeChar* touchgfx::Texts::getText(touchgfx::TypedTextId) const	1

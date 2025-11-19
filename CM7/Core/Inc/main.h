@@ -294,6 +294,12 @@ typedef enum sl_dcdc_config_t{
 // Define a "don't care" constant
 #define IGNORE (0)
 
+/* FUNC_ID_SERIAL_API_STARTED Capabilities bit field definitions */
+typedef enum {
+  SERIAL_API_STARTED_CAPABILITIES_L0NG_RANGE = 1 << 0 // Controller is Z-Wave Long Range capable
+                                               /* Can be extended with future capability bits here */
+} eSerialAPIStartedCapabilities;
+
 /////////////////////////////
 
 
