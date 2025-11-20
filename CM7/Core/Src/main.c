@@ -57,6 +57,10 @@ typedef StaticSemaphore_t osStaticMutexDef_t;
 #ifndef HSEM_ID_0
 #define HSEM_ID_0 (0U) /* HW semaphore 0*/
 #endif
+
+// Enable host control of Z-Wave controller
+//#define ENABLE_ZWAVE_CONTROLLER_HOST
+
 /* USER CODE END PD */
 
 /* Private macro -------------------------------------------------------------*/
@@ -365,6 +369,7 @@ void ZWave_RES_CMD_15_ZW_Get_Version(void);
 void ZWave_RES_CMD_20_Memory_Get_ID(void);
 void ZWave_RES_CMD_28_NVR_Get_Value(void);
 void ZWave_RES_CMD_41_ZW_Get_Node_Protocol_Info(void);
+void ZWave_REQ_CMD_4A_ZW_Add_Node_To_Network(void);
 void ZWave_RES_CMD_50_ZW_Set_Learn_Mode(void);
 void ZWave_RES_CMD_56_ZW_Get_SUC_Node_ID(void);
 void ZWave_RES_CMD_A6_ZW_Is_Virtual_Node(void);
@@ -2204,9 +2209,18 @@ void ZWave_RES_CMD_02_Get_Init_Data(void)
   // ----------------- Nodes -----------------
   if (ZWaveSerialFrame->payload[2])
   {
+    uint8_t lucActiveNode = 0;
     for (int i = 0; i < ZWaveSerialFrame->payload[2]; ++i)
     {
       LOG("%s: SerialAPI node[%02d]  = 0x%02X\r\n", __FUNCTION__, i, ZWaveSerialFrame->payload[3+i]);
+      for (int j = 0; j < 8; ++j)
+      {
+        ++lucActiveNode;
+        if (ZWaveSerialFrame->payload[3+i] & (1<<j))
+        {
+          LOG("%s: - Node %d (0x%02X) is active \r\n", __FUNCTION__, lucActiveNode, lucActiveNode);
+        }
+      }
     }
   }
 
@@ -2376,11 +2390,11 @@ void ZWave_REQ_CMD_0A_Serial_API_Started(void)
   {
     LOG("%s: - Frequently Listening, corresponds to FLiRS role type. Wakes up every 250ms \r\n", __FUNCTION__);
   }
-  if (ZWaveSerialFrame->payload[2] & NODEINFO_OPTIONAL_FUNC_SUPPORT)
+  if (ZWaveSerialFrame->payload[2] & 0x02)
   {
     LOG("%s: - Optional functionality supported \r\n", __FUNCTION__);
   }
-  if (ZWaveSerialFrame->payload[2] & ~(APPLICATION_NODEINFO_LISTENING | APPLICATION_FREQ_LISTENING_MODE_1000ms | APPLICATION_FREQ_LISTENING_MODE_250ms | NODEINFO_OPTIONAL_FUNC_SUPPORT) )
+  if (ZWaveSerialFrame->payload[2] & ~(APPLICATION_NODEINFO_LISTENING | APPLICATION_FREQ_LISTENING_MODE_1000ms | APPLICATION_FREQ_LISTENING_MODE_250ms | 0x02) )
   {
     LOG("%s: - *** WARNING *** unknown device options enabled \r\n", __FUNCTION__);
   }
@@ -2539,6 +2553,7 @@ uint32_t lulZpalRetentionResetInfo = (0x1000000*ZWaveSerialFrame->payload[7+i]) 
                                        (          ZWaveSerialFrame->payload[10+i]) ;
   LOG("%s: Retained reset info       = 0x%08X\r\n", __FUNCTION__, lulZpalRetentionResetInfo);
 
+  #ifdef ENABLE_ZWAVE_CONTROLLER_HOST
   ///////////////////////////////////////////////////////////////////////////
   //// TEST MAB 2025.11.12
   //// When the Serial API Started request is received,
@@ -2589,6 +2604,8 @@ uint32_t lulZpalRetentionResetInfo = (0x1000000*ZWaveSerialFrame->payload[7+i]) 
   ZWave_Send_REQ_CMD_0B_Serial_API_Setup(SERIAL_API_SETUP_CMD_TX_GET_MAX_PAYLOAD_SIZE, IGNORE, IGNORE);
   ZWave_Send_REQ_CMD_0B_Serial_API_Setup(SERIAL_API_SETUP_CMD_TX_GET_MAX_LR_PAYLOAD_SIZE, IGNORE, IGNORE);
   ///////////////////////////////////////////////////////////////////////////
+  #endif // ENABLE_ZWAVE_CONTROLLER_HOST
+
 }
 // end ZWave_REQ_CMD_0A_Serial_API_Started
 
@@ -2983,6 +3000,7 @@ void ZWave_RES_CMD_20_Memory_Get_ID(void)
   gulZWaveHomeID = lulHomeID;
   guiZWaveNodeID = luiNodeID;
 
+  #ifdef ENABLE_ZWAVE_CONTROLLER_HOST
   ///////////////////////////////////////////////////////////////////////////
   /// TEST MAB 2025.11.13
   /// Send Get Node Protocol Info for the Z-Wave controller's NodeID
@@ -2991,6 +3009,7 @@ void ZWave_RES_CMD_20_Memory_Get_ID(void)
   /// Try an invalid NodeID
   //ZWave_Send_REQ_CMD_41_Get_Node_Protocol_Info(guiZWaveNodeID+1);
   ///////////////////////////////////////////////////////////////////////////
+  #endif // ENABLE_ZWAVE_CONTROLLER_HOST
 }
 // end ZWave_RES_CMD_20_Memory_Get_ID
 
@@ -3209,6 +3228,168 @@ void ZWave_RES_CMD_41_ZW_Get_Node_Protocol_Info(void)
 // end ZWave_RES_CMD_41_ZW_Get_Node_Protocol_Info
 
 /** *****************************************************************************************************************************
+  * @brief  Command handler for CMD 0x4A FUNC_ID_ZW_ADD_NODE_TO_NETWORK ZW->HOST: various
+  * @param  None
+  * @retval None
+  */
+void ZWave_REQ_CMD_4A_ZW_Add_Node_To_Network(void)
+{
+  // The host should be receiving the callback (request) data frames
+  LOG("%s: Session ID             = 0x%02X\r\n", __FUNCTION__, ZWaveSerialFrame->payload[0]);
+  LOG("%s: Status                 = 0x%02X\r\n", __FUNCTION__, ZWaveSerialFrame->payload[1]);
+  switch (ZWaveSerialFrame->payload[1])
+  {
+  case ADD_NODE_STATUS_LEARN_READY:
+    LOG("%s: - Network Inclusion started \r\n", __FUNCTION__);
+    break;
+  case ADD_NODE_STATUS_NODE_FOUND:
+    LOG("%s: - Node found \r\n", __FUNCTION__);
+    break;
+  case ADD_NODE_STATUS_ADDING_SLAVE:
+    LOG("%s: - Inclusion ongoing (for End node) \r\n", __FUNCTION__);
+    break;
+  case ADD_NODE_STATUS_ADDING_CONTROLLER:
+    LOG("%s: - Inclusion ongoing (for Controller node) \r\n", __FUNCTION__);
+    break;
+  case ADD_NODE_STATUS_PROTOCOL_DONE:
+    LOG("%s: - Inclusion completed (protocol part) \r\n", __FUNCTION__);
+    break;
+  case ADD_NODE_STATUS_DONE:
+    LOG("%s: - Inclusion completed \r\n", __FUNCTION__);
+    break;
+  case ADD_NODE_STATUS_FAILED:
+    LOG("%s: - Inclusion FAILED \r\n", __FUNCTION__);
+    break;
+  case ADD_NODE_STATUS_FIND_NEIGHBORS_DONE:
+    LOG("%s: - Find neighbors completed (SFLND was TRUE) \r\n", __FUNCTION__);
+    break;
+  case ADD_NODE_STATUS_NOT_PRIMARY:
+    LOG("%s: - NOT Primary \r\n", __FUNCTION__);
+    break;
+  default:
+    LOG("%s: - *** WARNING *** unrecognized or reserved status \r\n", __FUNCTION__);
+    break;
+  }
+
+  LOG("%s: NodeID                 = 0x%04X\r\n", __FUNCTION__, (0x100*ZWaveSerialFrame->payload[2]) + ZWaveSerialFrame->payload[3]);
+  LOG("%s: Data length            = 0x%02X\r\n", __FUNCTION__, ZWaveSerialFrame->payload[4]);
+  if (ZWaveSerialFrame->payload[4])
+  {
+    LOG("%s: Basic device type      = 0x%02X\r\n", __FUNCTION__, ZWaveSerialFrame->payload[5]);
+    switch (ZWaveSerialFrame->payload[5])
+    {
+    case BASIC_TYPE_CONTROLLER:
+      LOG("%s: - Node is a portable controller \r\n", __FUNCTION__);
+      break;
+    case BASIC_TYPE_ROUTING_END_NODE:
+      LOG("%s: - Node is an End Node with routing capabilities \r\n", __FUNCTION__);
+      break;
+    case BASIC_TYPE_END_NODE:
+      LOG("%s: - Node is an End Node \r\n", __FUNCTION__);
+      break;
+    case BASIC_TYPE_STATIC_CONTROLLER:
+      LOG("%s: - Node is a static controller \r\n", __FUNCTION__);
+      break;
+      LOG("%s: - *** WARNING *** Node is an unrecognized basic device type \r\n", __FUNCTION__);
+    default:
+      break;
+    }
+
+    LOG("%s: Generic device type    = 0x%02X\r\n", __FUNCTION__, ZWaveSerialFrame->payload[6]);
+    switch (ZWaveSerialFrame->payload[6])
+    {
+    case GENERIC_TYPE_AV_CONTROL_POINT:
+      LOG("%s: - AV Control Point \r\n", __FUNCTION__);
+      break;
+    case GENERIC_TYPE_DISPLAY:
+      LOG("%s: - Display \r\n", __FUNCTION__);
+      break;
+    case GENERIC_TYPE_ENTRY_CONTROL:
+      LOG("%s: - Entry Control \r\n", __FUNCTION__);
+      break;
+    case GENERIC_TYPE_GENERIC_CONTROLLER:
+      LOG("%s: - Remote Controller \r\n", __FUNCTION__);
+      break;
+    case GENERIC_TYPE_METER:
+      LOG("%s: - Meter \r\n", __FUNCTION__);
+      break;
+    case GENERIC_TYPE_METER_PULSE:
+      LOG("%s: - Pulse Meter \r\n", __FUNCTION__);
+      break;
+    case GENERIC_TYPE_NON_INTEROPERABLE:
+      LOG("%s: - Non interoperable \r\n", __FUNCTION__);
+      break;
+    case GENERIC_TYPE_REPEATER_END_NODE:
+      LOG("%s: - Repeater End Node \r\n", __FUNCTION__);
+      break;
+    case GENERIC_TYPE_SECURITY_PANEL:
+      LOG("%s: - Security panel \r\n", __FUNCTION__);
+      break;
+    case GENERIC_TYPE_SEMI_INTEROPERABLE:
+      LOG("%s: - Semi Interoperable \r\n", __FUNCTION__);
+      break;
+    case GENERIC_TYPE_SENSOR_ALARM:
+      LOG("%s: - Sensor alarm \r\n", __FUNCTION__);
+      break;
+    case GENERIC_TYPE_SENSOR_BINARY:
+      LOG("%s: - Binary Sensor \r\n", __FUNCTION__);
+      break;
+    case GENERIC_TYPE_SENSOR_MULTILEVEL:
+      LOG("%s: - Multilevel Sensor \r\n", __FUNCTION__);
+      break;
+    case GENERIC_TYPE_STATIC_CONTROLLER:
+      LOG("%s: - Static Controller \r\n", __FUNCTION__);
+      break;
+    case GENERIC_TYPE_SWITCH_BINARY:
+      LOG("%s: - Binary Switch \r\n", __FUNCTION__);
+      break;
+    case GENERIC_TYPE_SWITCH_MULTILEVEL:
+      LOG("%s: - Multilevel Switch \r\n", __FUNCTION__);
+      break;
+    case GENERIC_TYPE_SWITCH_REMOTE:
+      LOG("%s: - Remote Switch \r\n", __FUNCTION__);
+      break;
+    case GENERIC_TYPE_SWITCH_TOGGLE:
+      LOG("%s: - Toggle Switch \r\n", __FUNCTION__);
+      break;
+    case GENERIC_TYPE_THERMOSTAT:
+      LOG("%s: - Thermostat \r\n", __FUNCTION__);
+      break;
+    case GENERIC_TYPE_VENTILATION:
+      LOG("%s: - Ventilation \r\n", __FUNCTION__);
+      break;
+    case GENERIC_TYPE_WINDOW_COVERING:
+      LOG("%s: - Window Covering \r\n", __FUNCTION__);
+      break;
+    case GENERIC_TYPE_ZIP_NODE:
+      LOG("%s: - Zip node \r\n", __FUNCTION__);
+      break;
+    case GENERIC_TYPE_WALL_CONTROLLER:
+      LOG("%s: - Wall controller \r\n", __FUNCTION__);
+      break;
+    case GENERIC_TYPE_NETWORK_EXTENDER:
+      LOG("%s: - Network Extender \r\n", __FUNCTION__);
+      break;
+    case GENERIC_TYPE_APPLIANCE:
+      LOG("%s: - Appliance \r\n", __FUNCTION__);
+      break;
+    case GENERIC_TYPE_SENSOR_NOTIFICATION:
+      LOG("%s: - Sensor Notification \r\n", __FUNCTION__);
+      break;
+    default:
+      LOG("%s: - *** WARNING *** generic device type UNKNOWN \r\n", __FUNCTION__);
+      break;
+    }
+
+    LOG("%s: Specific device type   = 0x%02X\r\n", __FUNCTION__, ZWaveSerialFrame->payload[7]);
+    LOG("-----------------------  Supported Command Classes START -----------------------\r\n");
+    PrintBytes(&ZWaveSerialFrame->payload[8], ZWaveSerialFrame->payload[4] - 3, false, 0);
+    LOG("-----------------------  Supported Command Classes  END  -----------------------\r\n");
+  }
+}
+// end ZWave_REQ_CMD_4A_ZW_Add_Node_To_Network
+
+/** *****************************************************************************************************************************
   * @brief  Command handler for CMD 0x50 FUNC_ID_ZW_SET_LEARN_MODE ZW->HOST: Cmd | retVal
   * @param  None
   * @retval None
@@ -3385,6 +3566,11 @@ void ZWave_Send_REQ_CMD_03_Serial_API_Application_Node_Information(void)
   // 0x11 Parameter length    - in this case, 17 bytes
   // 5E 22 85 70 56 7A 72 73    8A 55 86 59 5A 6C 74 98    9F
   //      Parameter data - in this case, 17 bytes of unsecure included command classes
+
+  // ChatGPT claims that since this is the controller and the controller doesn't need to
+  // advertise its supported command classes, this command class list is actually from
+  // a Node Information Frame (NIF) *template*, for backwards compatibility, and
+  // may be safely ignored for the controller.
 }
 // end ZWave_Send_REQ_CMD_03_Serial_API_Application_Node_Information
 
@@ -4603,6 +4789,7 @@ void ZWaveTask(void *argument)
   gtZWave_CMD_Handler[FUNC_ID_MEMORY_GET_ID]                  = ZWave_RES_CMD_20_Memory_Get_ID;
   gtZWave_CMD_Handler[FUNC_ID_NVR_GET_VALUE]                  = ZWave_RES_CMD_28_NVR_Get_Value;
   gtZWave_CMD_Handler[FUNC_ID_ZW_GET_NODE_PROTOCOL_INFO]      = ZWave_RES_CMD_41_ZW_Get_Node_Protocol_Info;
+  gtZWave_CMD_Handler[FUNC_ID_ZW_ADD_NODE_TO_NETWORK]         = ZWave_REQ_CMD_4A_ZW_Add_Node_To_Network;
   gtZWave_CMD_Handler[FUNC_ID_ZW_SET_LEARN_MODE]              = ZWave_RES_CMD_50_ZW_Set_Learn_Mode;
   gtZWave_CMD_Handler[FUNC_ID_ZW_GET_SUC_NODE_ID]             = ZWave_RES_CMD_56_ZW_Get_SUC_Node_ID;
   gtZWave_CMD_Handler[FUNC_ID_ZW_IS_VIRTUAL_NODE]             = ZWave_RES_CMD_A6_ZW_Is_Virtual_Node;
@@ -4623,8 +4810,9 @@ void ZWaveTask(void *argument)
   //////////////////////////////////////////////
   // TEST MAB 2025.11.13
   // Soft reset the ZWave controller
+  #ifdef ENABLE_ZWAVE_CONTROLLER_HOST
   ZWave_Send_REQ_CMD_08_Serial_API_Soft_Reset();
-
+  #endif
 
 
   /* Infinite loop */

@@ -264,6 +264,7 @@ typedef enum  {eSTANDBY_OFF=0,  eSTANDBY_CONFIG,  eSTANDBY_NO_COUNTDOWN} eStandb
 //  Standby Mode
 extern uint8_t gucStandbyMode;
 extern uint32_t gulStandbyCounter;  /* In Standby mode when When <> 0 */
+/////////////////////////////
 
 // ZWave TX/RX buffers
 #define SERIAL_BUFFER_SIZE (4096)
@@ -299,9 +300,6 @@ typedef enum {
   SERIAL_API_STARTED_CAPABILITIES_L0NG_RANGE = 1 << 0 // Controller is Z-Wave Long Range capable
                                                /* Can be extended with future capability bits here */
 } eSerialAPIStartedCapabilities;
-
-/////////////////////////////
-
 
 /* USER CODE END Private defines */
 
