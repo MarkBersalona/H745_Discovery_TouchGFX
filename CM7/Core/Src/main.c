@@ -370,6 +370,7 @@ void ZWave_RES_CMD_20_Memory_Get_ID(void);
 void ZWave_RES_CMD_28_NVR_Get_Value(void);
 void ZWave_RES_CMD_41_ZW_Get_Node_Protocol_Info(void);
 void ZWave_REQ_CMD_4A_ZW_Add_Node_To_Network(void);
+void ZWave_REQ_CMD_4B_ZW_Remove_Node_From_Network(void);
 void ZWave_RES_CMD_50_ZW_Set_Learn_Mode(void);
 void ZWave_RES_CMD_56_ZW_Get_SUC_Node_ID(void);
 void ZWave_RES_CMD_A6_ZW_Is_Virtual_Node(void);
@@ -3390,6 +3391,162 @@ void ZWave_REQ_CMD_4A_ZW_Add_Node_To_Network(void)
 // end ZWave_REQ_CMD_4A_ZW_Add_Node_To_Network
 
 /** *****************************************************************************************************************************
+  * @brief  Command handler for CMD 0x4B FUNC_ID_ZW_REMOVE_NODE_FROM_NETWORK ZW->HOST: various
+  * @param  None
+  * @retval None
+  */
+void ZWave_REQ_CMD_4B_ZW_Remove_Node_From_Network(void)
+{
+  // The host should be receiving the callback (request) data frames
+  LOG("%s: Session ID             = 0x%02X\r\n", __FUNCTION__, ZWaveSerialFrame->payload[0]);
+  LOG("%s: Status                 = 0x%02X\r\n", __FUNCTION__, ZWaveSerialFrame->payload[1]);
+  switch (ZWaveSerialFrame->payload[1])
+  {
+  case REMOVE_NODE_STATUS_LEARN_READY:
+    LOG("%s: - Network Exclusion started \r\n", __FUNCTION__);
+    break;
+  case REMOVE_NODE_STATUS_NODE_FOUND:
+    LOG("%s: - Node found \r\n", __FUNCTION__);
+    break;
+  case REMOVE_NODE_STATUS_REMOVING_SLAVE:
+    LOG("%s: - Exclusion ongoing (for End node) \r\n", __FUNCTION__);
+    break;
+  case REMOVE_NODE_STATUS_REMOVING_CONTROLLER:
+    LOG("%s: - Exclusion ongoing (for Controller node) \r\n", __FUNCTION__);
+    break;
+  case REMOVE_NODE_STATUS_DONE:
+    LOG("%s: - Exclusion completed \r\n", __FUNCTION__);
+    break;
+  case REMOVE_NODE_STATUS_FAILED:
+    LOG("%s: - Exclusion FAILED \r\n", __FUNCTION__);
+    break;
+  case ADD_NODE_STATUS_NOT_PRIMARY:
+    LOG("%s: - NOT Primary \r\n", __FUNCTION__);
+    break;
+  default:
+    LOG("%s: - *** WARNING *** unrecognized or reserved status \r\n", __FUNCTION__);
+    break;
+  }
+
+  LOG("%s: NodeID                 = 0x%04X\r\n", __FUNCTION__, (0x100*ZWaveSerialFrame->payload[2]) + ZWaveSerialFrame->payload[3]);
+  LOG("%s: Data length            = 0x%02X\r\n", __FUNCTION__, ZWaveSerialFrame->payload[4]);
+  if (ZWaveSerialFrame->payload[4])
+  {
+    LOG("%s: Basic device type      = 0x%02X\r\n", __FUNCTION__, ZWaveSerialFrame->payload[5]);
+    switch (ZWaveSerialFrame->payload[5])
+    {
+    case BASIC_TYPE_CONTROLLER:
+      LOG("%s: - Node is a portable controller \r\n", __FUNCTION__);
+      break;
+    case BASIC_TYPE_ROUTING_END_NODE:
+      LOG("%s: - Node is an End Node with routing capabilities \r\n", __FUNCTION__);
+      break;
+    case BASIC_TYPE_END_NODE:
+      LOG("%s: - Node is an End Node \r\n", __FUNCTION__);
+      break;
+    case BASIC_TYPE_STATIC_CONTROLLER:
+      LOG("%s: - Node is a static controller \r\n", __FUNCTION__);
+      break;
+      LOG("%s: - *** WARNING *** Node is an unrecognized basic device type \r\n", __FUNCTION__);
+    default:
+      break;
+    }
+
+    LOG("%s: Generic device type    = 0x%02X\r\n", __FUNCTION__, ZWaveSerialFrame->payload[6]);
+    switch (ZWaveSerialFrame->payload[6])
+    {
+    case GENERIC_TYPE_AV_CONTROL_POINT:
+      LOG("%s: - AV Control Point \r\n", __FUNCTION__);
+      break;
+    case GENERIC_TYPE_DISPLAY:
+      LOG("%s: - Display \r\n", __FUNCTION__);
+      break;
+    case GENERIC_TYPE_ENTRY_CONTROL:
+      LOG("%s: - Entry Control \r\n", __FUNCTION__);
+      break;
+    case GENERIC_TYPE_GENERIC_CONTROLLER:
+      LOG("%s: - Remote Controller \r\n", __FUNCTION__);
+      break;
+    case GENERIC_TYPE_METER:
+      LOG("%s: - Meter \r\n", __FUNCTION__);
+      break;
+    case GENERIC_TYPE_METER_PULSE:
+      LOG("%s: - Pulse Meter \r\n", __FUNCTION__);
+      break;
+    case GENERIC_TYPE_NON_INTEROPERABLE:
+      LOG("%s: - Non interoperable \r\n", __FUNCTION__);
+      break;
+    case GENERIC_TYPE_REPEATER_END_NODE:
+      LOG("%s: - Repeater End Node \r\n", __FUNCTION__);
+      break;
+    case GENERIC_TYPE_SECURITY_PANEL:
+      LOG("%s: - Security panel \r\n", __FUNCTION__);
+      break;
+    case GENERIC_TYPE_SEMI_INTEROPERABLE:
+      LOG("%s: - Semi Interoperable \r\n", __FUNCTION__);
+      break;
+    case GENERIC_TYPE_SENSOR_ALARM:
+      LOG("%s: - Sensor alarm \r\n", __FUNCTION__);
+      break;
+    case GENERIC_TYPE_SENSOR_BINARY:
+      LOG("%s: - Binary Sensor \r\n", __FUNCTION__);
+      break;
+    case GENERIC_TYPE_SENSOR_MULTILEVEL:
+      LOG("%s: - Multilevel Sensor \r\n", __FUNCTION__);
+      break;
+    case GENERIC_TYPE_STATIC_CONTROLLER:
+      LOG("%s: - Static Controller \r\n", __FUNCTION__);
+      break;
+    case GENERIC_TYPE_SWITCH_BINARY:
+      LOG("%s: - Binary Switch \r\n", __FUNCTION__);
+      break;
+    case GENERIC_TYPE_SWITCH_MULTILEVEL:
+      LOG("%s: - Multilevel Switch \r\n", __FUNCTION__);
+      break;
+    case GENERIC_TYPE_SWITCH_REMOTE:
+      LOG("%s: - Remote Switch \r\n", __FUNCTION__);
+      break;
+    case GENERIC_TYPE_SWITCH_TOGGLE:
+      LOG("%s: - Toggle Switch \r\n", __FUNCTION__);
+      break;
+    case GENERIC_TYPE_THERMOSTAT:
+      LOG("%s: - Thermostat \r\n", __FUNCTION__);
+      break;
+    case GENERIC_TYPE_VENTILATION:
+      LOG("%s: - Ventilation \r\n", __FUNCTION__);
+      break;
+    case GENERIC_TYPE_WINDOW_COVERING:
+      LOG("%s: - Window Covering \r\n", __FUNCTION__);
+      break;
+    case GENERIC_TYPE_ZIP_NODE:
+      LOG("%s: - Zip node \r\n", __FUNCTION__);
+      break;
+    case GENERIC_TYPE_WALL_CONTROLLER:
+      LOG("%s: - Wall controller \r\n", __FUNCTION__);
+      break;
+    case GENERIC_TYPE_NETWORK_EXTENDER:
+      LOG("%s: - Network Extender \r\n", __FUNCTION__);
+      break;
+    case GENERIC_TYPE_APPLIANCE:
+      LOG("%s: - Appliance \r\n", __FUNCTION__);
+      break;
+    case GENERIC_TYPE_SENSOR_NOTIFICATION:
+      LOG("%s: - Sensor Notification \r\n", __FUNCTION__);
+      break;
+    default:
+      LOG("%s: - *** WARNING *** generic device type UNKNOWN \r\n", __FUNCTION__);
+      break;
+    }
+
+    LOG("%s: Specific device type   = 0x%02X\r\n", __FUNCTION__, ZWaveSerialFrame->payload[7]);
+    LOG("-----------------------  Supported Command Classes START -----------------------\r\n");
+    PrintBytes(&ZWaveSerialFrame->payload[8], ZWaveSerialFrame->payload[4] - 3, false, 0);
+    LOG("-----------------------  Supported Command Classes  END  -----------------------\r\n");
+  }
+}
+// end ZWave_REQ_CMD_4B_ZW_Remove_Node_From_Network
+
+/** *****************************************************************************************************************************
   * @brief  Command handler for CMD 0x50 FUNC_ID_ZW_SET_LEARN_MODE ZW->HOST: Cmd | retVal
   * @param  None
   * @retval None
@@ -4790,6 +4947,7 @@ void ZWaveTask(void *argument)
   gtZWave_CMD_Handler[FUNC_ID_NVR_GET_VALUE]                  = ZWave_RES_CMD_28_NVR_Get_Value;
   gtZWave_CMD_Handler[FUNC_ID_ZW_GET_NODE_PROTOCOL_INFO]      = ZWave_RES_CMD_41_ZW_Get_Node_Protocol_Info;
   gtZWave_CMD_Handler[FUNC_ID_ZW_ADD_NODE_TO_NETWORK]         = ZWave_REQ_CMD_4A_ZW_Add_Node_To_Network;
+  gtZWave_CMD_Handler[FUNC_ID_ZW_REMOVE_NODE_FROM_NETWORK]    = ZWave_REQ_CMD_4B_ZW_Remove_Node_From_Network;
   gtZWave_CMD_Handler[FUNC_ID_ZW_SET_LEARN_MODE]              = ZWave_RES_CMD_50_ZW_Set_Learn_Mode;
   gtZWave_CMD_Handler[FUNC_ID_ZW_GET_SUC_NODE_ID]             = ZWave_RES_CMD_56_ZW_Get_SUC_Node_ID;
   gtZWave_CMD_Handler[FUNC_ID_ZW_IS_VIRTUAL_NODE]             = ZWave_RES_CMD_A6_ZW_Is_Virtual_Node;
