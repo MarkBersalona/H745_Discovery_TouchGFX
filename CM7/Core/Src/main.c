@@ -374,6 +374,7 @@ void ZWave_REQ_CMD_4A_ZW_Add_Node_To_Network(void);
 void ZWave_REQ_CMD_4B_ZW_Remove_Node_From_Network(void);
 void ZWave_RES_CMD_50_ZW_Set_Learn_Mode(void);
 void ZWave_RES_CMD_56_ZW_Get_SUC_Node_ID(void);
+void ZWave_RES_CMD_60_ZW_Request_Node_Info(void);
 void ZWave_RES_CMD_A6_ZW_Is_Virtual_Node(void);
 void ZWave_RES_CMD_A8_Application_Command_Handler_Bridge(void);
 void ZWave_RES_CMD_A9_ZW_Send_Data_Bridge(void);
@@ -2076,6 +2077,167 @@ void ZWave_Identify_Generic_Device_Type(uint8_t aucGenericDeviceType)
 // end ZWave_Identify_Generic_Device_Type
 
 /** *****************************************************************************************************************************
+  * @brief  Identify Z-Wave Specific device type for a given Generic device type
+  * @param  aucGenericDeviceType
+  * @param  aucSpecificDeviceType
+  * @retval None
+  */
+void ZWave_Identify_Specific_Device_Type(uint8_t aucGenericDeviceType, uint8_t aucSpecificDeviceType)
+{
+  // MAB 2025.11.21
+  // For now, let's just identify specific types for generic types ZWave Sentinel is likely to encounter
+  // Add additional cases in the future if needed
+
+  if (GENERIC_TYPE_ENTRY_CONTROL == aucGenericDeviceType)
+  {
+    switch (aucSpecificDeviceType)
+    {
+    case SPECIFIC_TYPE_DOOR_LOCK:                        LOG("%s: - Door Lock \r\n", __FUNCTION__);                                 break;
+    case SPECIFIC_TYPE_ADVANCED_DOOR_LOCK:               LOG("%s: - Advanced Door Lock \r\n", __FUNCTION__);                        break;
+    case SPECIFIC_TYPE_SECURE_KEYPAD_DOOR_LOCK:          LOG("%s: - Door Lock (keypad -lever) Device Type \r\n", __FUNCTION__);     break;
+    case SPECIFIC_TYPE_SECURE_KEYPAD_DOOR_LOCK_DEADBOLT: LOG("%s: - Door Lock (keypad - deadbolt) Device Type \r\n", __FUNCTION__); break;
+    case SPECIFIC_TYPE_SECURE_DOOR:                      LOG("%s: - Barrier Operator Specific Device Class \r\n", __FUNCTION__);    break;
+    case SPECIFIC_TYPE_SECURE_GATE:                      LOG("%s: - Barrier Operator Specific Device Class \r\n", __FUNCTION__);    break;
+    case SPECIFIC_TYPE_SECURE_BARRIER_ADDON:             LOG("%s: - Barrier Operator Specific Device Class \r\n", __FUNCTION__);    break;
+    case SPECIFIC_TYPE_SECURE_BARRIER_OPEN_ONLY:         LOG("%s: - Barrier Operator Specific Device Class \r\n", __FUNCTION__);    break;
+    case SPECIFIC_TYPE_SECURE_BARRIER_CLOSE_ONLY:        LOG("%s: - Barrier Operator Specific Device Class \r\n", __FUNCTION__);    break;
+    case SPECIFIC_TYPE_SECURE_LOCKBOX:                   LOG("%s: - SPECIFIC_TYPE_SECURE_LOCKBOX \r\n", __FUNCTION__);              break;
+    case SPECIFIC_TYPE_SECURE_KEYPAD:                    LOG("%s: - SPECIFIC_TYPE_SECURE_KEYPAD \r\n", __FUNCTION__);               break;
+    default: LOG("%s: - *** WARNING *** unknown specific device \r\n", __FUNCTION__); break;
+    }
+  }
+
+  if (GENERIC_TYPE_GENERIC_CONTROLLER == aucGenericDeviceType)
+  {
+    switch (aucSpecificDeviceType)
+    {
+    case SPECIFIC_TYPE_PORTABLE_REMOTE_CONTROLLER: LOG("%s: - Remote Control (Multi Purpose) \r\n", __FUNCTION__);        break;
+    case SPECIFIC_TYPE_PORTABLE_SCENE_CONTROLLER:  LOG("%s: - Portable Scene Controller \r\n", __FUNCTION__);             break;
+    case SPECIFIC_TYPE_PORTABLE_INSTALLER_TOOL:    LOG("%s: - SPECIFIC_TYPE_PORTABLE_INSTALLER_TOOL \r\n", __FUNCTION__); break;
+    case SPECIFIC_TYPE_REMOTE_CONTROL_AV:          LOG("%s: - Remote Control (AV) \r\n", __FUNCTION__);                   break;
+    case SPECIFIC_TYPE_REMOTE_CONTROL_SIMPLE:      LOG("%s: - Remote Control (Simple) \r\n", __FUNCTION__);               break;
+    default: LOG("%s: - *** WARNING *** unknown specific device \r\n", __FUNCTION__); break;
+   }
+  }
+
+  if (GENERIC_TYPE_METER == aucGenericDeviceType)
+  {
+    switch (aucSpecificDeviceType)
+    {
+    case SPECIFIC_TYPE_SIMPLE_METER:            LOG("%s: - Sub Energy Meter \r\n", __FUNCTION__);                   break;
+    case SPECIFIC_TYPE_ADV_ENERGY_CONTROL:      LOG("%s: - Whole Home Energy Meter (Advanced) \r\n", __FUNCTION__); break;
+    case SPECIFIC_TYPE_WHOLE_HOME_METER_SIMPLE: LOG("%s: - Whole Home Meter (Simple) \r\n", __FUNCTION__);          break;
+    default: LOG("%s: - *** WARNING *** unknown specific device \r\n", __FUNCTION__);                               break;
+   }
+  }
+
+  if (GENERIC_TYPE_SENSOR_ALARM == aucGenericDeviceType)
+  {
+    switch (aucSpecificDeviceType)
+    {
+    case SPECIFIC_TYPE_ADV_ZENSOR_NET_ALARM_SENSOR:   LOG("%s: - SPECIFIC_TYPE_ADV_ZENSOR_NET_ALARM_SENSOR \r\n", __FUNCTION__);   break;
+    case SPECIFIC_TYPE_ADV_ZENSOR_NET_SMOKE_SENSOR:   LOG("%s: - SPECIFIC_TYPE_ADV_ZENSOR_NET_SMOKE_SENSOR \r\n", __FUNCTION__);   break;
+    case SPECIFIC_TYPE_BASIC_ROUTING_ALARM_SENSOR:    LOG("%s: - SPECIFIC_TYPE_BASIC_ROUTING_ALARM_SENSOR \r\n", __FUNCTION__);    break;
+    case SPECIFIC_TYPE_BASIC_ROUTING_SMOKE_SENSOR:    LOG("%s: - SPECIFIC_TYPE_BASIC_ROUTING_SMOKE_SENSOR \r\n", __FUNCTION__);    break;
+    case SPECIFIC_TYPE_BASIC_ZENSOR_NET_ALARM_SENSOR: LOG("%s: - SPECIFIC_TYPE_BASIC_ZENSOR_NET_ALARM_SENSOR \r\n", __FUNCTION__); break;
+    case SPECIFIC_TYPE_BASIC_ZENSOR_NET_SMOKE_SENSOR: LOG("%s: - SPECIFIC_TYPE_BASIC_ZENSOR_NET_SMOKE_SENSOR \r\n", __FUNCTION__); break;
+    case SPECIFIC_TYPE_ROUTING_ALARM_SENSOR:          LOG("%s: - SPECIFIC_TYPE_ROUTING_ALARM_SENSOR \r\n", __FUNCTION__);          break;
+    case SPECIFIC_TYPE_ROUTING_SMOKE_SENSOR:          LOG("%s: - SPECIFIC_TYPE_ROUTING_SMOKE_SENSOR \r\n", __FUNCTION__);          break;
+    case SPECIFIC_TYPE_ZENSOR_NET_ALARM_SENSOR:       LOG("%s: - SPECIFIC_TYPE_ZENSOR_NET_ALARM_SENSOR \r\n", __FUNCTION__);       break;
+    case SPECIFIC_TYPE_ZENSOR_NET_SMOKE_SENSOR:       LOG("%s: - SPECIFIC_TYPE_ZENSOR_NET_SMOKE_SENSOR \r\n", __FUNCTION__);       break;
+    case SPECIFIC_TYPE_ALARM_SENSOR:                  LOG("%s: - SPECIFIC_TYPE_ALARM_SENSOR \r\n", __FUNCTION__);                  break;
+    default: LOG("%s: - *** WARNING *** unknown specific device \r\n", __FUNCTION__); break;
+   }
+  }
+
+  if (GENERIC_TYPE_SENSOR_MULTILEVEL == aucGenericDeviceType)
+  {
+    switch (aucSpecificDeviceType)
+    {
+    case SPECIFIC_TYPE_ROUTING_SENSOR_MULTILEVEL: LOG("%s: - SPECIFIC_TYPE_ROUTING_SENSOR_MULTILEVEL \r\n", __FUNCTION__); break;
+    case SPECIFIC_TYPE_CHIMNEY_FAN: LOG("%s: - SPECIFIC_TYPE_CHIMNEY_FAN \r\n", __FUNCTION__);                             break;
+    default: LOG("%s: - *** WARNING *** unknown specific device \r\n", __FUNCTION__); break;
+   }
+  }
+
+  if (GENERIC_TYPE_STATIC_CONTROLLER == aucGenericDeviceType)
+  {
+    switch (aucSpecificDeviceType)
+    {
+    case SPECIFIC_TYPE_PC_CONTROLLER: LOG("%s: - Central Controller \r\n", __FUNCTION__);                          break;
+    case SPECIFIC_TYPE_SCENE_CONTROLLER: LOG("%s: - Scene Controller \r\n", __FUNCTION__);                         break;
+    case SPECIFIC_TYPE_STATIC_INSTALLER_TOOL: LOG("%s: - SPECIFIC_TYPE_STATIC_INSTALLER_TOOL \r\n", __FUNCTION__); break;
+    case SPECIFIC_TYPE_SET_TOP_BOX: LOG("%s: - Set Top Box \r\n", __FUNCTION__);                                   break;
+    case SPECIFIC_TYPE_SUB_SYSTEM_CONTROLLER: LOG("%s: - Sub System Controller \r\n", __FUNCTION__);               break;
+    case SPECIFIC_TYPE_TV: LOG("%s: - TV \r\n", __FUNCTION__);                                                     break;
+    case SPECIFIC_TYPE_GATEWAY: LOG("%s: - Gateway \r\n", __FUNCTION__);                                           break;
+    default: LOG("%s: - *** WARNING *** unknown specific device \r\n", __FUNCTION__); break;
+   }
+  }
+
+  if (GENERIC_TYPE_SWITCH_BINARY == aucGenericDeviceType)
+  {
+    switch (aucSpecificDeviceType)
+    {
+    case SPECIFIC_TYPE_POWER_SWITCH_BINARY: LOG("%s: - On/Off Power Switch \r\n", __FUNCTION__);                   break;
+    case SPECIFIC_TYPE_SCENE_SWITCH_BINARY: LOG("%s: - Binary Scene  \r\n", __FUNCTION__);                         break;
+    case SPECIFIC_TYPE_POWER_STRIP: LOG("%s: - Power Strip \r\n", __FUNCTION__);                                   break;
+    case SPECIFIC_TYPE_SIREN: LOG("%s: - Siren \r\n", __FUNCTION__);                                               break;
+    case SPECIFIC_TYPE_VALVE_OPEN_CLOSE: LOG("%s: - Valve (open/close)  \r\n", __FUNCTION__);                      break;
+    case SPECIFIC_TYPE_COLOR_TUNABLE_BINARY: LOG("%s: - SPECIFIC_TYPE_COLOR_TUNABLE_BINARY \r\n", __FUNCTION__);   break;
+    case SPECIFIC_TYPE_IRRIGATION_CONTROLLER: LOG("%s: - SPECIFIC_TYPE_IRRIGATION_CONTROLLER \r\n", __FUNCTION__); break;
+    default: LOG("%s: - *** WARNING *** unknown specific device \r\n", __FUNCTION__); break;
+   }
+  }
+
+  if (GENERIC_TYPE_SWITCH_MULTILEVEL == aucGenericDeviceType)
+  {
+    switch (aucSpecificDeviceType)
+    {
+    case SPECIFIC_TYPE_CLASS_A_MOTOR_CONTROL: LOG("%s: - Window Covering No Position/Endpoint \r\n", __FUNCTION__);      break;
+    case SPECIFIC_TYPE_CLASS_B_MOTOR_CONTROL: LOG("%s: - Window Covering Endpoint Aware \r\n", __FUNCTION__);            break;
+    case SPECIFIC_TYPE_CLASS_C_MOTOR_CONTROL: LOG("%s: - Window Covering Position/Endpoint Aware \r\n", __FUNCTION__);   break;
+    case SPECIFIC_TYPE_MOTOR_MULTIPOSITION: LOG("%s: - Multiposition Motor \r\n", __FUNCTION__);                         break;
+    case SPECIFIC_TYPE_POWER_SWITCH_MULTILEVEL: LOG("%s: - Light Dimmer Switch  \r\n", __FUNCTION__);                    break;
+    case SPECIFIC_TYPE_SCENE_SWITCH_MULTILEVEL: LOG("%s: - Multilevel Scene Switch \r\n", __FUNCTION__);                 break;
+    case SPECIFIC_TYPE_FAN_SWITCH: LOG("%s: - Fan Switch \r\n", __FUNCTION__);                                           break;
+    case SPECIFIC_TYPE_COLOR_TUNABLE_MULTILEVEL: LOG("%s: - SPECIFIC_TYPE_COLOR_TUNABLE_MULTILEVEL \r\n", __FUNCTION__); break;
+    default: LOG("%s: - *** WARNING *** unknown specific device \r\n", __FUNCTION__); break;
+   }
+  }
+
+  if (GENERIC_TYPE_SWITCH_REMOTE == aucGenericDeviceType)
+  {
+    switch (aucSpecificDeviceType)
+    {
+    case SPECIFIC_TYPE_SWITCH_REMOTE_BINARY: LOG("%s: - Binary Remote Switch \r\n", __FUNCTION__);                       break;
+    case SPECIFIC_TYPE_SWITCH_REMOTE_MULTILEVEL: LOG("%s: - Multilevel Remote Switch \r\n", __FUNCTION__);               break;
+    case SPECIFIC_TYPE_SWITCH_REMOTE_TOGGLE_BINARY: LOG("%s: - Binary Toggle Remote Switch \r\n", __FUNCTION__);         break;
+    case SPECIFIC_TYPE_SWITCH_REMOTE_TOGGLE_MULTILEVEL: LOG("%s: - Multilevel Toggle Remote Switch \r\n", __FUNCTION__); break;
+    default: LOG("%s: - *** WARNING *** unknown specific device \r\n", __FUNCTION__); break;
+   }
+  }
+
+  if (GENERIC_TYPE_THERMOSTAT == aucGenericDeviceType)
+  {
+    switch (aucSpecificDeviceType)
+    {
+    case SPECIFIC_TYPE_SETBACK_SCHEDULE_THERMOSTAT: LOG("%s: - Setback Schedule Thermostat \r\n", __FUNCTION__); break;
+    case SPECIFIC_TYPE_SETBACK_THERMOSTAT: LOG("%s: - Thermostat (Setback) \r\n", __FUNCTION__);                 break;
+    case SPECIFIC_TYPE_SETPOINT_THERMOSTAT: LOG("%s: - SPECIFIC_TYPE_SETPOINT_THERMOSTAT \r\n", __FUNCTION__);   break;
+    case SPECIFIC_TYPE_THERMOSTAT_GENERAL: LOG("%s: - Thermostat General \r\n", __FUNCTION__);                   break;
+    case SPECIFIC_TYPE_THERMOSTAT_GENERAL_V2: LOG("%s: - Thermostat (HVAC) \r\n", __FUNCTION__);                 break;
+    case SPECIFIC_TYPE_THERMOSTAT_HEATING: LOG("%s: - Thermostat Heating \r\n", __FUNCTION__);                   break;
+    default: LOG("%s: - *** WARNING *** unknown specific device \r\n", __FUNCTION__);  break;
+   }
+  }
+
+
+
+}
+// end ZWave_Identify_Specific_Device_Type
+
+/** *****************************************************************************************************************************
   * @brief  Parse received FIFO bytes from Z-Wave controller
   * @param  aucIsACKRequired - TRUE if received frame should be ACKed; FALSE otherwise
   * @retval Result of parsing received bytes from Z-Wave controller
@@ -2533,40 +2695,7 @@ void ZWave_REQ_CMD_0A_Serial_API_Started(void)
 
   // ----------------- Specific node type -----------------
   LOG("%s: Specific node type        = 0x%02X\r\n", __FUNCTION__, ZWaveSerialFrame->payload[4]);
-  // MAB 2025.10.24 - For now just list specific types for static controllers
-  if (GENERIC_TYPE_STATIC_CONTROLLER == ZWaveSerialFrame->payload[3])
-  {
-    switch (ZWaveSerialFrame->payload[4])
-    {
-    case SPECIFIC_TYPE_NOT_USED:
-      LOG("%s: - Specific Device Class Not Used \r\n", __FUNCTION__);
-      break;
-    case SPECIFIC_TYPE_PC_CONTROLLER:
-      LOG("%s: - Central Controller Device Type \r\n", __FUNCTION__);
-      break;
-    case SPECIFIC_TYPE_SCENE_CONTROLLER:
-      LOG("%s: - Scene Controller \r\n", __FUNCTION__);
-      break;
-    case SPECIFIC_TYPE_STATIC_INSTALLER_TOOL:
-      LOG("%s: - Static installer tool \r\n", __FUNCTION__);
-      break;
-    case SPECIFIC_TYPE_SET_TOP_BOX:
-      LOG("%s: - Set Top Box \r\n", __FUNCTION__);
-      break;
-    case SPECIFIC_TYPE_SUB_SYSTEM_CONTROLLER:
-      LOG("%s: - Sub System Controller \r\n", __FUNCTION__);
-      break;
-    case SPECIFIC_TYPE_TV:
-      LOG("%s: - Television \r\n", __FUNCTION__);
-      break;
-    case SPECIFIC_TYPE_GATEWAY:
-      LOG("%s: - Gateway \r\n", __FUNCTION__);
-      break;
-    default:
-      LOG("%s: - *** WARNING *** Specific device type 0x%02X UNKNOWN \r\n", __FUNCTION__, ZWaveSerialFrame->payload[4]);
-      break;
-    }
-  }
+  ZWave_Identify_Specific_Device_Type(ZWaveSerialFrame->payload[3], ZWaveSerialFrame->payload[4]);
 
   // ----------------- Command class list length -----------------
   LOG("%s: Command class list length = 0x%02X\r\n", __FUNCTION__, ZWaveSerialFrame->payload[5]);
@@ -3133,40 +3262,7 @@ void ZWave_RES_CMD_41_ZW_Get_Node_Protocol_Info(void)
 
   // ----------------- Specific node type -----------------
   LOG("%s: Specific device type = 0x%02X\r\n", __FUNCTION__, ZWaveSerialFrame->payload[5]);
-  // MAB 2025.10.24 - For now just list specific types for static controllers
-  if (GENERIC_TYPE_STATIC_CONTROLLER == ZWaveSerialFrame->payload[4])
-  {
-    switch (ZWaveSerialFrame->payload[5])
-    {
-    case SPECIFIC_TYPE_NOT_USED:
-      LOG("%s: - Specific Device Class Not Used \r\n", __FUNCTION__);
-      break;
-    case SPECIFIC_TYPE_PC_CONTROLLER:
-      LOG("%s: - Central Controller Device Type \r\n", __FUNCTION__);
-      break;
-    case SPECIFIC_TYPE_SCENE_CONTROLLER:
-      LOG("%s: - Scene Controller \r\n", __FUNCTION__);
-      break;
-    case SPECIFIC_TYPE_STATIC_INSTALLER_TOOL:
-      LOG("%s: - Static installer tool \r\n", __FUNCTION__);
-      break;
-    case SPECIFIC_TYPE_SET_TOP_BOX:
-      LOG("%s: - Set Top Box \r\n", __FUNCTION__);
-      break;
-    case SPECIFIC_TYPE_SUB_SYSTEM_CONTROLLER:
-      LOG("%s: - Sub System Controller \r\n", __FUNCTION__);
-      break;
-    case SPECIFIC_TYPE_TV:
-      LOG("%s: - Television \r\n", __FUNCTION__);
-      break;
-    case SPECIFIC_TYPE_GATEWAY:
-      LOG("%s: - Gateway \r\n", __FUNCTION__);
-      break;
-    default:
-      LOG("%s: - *** WARNING *** Specific device type 0x%02X UNKNOWN \r\n", __FUNCTION__, ZWaveSerialFrame->payload[5]);
-      break;
-    }
-  }
+  ZWave_Identify_Specific_Device_Type(ZWaveSerialFrame->payload[4], ZWaveSerialFrame->payload[5]);
 
   LOG("%s: extInfo              = 0x%02X\r\n", __FUNCTION__, ZWaveSerialFrame->payload[6]);
 
@@ -3247,6 +3343,7 @@ void ZWave_REQ_CMD_49_ZW_Application_Update(void)
     ZWave_Identify_Generic_Device_Type(lucGenericDeviceType);
 
     LOG("%s: Specific device type = 0x%02X\r\n", __FUNCTION__, lucSpecificDeviceType);
+    ZWave_Identify_Specific_Device_Type(lucGenericDeviceType, lucSpecificDeviceType);
     LOG("----------------------- Supported Command Class list START -----------------------\r\n");
     PrintBytes(&ZWaveSerialFrame->payload[7], lucCommandClassListLength - 3, false, 0);
     LOG("----------------------- Supported Command Class list  END  -----------------------\r\n");
@@ -3318,6 +3415,7 @@ void ZWave_REQ_CMD_4A_ZW_Add_Node_To_Network(void)
     ZWave_Identify_Generic_Device_Type(ZWaveSerialFrame->payload[6]);
 
     LOG("%s: Specific device type   = 0x%02X\r\n", __FUNCTION__, ZWaveSerialFrame->payload[7]);
+    ZWave_Identify_Specific_Device_Type(ZWaveSerialFrame->payload[6], ZWaveSerialFrame->payload[7]);
     LOG("-----------------------  Supported Command Classes START -----------------------\r\n");
     PrintBytes(&ZWaveSerialFrame->payload[8], ZWaveSerialFrame->payload[4] - 3, false, 0);
     LOG("-----------------------  Supported Command Classes  END  -----------------------\r\n");
@@ -3374,6 +3472,7 @@ void ZWave_REQ_CMD_4B_ZW_Remove_Node_From_Network(void)
     ZWave_Identify_Generic_Device_Type(ZWaveSerialFrame->payload[6]);
 
     LOG("%s: Specific device type   = 0x%02X\r\n", __FUNCTION__, ZWaveSerialFrame->payload[7]);
+    ZWave_Identify_Specific_Device_Type(ZWaveSerialFrame->payload[6], ZWaveSerialFrame->payload[7]);
     LOG("-----------------------  Supported Command Classes START -----------------------\r\n");
     PrintBytes(&ZWaveSerialFrame->payload[8], ZWaveSerialFrame->payload[4] - 3, false, 0);
     LOG("-----------------------  Supported Command Classes  END  -----------------------\r\n");
@@ -3411,6 +3510,24 @@ void ZWave_RES_CMD_56_ZW_Get_SUC_Node_ID(void)
   LOG("%s: SUC NodeID = 0x%04X\r\n", __FUNCTION__, luiSUCNodeID);
 }
 // end ZWave_RES_CMD_56_ZW_Get_SUC_Node_ID
+
+/** *****************************************************************************************************************************
+  * @brief  Command handler for CMD 0x60 FUNC_ID_ZW_REQUEST_NODE_INFO ZW->HOST: Cmd | commandStatusw
+  * @param  None
+  * @retval None
+  */
+void ZWave_RES_CMD_60_ZW_Request_Node_Info(void)
+{
+  if (ZWaveSerialFrame->payload[0])
+  {
+    LOG("%s: Request for Node Information was accepted \r\n", __FUNCTION__);
+  }
+  else
+  {
+    LOG("%s: *** WARNING *** Request for Node Information was DENIED \r\n", __FUNCTION__);
+  }
+}
+// end ZWave_RES_CMD_60_ZW_Request_Node_Info
 
 /** *****************************************************************************************************************************
   * @brief  Command handler for CMD 0xA6 FUNC_ID_ZW_IS_VIRTUAL_NODE ZW->HOST: Cmd | retVal
@@ -4867,6 +4984,7 @@ void ZWaveTask(void *argument)
   gtZWave_CMD_Handler[FUNC_ID_ZW_REMOVE_NODE_FROM_NETWORK]        = ZWave_REQ_CMD_4B_ZW_Remove_Node_From_Network;
   gtZWave_CMD_Handler[FUNC_ID_ZW_SET_LEARN_MODE]                  = ZWave_RES_CMD_50_ZW_Set_Learn_Mode;
   gtZWave_CMD_Handler[FUNC_ID_ZW_GET_SUC_NODE_ID]                 = ZWave_RES_CMD_56_ZW_Get_SUC_Node_ID;
+  gtZWave_CMD_Handler[FUNC_ID_ZW_REQUEST_NODE_INFO]               = ZWave_RES_CMD_60_ZW_Request_Node_Info;
   gtZWave_CMD_Handler[FUNC_ID_ZW_IS_VIRTUAL_NODE]                 = ZWave_RES_CMD_A6_ZW_Is_Virtual_Node;
   gtZWave_CMD_Handler[FUNC_ID_APPLICATION_COMMAND_HANDLER_BRIDGE] = ZWave_RES_CMD_A8_Application_Command_Handler_Bridge;
   gtZWave_CMD_Handler[FUNC_ID_ZW_SEND_DATA_BRIDGE]                = ZWave_RES_CMD_A9_ZW_Send_Data_Bridge;
