@@ -374,6 +374,8 @@ void ZWave_REQ_CMD_4B_ZW_Remove_Node_From_Network(void);
 void ZWave_RES_CMD_50_ZW_Set_Learn_Mode(void);
 void ZWave_RES_CMD_56_ZW_Get_SUC_Node_ID(void);
 void ZWave_RES_CMD_A6_ZW_Is_Virtual_Node(void);
+void ZWave_RES_CMD_A8_Application_Command_Handler_Bridge(void);
+void ZWave_RES_CMD_A9_ZW_Send_Data_Bridge(void);
 void ZWave_RES_CMD_DA_Serial_API_Get_LR_Nodes(void);
 void ZWave_RES_CMD_DE_Get_DCDC_Config(void);
 void ZWave_RES_CMD_DF_Set_DCDC_Config(void);
@@ -3599,6 +3601,83 @@ void ZWave_RES_CMD_A6_ZW_Is_Virtual_Node(void)
 // end ZWave_RES_CMD_A6_ZW_Is_Virtual_Node
 
 /** *****************************************************************************************************************************
+  * @brief  Command handler for CMD 0xA8 FUNC_ID_APPLICATION_COMMAND_HANDLER_BRIDGE
+  * @param  None
+  * @retval None
+  */
+void ZWave_RES_CMD_A8_Application_Command_Handler_Bridge(void)
+{
+  /* ZW->HOST: REQ | 0xA8 | rxStatus | destNode | sourceNode | cmdLength
+   *          | pCmd[] | multiDestsOffset_NodeMaskLen | multiDestsNodeMask[] | rssiVal
+   *          | securityKey | bSourceTxPower | bSourceNoiseFloor */
+  LOG("%s: RX status                              = 0x%02X\r\n", __FUNCTION__, ZWaveSerialFrame->payload[0]);
+  LOG("%s: Destination node ID                    = 0x%04X\r\n", __FUNCTION__, (0x100*ZWaveSerialFrame->payload[1]) + ZWaveSerialFrame->payload[2]);
+  LOG("%s: Source node ID                         = 0x%04X\r\n", __FUNCTION__, (0x100*ZWaveSerialFrame->payload[3]) + ZWaveSerialFrame->payload[4]);
+  LOG("%s: Payload length                         = 0x%02X\r\n", __FUNCTION__, ZWaveSerialFrame->payload[5]);
+  int i = ZWaveSerialFrame->payload[5];
+  if (i)
+  {
+    LOG("-----------------------  Payload START -----------------------\r\n");
+    PrintBytes(&ZWaveSerialFrame->payload[6], i, false, 0);
+    LOG("-----------------------  Payload  END  -----------------------\r\n");
+  }
+  LOG("%s: Multicast destination node mask length = 0x%02X\r\n", __FUNCTION__, ZWaveSerialFrame->payload[6+i]);
+  int j = ZWaveSerialFrame->payload[6+i];
+  if (j)
+  {
+    LOG("-----------------------  Multicast destination node masks START -----------------------\r\n");
+    PrintBytes(&ZWaveSerialFrame->payload[7+i], j, false, 0);
+    LOG("-----------------------  Multicast destination node masks  END  -----------------------\r\n");
+  }
+  LOG("%s: Received RSSI                          = 0x%02X\r\n", __FUNCTION__, ZWaveSerialFrame->payload[7+i+j]);
+  LOG("%s: Security key                           = 0x%02X\r\n", __FUNCTION__, ZWaveSerialFrame->payload[8+i+j]);
+  LOG("%s: Source Tx power                        = 0x%02X\r\n", __FUNCTION__, ZWaveSerialFrame->payload[9+i+j]);
+  LOG("%s: Source noise floor                     = 0x%02X\r\n", __FUNCTION__, ZWaveSerialFrame->payload[10+i+j]);
+
+}
+// end ZWave_RES_CMD_A8_Application_Command_Handler_Bridge
+
+/** *****************************************************************************************************************************
+  * @brief  Command handler for CMD 0xA9 FUNC_ID_ZW_SEND_DATA_BRIDGE
+  * @param  None
+  * @retval None
+  */
+void ZWave_RES_CMD_A9_ZW_Send_Data_Bridge(void)
+{
+  // This routine handles BOTH cases when Z-Wave controller sends the RESPONSE with a return value, and if the return value
+  // is TRUE, the controller sends a callback REQUEST with assorted data.
+
+  if (RESPONSE == ZWaveSerialFrame->type)
+  {
+    //////////////////////////////////////////////////////
+    // Handle the RESPONSE with single return value
+    //////////////////////////////////////////////////////
+    LOG("%s: Return value = 0x%02X\r\n", __FUNCTION__, ZWaveSerialFrame->payload[0]);
+    if (ZWaveSerialFrame->payload[0])
+    {
+      LOG("%s: - expect a callback REQUEST with assorted data...\r\n", __FUNCTION__);
+    }
+    else
+    {
+      LOG("%s: - No further data are expected\r\n", __FUNCTION__);
+    }
+  }
+  else
+  {
+    //////////////////////////////////////////////////////
+    // Handle the REQUEST with assorted data
+    //////////////////////////////////////////////////////
+    LOG("%s: Session ID             = 0x%02X\r\n", __FUNCTION__, ZWaveSerialFrame->payload[0]);
+    LOG("%s: Tx status              = 0x%02X\r\n", __FUNCTION__, ZWaveSerialFrame->payload[1]);
+    //LOG("%s: Received length  = 0x%02X\r\n", __FUNCTION__, ZWaveSerialFrame->len);
+    LOG("----------------------- Tx report (preliminary) START -----------------------\r\n");
+    PrintBytes(&ZWaveSerialFrame->payload[2], ZWaveSerialFrame->len - 5, false, 0);
+    LOG("----------------------- Tx report (preliminary)  END  -----------------------\r\n");
+ }
+}
+// end ZWave_RES_CMD_A9_ZW_Send_Data_Bridge
+
+/** *****************************************************************************************************************************
   * @brief  Command handler for CMD 0xDA FUNC_ID_SERIAL_API_GET_LR_NODES ZW->HOST: Cmd | MORE_NODES | BITMASK_OFFSET | BITMASK_LEN | BITMASK_ARRAY
   * @param  None
   * @retval None
@@ -4935,26 +5014,28 @@ void ZWaveTask(void *argument)
     gtZWave_CMD_Handler[i] = ZWave_RES_CMD_XX_Unsupported;
   }
   // Now fill in the entries for supported command handler routines
-  gtZWave_CMD_Handler[FUNC_ID_SERIAL_API_GET_INIT_DATA]       = ZWave_RES_CMD_02_Get_Init_Data;
-  gtZWave_CMD_Handler[FUNC_ID_ZW_GET_CONTROLLER_CAPABILITIES] = ZWave_RES_CMD_05_ZW_Get_Controller_Capabilities;
-  gtZWave_CMD_Handler[FUNC_ID_SERIAL_API_GET_CAPABILITIES]    = ZWave_RES_CMD_07_Serial_API_Get_Capabilities;
-  gtZWave_CMD_Handler[FUNC_ID_SERIAL_API_STARTED]             = ZWave_REQ_CMD_0A_Serial_API_Started;
-  gtZWave_CMD_Handler[FUNC_ID_SERIAL_API_SETUP]               = ZWave_RES_CMD_0B_Serial_API_Setup;
-  gtZWave_CMD_Handler[FUNC_ID_ZW_SEND_NODE_INFORMATION]       = ZWave_RSQ_CMD_12_ZW_Send_Node_Information;
-  gtZWave_CMD_Handler[FUNC_ID_ZW_SEND_DATA]                   = ZWave_RSQ_CMD_13_ZW_Send_Data;
-  gtZWave_CMD_Handler[FUNC_ID_ZW_GET_VERSION]                 = ZWave_RES_CMD_15_ZW_Get_Version;
-  gtZWave_CMD_Handler[FUNC_ID_MEMORY_GET_ID]                  = ZWave_RES_CMD_20_Memory_Get_ID;
-  gtZWave_CMD_Handler[FUNC_ID_NVR_GET_VALUE]                  = ZWave_RES_CMD_28_NVR_Get_Value;
-  gtZWave_CMD_Handler[FUNC_ID_ZW_GET_NODE_PROTOCOL_INFO]      = ZWave_RES_CMD_41_ZW_Get_Node_Protocol_Info;
-  gtZWave_CMD_Handler[FUNC_ID_ZW_ADD_NODE_TO_NETWORK]         = ZWave_REQ_CMD_4A_ZW_Add_Node_To_Network;
-  gtZWave_CMD_Handler[FUNC_ID_ZW_REMOVE_NODE_FROM_NETWORK]    = ZWave_REQ_CMD_4B_ZW_Remove_Node_From_Network;
-  gtZWave_CMD_Handler[FUNC_ID_ZW_SET_LEARN_MODE]              = ZWave_RES_CMD_50_ZW_Set_Learn_Mode;
-  gtZWave_CMD_Handler[FUNC_ID_ZW_GET_SUC_NODE_ID]             = ZWave_RES_CMD_56_ZW_Get_SUC_Node_ID;
-  gtZWave_CMD_Handler[FUNC_ID_ZW_IS_VIRTUAL_NODE]             = ZWave_RES_CMD_A6_ZW_Is_Virtual_Node;
-  gtZWave_CMD_Handler[FUNC_ID_SERIAL_API_GET_LR_NODES]        = ZWave_RES_CMD_DA_Serial_API_Get_LR_Nodes;
-  gtZWave_CMD_Handler[FUNC_ID_GET_DCDC_CONFIG]                = ZWave_RES_CMD_DE_Get_DCDC_Config;
-  gtZWave_CMD_Handler[FUNC_ID_SET_DCDC_CONFIG]                = ZWave_RES_CMD_DF_Set_DCDC_Config;
-  gtZWave_CMD_Handler[FUNC_ID_GET_RADIO_PTI]                  = ZWave_RES_CMD_E8_Get_Radio_PTI;
+  gtZWave_CMD_Handler[FUNC_ID_SERIAL_API_GET_INIT_DATA]           = ZWave_RES_CMD_02_Get_Init_Data;
+  gtZWave_CMD_Handler[FUNC_ID_ZW_GET_CONTROLLER_CAPABILITIES]     = ZWave_RES_CMD_05_ZW_Get_Controller_Capabilities;
+  gtZWave_CMD_Handler[FUNC_ID_SERIAL_API_GET_CAPABILITIES]        = ZWave_RES_CMD_07_Serial_API_Get_Capabilities;
+  gtZWave_CMD_Handler[FUNC_ID_SERIAL_API_STARTED]                 = ZWave_REQ_CMD_0A_Serial_API_Started;
+  gtZWave_CMD_Handler[FUNC_ID_SERIAL_API_SETUP]                   = ZWave_RES_CMD_0B_Serial_API_Setup;
+  gtZWave_CMD_Handler[FUNC_ID_ZW_SEND_NODE_INFORMATION]           = ZWave_RSQ_CMD_12_ZW_Send_Node_Information;
+  gtZWave_CMD_Handler[FUNC_ID_ZW_SEND_DATA]                       = ZWave_RSQ_CMD_13_ZW_Send_Data;
+  gtZWave_CMD_Handler[FUNC_ID_ZW_GET_VERSION]                     = ZWave_RES_CMD_15_ZW_Get_Version;
+  gtZWave_CMD_Handler[FUNC_ID_MEMORY_GET_ID]                      = ZWave_RES_CMD_20_Memory_Get_ID;
+  gtZWave_CMD_Handler[FUNC_ID_NVR_GET_VALUE]                      = ZWave_RES_CMD_28_NVR_Get_Value;
+  gtZWave_CMD_Handler[FUNC_ID_ZW_GET_NODE_PROTOCOL_INFO]          = ZWave_RES_CMD_41_ZW_Get_Node_Protocol_Info;
+  gtZWave_CMD_Handler[FUNC_ID_ZW_ADD_NODE_TO_NETWORK]             = ZWave_REQ_CMD_4A_ZW_Add_Node_To_Network;
+  gtZWave_CMD_Handler[FUNC_ID_ZW_REMOVE_NODE_FROM_NETWORK]        = ZWave_REQ_CMD_4B_ZW_Remove_Node_From_Network;
+  gtZWave_CMD_Handler[FUNC_ID_ZW_SET_LEARN_MODE]                  = ZWave_RES_CMD_50_ZW_Set_Learn_Mode;
+  gtZWave_CMD_Handler[FUNC_ID_ZW_GET_SUC_NODE_ID]                 = ZWave_RES_CMD_56_ZW_Get_SUC_Node_ID;
+  gtZWave_CMD_Handler[FUNC_ID_ZW_IS_VIRTUAL_NODE]                 = ZWave_RES_CMD_A6_ZW_Is_Virtual_Node;
+  gtZWave_CMD_Handler[FUNC_ID_APPLICATION_COMMAND_HANDLER_BRIDGE] = ZWave_RES_CMD_A8_Application_Command_Handler_Bridge;
+  gtZWave_CMD_Handler[FUNC_ID_ZW_SEND_DATA_BRIDGE]                = ZWave_RES_CMD_A9_ZW_Send_Data_Bridge;
+  gtZWave_CMD_Handler[FUNC_ID_SERIAL_API_GET_LR_NODES]            = ZWave_RES_CMD_DA_Serial_API_Get_LR_Nodes;
+  gtZWave_CMD_Handler[FUNC_ID_GET_DCDC_CONFIG]                    = ZWave_RES_CMD_DE_Get_DCDC_Config;
+  gtZWave_CMD_Handler[FUNC_ID_SET_DCDC_CONFIG]                    = ZWave_RES_CMD_DF_Set_DCDC_Config;
+  gtZWave_CMD_Handler[FUNC_ID_GET_RADIO_PTI]                      = ZWave_RES_CMD_E8_Get_Radio_PTI;
   // Here's a handy template when implementing command handlers in the future
   //gtZWave_CMD_Handler[xxxxxxxxxxxxxxxxxx] = xxxxxxxxxxxxxxxxx;
 
