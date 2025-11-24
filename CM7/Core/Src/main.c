@@ -373,6 +373,8 @@ void ZWave_REQ_CMD_49_ZW_Application_Update(void);
 void ZWave_REQ_CMD_4A_ZW_Add_Node_To_Network(void);
 void ZWave_REQ_CMD_4B_ZW_Remove_Node_From_Network(void);
 void ZWave_RES_CMD_50_ZW_Set_Learn_Mode(void);
+void ZWave_RSQ_CMD_51_ZW_Assign_SUC_Return_Route(void);
+void ZWave_RSQ_CMD_55_ZW_Delete_SUC_Return_Route(void);
 void ZWave_RES_CMD_56_ZW_Get_SUC_Node_ID(void);
 void ZWave_RES_CMD_60_ZW_Request_Node_Info(void);
 void ZWave_RES_CMD_A6_ZW_Is_Virtual_Node(void);
@@ -3500,6 +3502,118 @@ void ZWave_RES_CMD_50_ZW_Set_Learn_Mode(void)
 // end ZWave_RES_CMD_50_ZW_Set_Learn_Mode
 
 /** *****************************************************************************************************************************
+  * @brief  Command handler for CMD 0x51 FUNC_ID_ZW_ASSIGN_SUC_RETURN_ROUTE
+  * @param  None
+  * @retval None
+  */
+void ZWave_RSQ_CMD_51_ZW_Assign_SUC_Return_Route(void)
+{
+  // This routine handles BOTH cases when Z-Wave controller sends the RESPONSE with a return value, and if the return value
+  // is TRUE, the controller sends a callback REQUEST with assorted data.
+
+  if (RESPONSE == ZWaveSerialFrame->type)
+  {
+    //////////////////////////////////////////////////////
+    // Handle the RESPONSE with single return value
+    //////////////////////////////////////////////////////
+    LOG("%s: Return value = 0x%02X\r\n", __FUNCTION__, ZWaveSerialFrame->payload[0]);
+    if (ZWaveSerialFrame->payload[0])
+    {
+      LOG("%s: - Assign SUC Return Route has started...\r\n", __FUNCTION__);
+    }
+    else
+    {
+      LOG("%s: - *** WARNING *** Assign SUC Return Route is already in progress\r\n", __FUNCTION__);
+    }
+  }
+  else
+  {
+    //////////////////////////////////////////////////////
+    // Handle the REQUEST with assorted data
+    //////////////////////////////////////////////////////
+    /* ZW->HOST: sessionID | txStatus */
+    LOG("%s: Session ID = 0x%02X\r\n", __FUNCTION__, ZWaveSerialFrame->payload[0]);
+
+    LOG("%s: txStatus   = 0x%02X\r\n", __FUNCTION__, ZWaveSerialFrame->payload[1]);
+    switch (ZWaveSerialFrame->payload[1])
+    {
+    case TRANSMIT_COMPLETE_OK:
+      LOG("%s: - transmit OK \r\n", __FUNCTION__);
+      break;
+    case TRANSMIT_COMPLETE_NO_ACK:
+      LOG("%s: - transmit ERROR (no ACK received) \r\n", __FUNCTION__);
+      break;
+    case TRANSMIT_COMPLETE_FAIL:
+      LOG("%s: - transmit ERROR (FAIL; network busy or jammed) \r\n", __FUNCTION__);
+      break;
+    case TRANSMIT_ROUTING_NOT_IDLE:
+      LOG("%s: - transmit ERROR (routing not idle) \r\n", __FUNCTION__);
+      break;
+    default:
+      LOG("%s: - *** WARNING *** txStatus value UNKNOWN \r\n", __FUNCTION__);
+      break;
+    }
+  }
+}
+// end ZWave_RSQ_CMD_51_ZW_Assign_SUC_Return_Route
+
+/** *****************************************************************************************************************************
+  * @brief  Command handler for CMD 0x55 FUNC_ID_ZW_DELETE_SUC_RETURN_ROUTE
+  * @param  None
+  * @retval None
+  */
+void ZWave_RSQ_CMD_55_ZW_Delete_SUC_Return_Route(void)
+{
+  // This routine handles BOTH cases when Z-Wave controller sends the RESPONSE with a return value, and if the return value
+  // is TRUE, the controller sends a callback REQUEST with assorted data.
+
+  if (RESPONSE == ZWaveSerialFrame->type)
+  {
+    //////////////////////////////////////////////////////
+    // Handle the RESPONSE with single return value
+    //////////////////////////////////////////////////////
+    LOG("%s: Return value = 0x%02X\r\n", __FUNCTION__, ZWaveSerialFrame->payload[0]);
+    if (ZWaveSerialFrame->payload[0])
+    {
+      LOG("%s: - Delete SUC Return Route has started...\r\n", __FUNCTION__);
+    }
+    else
+    {
+      LOG("%s: - *** WARNING *** Delete SUC Return Route is already in progress\r\n", __FUNCTION__);
+    }
+  }
+  else
+  {
+    //////////////////////////////////////////////////////
+    // Handle the REQUEST with assorted data
+    //////////////////////////////////////////////////////
+    /* ZW->HOST: sessionID | txStatus */
+    LOG("%s: Session ID = 0x%02X\r\n", __FUNCTION__, ZWaveSerialFrame->payload[0]);
+
+    LOG("%s: txStatus   = 0x%02X\r\n", __FUNCTION__, ZWaveSerialFrame->payload[1]);
+    switch (ZWaveSerialFrame->payload[1])
+    {
+    case TRANSMIT_COMPLETE_OK:
+      LOG("%s: - transmit OK \r\n", __FUNCTION__);
+      break;
+    case TRANSMIT_COMPLETE_NO_ACK:
+      LOG("%s: - transmit ERROR (no ACK received) \r\n", __FUNCTION__);
+      break;
+    case TRANSMIT_COMPLETE_FAIL:
+      LOG("%s: - transmit ERROR (FAIL; network busy or jammed) \r\n", __FUNCTION__);
+      break;
+    case TRANSMIT_ROUTING_NOT_IDLE:
+      LOG("%s: - transmit ERROR (routing not idle) \r\n", __FUNCTION__);
+      break;
+    default:
+      LOG("%s: - *** WARNING *** txStatus value UNKNOWN \r\n", __FUNCTION__);
+      break;
+    }
+  }
+}
+// end ZWave_RSQ_CMD_55_ZW_Delete_SUC_Return_Route
+
+/** *****************************************************************************************************************************
   * @brief  Command handler for CMD 0x56 FUNC_ID_ZW_GET_SUC_NODE_ID ZW->HOST: Cmd | SUC nodeID
   * @param  None
   * @retval None
@@ -4983,6 +5097,8 @@ void ZWaveTask(void *argument)
   gtZWave_CMD_Handler[FUNC_ID_ZW_ADD_NODE_TO_NETWORK]             = ZWave_REQ_CMD_4A_ZW_Add_Node_To_Network;
   gtZWave_CMD_Handler[FUNC_ID_ZW_REMOVE_NODE_FROM_NETWORK]        = ZWave_REQ_CMD_4B_ZW_Remove_Node_From_Network;
   gtZWave_CMD_Handler[FUNC_ID_ZW_SET_LEARN_MODE]                  = ZWave_RES_CMD_50_ZW_Set_Learn_Mode;
+  gtZWave_CMD_Handler[FUNC_ID_ZW_ASSIGN_SUC_RETURN_ROUTE]         = ZWave_RSQ_CMD_51_ZW_Assign_SUC_Return_Route;
+  gtZWave_CMD_Handler[FUNC_ID_ZW_DELETE_SUC_RETURN_ROUTE]         = ZWave_RSQ_CMD_55_ZW_Delete_SUC_Return_Route;
   gtZWave_CMD_Handler[FUNC_ID_ZW_GET_SUC_NODE_ID]                 = ZWave_RES_CMD_56_ZW_Get_SUC_Node_ID;
   gtZWave_CMD_Handler[FUNC_ID_ZW_REQUEST_NODE_INFO]               = ZWave_RES_CMD_60_ZW_Request_Node_Info;
   gtZWave_CMD_Handler[FUNC_ID_ZW_IS_VIRTUAL_NODE]                 = ZWave_RES_CMD_A6_ZW_Is_Virtual_Node;
