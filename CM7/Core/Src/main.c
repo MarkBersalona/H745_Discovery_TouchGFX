@@ -196,7 +196,7 @@ const osMessageQueueAttr_t TouchGFXQueue_attributes = {
 };
 /* Definitions for ZWaveRxQueue */
 osMessageQueueId_t ZWaveRxQueueHandle;
-uint8_t ZWaveRxQueueBuffer[ 1024 * sizeof( uint8_t ) ];
+uint8_t ZWaveRxQueueBuffer[ 2048 * sizeof( uint8_t ) ];
 osStaticMessageQDef_t ZWaveRxQueueControlBlock;
 const osMessageQueueAttr_t ZWaveRxQueue_attributes = {
   .name = "ZWaveRxQueue",
@@ -317,6 +317,7 @@ ZWaveInterfaceFrame_ptr const ZWaveSerialFrame = (ZWaveInterfaceFrame_ptr)gtZWav
 //
 typedef void (*zwave_cmd_handler_t)(void);
 zwave_cmd_handler_t gtZWave_CMD_Handler[256];
+zwave_cmd_handler_t gtZWave_CC_Handler[256];
 
 // State variables for ZWave state machine
 uint8_t gucRetryCount = 0;
@@ -329,6 +330,9 @@ uint8_t gucZWaveWorkbuf[BUF_SIZE_TX];
 uint32_t gulZWaveHomeID = 0;
 uint16_t guiZWaveNodeID = 0;
 
+// Z-Wave received command class buffer
+uint8_t* pgucCCBuffer;
+uint8_t  gucCCBufferLength;
 
 /* USER CODE END PV */
 
@@ -374,6 +378,7 @@ void ZWave_REQ_CMD_4A_ZW_Add_Node_To_Network(void);
 void ZWave_REQ_CMD_4B_ZW_Remove_Node_From_Network(void);
 void ZWave_RES_CMD_50_ZW_Set_Learn_Mode(void);
 void ZWave_RSQ_CMD_51_ZW_Assign_SUC_Return_Route(void);
+void ZWave_RSQ_CMD_54_ZW_Set_SUC_NodeID(void);
 void ZWave_RSQ_CMD_55_ZW_Delete_SUC_Return_Route(void);
 void ZWave_RES_CMD_56_ZW_Get_SUC_Node_ID(void);
 void ZWave_RES_CMD_60_ZW_Request_Node_Info(void);
@@ -385,6 +390,8 @@ void ZWave_RES_CMD_DE_Get_DCDC_Config(void);
 void ZWave_RES_CMD_DF_Set_DCDC_Config(void);
 void ZWave_RES_CMD_E8_Get_Radio_PTI(void);
 void ZWave_RES_CMD_XX_Unsupported(void);
+void ZWave_Rx_CC_9F_Security_2_V2(void);
+void ZWave_Rx_CC_XX_Unsupported(void);
 void ZWave_Send_REQ_CMD_02_Serial_API_Get_Init_Data(void);
 void ZWave_Send_REQ_CMD_03_Serial_API_Application_Node_Information(void);
 void ZWave_Send_REQ_CMD_05_Get_Controller_Capabilities(void);
@@ -522,7 +529,7 @@ int main(void)
   TouchGFXQueueHandle = osMessageQueueNew (64, sizeof(uint16_t), &TouchGFXQueue_attributes);
 
   /* creation of ZWaveRxQueue */
-  ZWaveRxQueueHandle = osMessageQueueNew (1024, sizeof(uint8_t), &ZWaveRxQueue_attributes);
+  ZWaveRxQueueHandle = osMessageQueueNew (2048, sizeof(uint8_t), &ZWaveRxQueue_attributes);
 
   /* creation of DiagnosticRxQueue */
   DiagnosticRxQueueHandle = osMessageQueueNew (256, sizeof(uint8_t), &DiagnosticRxQueue_attributes);
@@ -1653,7 +1660,7 @@ ZWaveRxParseResult_t ZWave_Handle_CHECKSUM(uint8_t aucRxByte, uint8_t aucIsACKRe
   */
 void ZWave_Handle_CMD(uint8_t aucRxByte)
 {
-  LOG("%s: CMD byte is 0x%02X\r\n", __FUNCTION__, aucRxByte);
+  //LOG("%s: CMD byte is 0x%02X\r\n", __FUNCTION__, aucRxByte);
 
   // Save received byte to ZWave Rx buffer
   gtZWaveRxInterface.buffer[gtZWaveRxInterface.buffer_len] = aucRxByte;
@@ -3558,6 +3565,56 @@ void ZWave_RSQ_CMD_51_ZW_Assign_SUC_Return_Route(void)
 // end ZWave_RSQ_CMD_51_ZW_Assign_SUC_Return_Route
 
 /** *****************************************************************************************************************************
+  * @brief  Command handler for CMD 0x54 FUNC_ID_ZW_SET_SUC_NODE_ID
+  * @param  None
+  * @retval None
+  */
+void ZWave_RSQ_CMD_54_ZW_Set_SUC_NodeID(void)
+{
+  // This routine handles BOTH cases when Z-Wave controller sends the RESPONSE with a return value, and if the return value
+  // is TRUE, the controller sends a callback REQUEST with assorted data.
+
+  if (RESPONSE == ZWaveSerialFrame->type)
+  {
+    //////////////////////////////////////////////////////
+    // Handle the RESPONSE with single return value
+    //////////////////////////////////////////////////////
+    LOG("%s: Return value = 0x%02X\r\n", __FUNCTION__, ZWaveSerialFrame->payload[0]);
+    if (ZWaveSerialFrame->payload[0])
+    {
+      LOG("%s: - Set SUC NodeID successful\r\n", __FUNCTION__);
+    }
+    else
+    {
+      LOG("%s: - *** WARNING *** Set SUC NodeID unaccepted or failed\r\n", __FUNCTION__);
+    }
+  }
+  else
+  {
+    //////////////////////////////////////////////////////
+    // Handle the REQUEST with assorted data
+    //////////////////////////////////////////////////////
+    /* ZW->HOST: sessionID | txStatus */
+    LOG("%s: Session ID     = 0x%02X\r\n", __FUNCTION__, ZWaveSerialFrame->payload[0]);
+
+    LOG("%s: Set SUC status = 0x%02X\r\n", __FUNCTION__, ZWaveSerialFrame->payload[1]);
+    switch (ZWaveSerialFrame->payload[1])
+    {
+    case ZW_SUC_SET_SUCCEEDED:
+      LOG("%s: - Set SUC OK \r\n", __FUNCTION__);
+      break;
+    case ZW_SUC_SET_FAILED:
+      LOG("%s: - Set SUC FAILED \r\n", __FUNCTION__);
+      break;
+    default:
+      LOG("%s: - *** WARNING *** Set SUC value UNKNOWN \r\n", __FUNCTION__);
+      break;
+    }
+  }
+}
+// end ZWave_RSQ_CMD_54_ZW_Set_SUC_NodeID
+
+/** *****************************************************************************************************************************
   * @brief  Command handler for CMD 0x55 FUNC_ID_ZW_DELETE_SUC_RETURN_ROUTE
   * @param  None
   * @retval None
@@ -3681,9 +3738,13 @@ void ZWave_RES_CMD_A8_Application_Command_Handler_Bridge(void)
   int i = ZWaveSerialFrame->payload[5];
   if (i)
   {
-    LOG("-----------------------  Payload START -----------------------\r\n");
+    LOG("-----------------------  Command data START -----------------------\r\n");
     PrintBytes(&ZWaveSerialFrame->payload[6], i, false, 0);
-    LOG("-----------------------  Payload  END  -----------------------\r\n");
+    // Invoke the command class handler
+    pgucCCBuffer = &ZWaveSerialFrame->payload[6];
+    gucCCBufferLength = i;
+    gtZWave_CC_Handler[pgucCCBuffer[0]]();
+    LOG("-----------------------  Command data  END  -----------------------\r\n");
   }
   LOG("%s: Multicast destination node mask length = 0x%02X\r\n", __FUNCTION__, ZWaveSerialFrame->payload[6+i]);
   int j = ZWaveSerialFrame->payload[6+i];
@@ -3821,13 +3882,296 @@ void ZWave_RES_CMD_E8_Get_Radio_PTI(void)
 // end ZWave_RES_CMD_E8_Get_Radio_PTI
 
 /** *****************************************************************************************************************************
+  * @brief  Command class handler for CC 0x9F COMMAND_CLASS_SECURITY_2_V2
+  * @param  None
+  * @retval None
+  */
+void ZWave_Rx_CC_9F_Security_2_V2(void)
+{
+  // Assume pgucCCBuffer and gucCCBufferLength have already been assigned
+
+  LOG("%s: Command class   = 0x%02X \r\n", __FUNCTION__, pgucCCBuffer[0]);
+  LOG("%s: - COMMAND_CLASS_SECURITY_2_V2 \r\n", __FUNCTION__);
+
+  LOG("%s: Security header = 0x%02X \r\n", __FUNCTION__, pgucCCBuffer[1]);
+  switch (pgucCCBuffer[1])
+  {
+  case SECURITY_2_NONCE_GET_V2:
+    LOG("%s: - SECURITY_2_NONCE_GET_V2 \r\n", __FUNCTION__)
+    break;
+  case SECURITY_2_NONCE_REPORT_V2:
+    LOG("%s: - SECURITY_2_NONCE_REPORT_V2 \r\n", __FUNCTION__)
+    break;
+  case SECURITY_2_MESSAGE_ENCAPSULATION_V2:
+    LOG("%s: - SECURITY_2_MESSAGE_ENCAPSULATION_V2 \r\n", __FUNCTION__)
+    break;
+  case KEX_GET_V2:
+    LOG("%s: - KEX_GET_V2 \r\n", __FUNCTION__)
+    break;
+  case KEX_REPORT_V2:
+    LOG("%s: - KEX_REPORT_V2 \r\n", __FUNCTION__)
+    break;
+  case KEX_SET_V2:
+    LOG("%s: - KEX_SET_V2 \r\n", __FUNCTION__)
+    break;
+  case KEX_FAIL_V2:
+    LOG("%s: - KEX_FAIL_V2 \r\n", __FUNCTION__)
+    break;
+  case PUBLIC_KEY_REPORT_V2:
+    LOG("%s: - PUBLIC_KEY_REPORT_V2 \r\n", __FUNCTION__)
+    break;
+  case SECURITY_2_NETWORK_KEY_GET_V2:
+    LOG("%s: - SECURITY_2_NETWORK_KEY_GET_V2 \r\n", __FUNCTION__)
+    break;
+  case SECURITY_2_NETWORK_KEY_REPORT_V2:
+    LOG("%s: - SECURITY_2_NETWORK_KEY_REPORT_V2 \r\n", __FUNCTION__)
+    break;
+  case SECURITY_2_NETWORK_KEY_VERIFY_V2:
+    LOG("%s: - SECURITY_2_NETWORK_KEY_VERIFY_V2 \r\n", __FUNCTION__)
+    break;
+  case SECURITY_2_TRANSFER_END_V2:
+    LOG("%s: - SECURITY_2_TRANSFER_END_V2 \r\n", __FUNCTION__)
+    break;
+  case SECURITY_2_COMMANDS_SUPPORTED_GET_V2:
+    LOG("%s: - SECURITY_2_COMMANDS_SUPPORTED_GET_V2 \r\n", __FUNCTION__)
+    break;
+  case SECURITY_2_COMMANDS_SUPPORTED_REPORT_V2:
+    LOG("%s: - SECURITY_2_COMMANDS_SUPPORTED_REPORT_V2 \r\n", __FUNCTION__)
+    break;
+  case NLS_NODE_LIST_GET_V2:
+    LOG("%s: - NLS_NODE_LIST_GET_V2 \r\n", __FUNCTION__)
+    break;
+  case NLS_NODE_LIST_REPORT_V2:
+    LOG("%s: - NLS_NODE_LIST_REPORT_V2 \r\n", __FUNCTION__)
+    break;
+  case NLS_STATE_GET_V2:
+    LOG("%s: - NLS_STATE_GET_V2 \r\n", __FUNCTION__)
+    break;
+  case NLS_STATE_REPORT_V2:
+    LOG("%s: - NLS_STATE_REPORT_V2 \r\n", __FUNCTION__)
+    break;
+  case NLS_STATE_SET_V2:
+    LOG("%s: - NLS_STATE_SET_V2 \r\n", __FUNCTION__)
+    break;
+  default:
+    LOG("%s: - *** WARNING *** Security header UNKNOWN \r\n", __FUNCTION__)
+    break;
+  }
+
+  if (SECURITY_2_NONCE_GET_V2             == pgucCCBuffer[1])
+  {
+    LOG("%s: Sequence number = 0x%02X \r\n", __FUNCTION__, pgucCCBuffer[2]);
+  }
+
+
+  if (SECURITY_2_NONCE_REPORT_V2          == pgucCCBuffer[1])
+  {
+    LOG("%s: Sequence number = 0x%02X \r\n", __FUNCTION__, pgucCCBuffer[2]);
+    LOG("%s: Sync flags      = 0x%02X \r\n", __FUNCTION__, pgucCCBuffer[3]);
+    uint8_t lucSPANOutOfSync;
+    if (pgucCCBuffer[3] & SECURITY_2_NONCE_REPORT_PROPERTIES1_SOS_BIT_MASK_V2)
+    {
+      LOG("%s: - SPAN out of sync \r\n", __FUNCTION__);
+      lucSPANOutOfSync = true;
+    }
+    else
+    {
+      LOG("%s: - SPAN in sync, decrypted latest SECURITY_2_MESSAGE_ENCAPSULATION_V2 OK \r\n", __FUNCTION__);
+      lucSPANOutOfSync = false;
+    }
+    if (pgucCCBuffer[3] & SECURITY_2_NONCE_REPORT_PROPERTIES1_MOS_BIT_MASK_V2)
+    {
+      LOG("%s: - MPAN out of sync \r\n", __FUNCTION__);
+    }
+    else
+    {
+      LOG("%s: - MPAN in sync \r\n", __FUNCTION__);
+    }
+    if (lucSPANOutOfSync)
+    {
+      LOG("%s: Receiver's Entropy Input... \r\n", __FUNCTION__);
+      PrintBytes(&pgucCCBuffer[4], 16, false, 0);
+    }
+  }
+
+  if (SECURITY_2_MESSAGE_ENCAPSULATION_V2 == pgucCCBuffer[1])
+  {
+    uint8_t lucExtensionOffset = 0;
+
+    LOG("%s: Sequence number = 0x%02X \r\n", __FUNCTION__, pgucCCBuffer[2]);
+    LOG("%s: Extensions      = 0x%02X \r\n", __FUNCTION__, pgucCCBuffer[3]);
+    uint8_t lucExtensionsPresent;
+    if (pgucCCBuffer[3] & SECURITY_2_MESSAGE_ENCAPSULATION_PROPERTIES1_EXTENSION_BIT_MASK_V2)
+    {
+      LOG("%s: - One or more extensions are present \r\n", __FUNCTION__);
+      lucExtensionsPresent = true;
+    }
+    else
+    {
+      LOG("%s: - No extensions present \r\n", __FUNCTION__);
+      lucExtensionsPresent = false;
+    }
+    uint8_t lucEncryptedExtensionsPresent;
+    if (pgucCCBuffer[3] & SECURITY_2_MESSAGE_ENCAPSULATION_PROPERTIES1_ENCRYPTED_EXTENSION_BIT_MASK_V2)
+    {
+      LOG("%s: - One or more encrypted extensions are present \r\n", __FUNCTION__);
+      lucEncryptedExtensionsPresent = true;
+    }
+    else
+    {
+      LOG("%s: - No encrypted extensions present \r\n", __FUNCTION__);
+      lucEncryptedExtensionsPresent = false;
+    }
+
+    if (lucExtensionsPresent)
+    {
+      uint8_t lucExtensionCount = 0;
+      uint8_t lucNextExtensionPresent = true;
+      while (lucNextExtensionPresent)
+      {
+        ++lucExtensionCount;
+
+        LOG("%s: Extension %d length      = 0x%02X \r\n", __FUNCTION__, lucExtensionCount, pgucCCBuffer[4+lucExtensionOffset]);
+        LOG("%s: Extension %d options     = 0x%02X \r\n", __FUNCTION__, lucExtensionCount, pgucCCBuffer[5+lucExtensionOffset]);
+        switch (pgucCCBuffer[5+lucExtensionOffset] & 0x3F)
+        {
+        case 0x01:
+          LOG("%s: - SPAN extension - not encrypted \r\n", __FUNCTION__);
+          break;
+        case 0x02:
+          LOG("%s: - MPAN extension - encrypted \r\n", __FUNCTION__);
+          break;
+        case 0x03:
+          LOG("%s: - MGRP extension - not encrypted \r\n", __FUNCTION__);
+          break;
+        case 0x04:
+          LOG("%s: - MOS extension - not encrypted \r\n", __FUNCTION__);
+          break;
+        default:
+          LOG("%s: *** WARNING *** extension type UNKNOWN \r\n", __FUNCTION__);
+          break;
+        }
+        if (pgucCCBuffer[5+lucExtensionOffset] & 0x40)
+        {
+          LOG("%s: - Critical bit set \r\n", __FUNCTION__);
+        }
+        lucNextExtensionPresent = false;
+        if (pgucCCBuffer[5+lucExtensionOffset] & 0x80)
+        {
+          LOG("%s: - 'More to follow' bit set \r\n", __FUNCTION__);
+          lucNextExtensionPresent = true;
+        }
+        LOG("%s: Extension %d... \r\n", __FUNCTION__, lucExtensionCount);
+        PrintBytes(&pgucCCBuffer[6+lucExtensionOffset], pgucCCBuffer[4+lucExtensionOffset] - 2, false, 0);
+
+        // Offset to next extension (or to CCM Ciphertext object if no more extensions)
+        lucExtensionOffset += pgucCCBuffer[4+lucExtensionOffset];
+      } // end while
+    } // end if (lucExtensionsPresent)
+
+    // TODO parse encrypted extensions (if present - and if necessary: the encrypted extensions might follow seamlessly with the unencrypted extensions)
+
+    uint8_t lucCCMOffset = 4 + lucExtensionOffset;
+    LOG("%s: CCM Ciphertext object... \r\n", __FUNCTION__);
+    PrintBytes(&pgucCCBuffer[lucCCMOffset], gucCCBufferLength - lucCCMOffset, false, 0);
+
+  } // end if (SECURITY_2_MESSAGE_ENCAPSULATION_V2 == pgucCCBuffer[1])
+
+  if (KEX_REPORT_V2 == pgucCCBuffer[1])
+  {
+    LOG("%s: KEX options     = 0x%02X \r\n", __FUNCTION__, pgucCCBuffer[2]);
+    if (pgucCCBuffer[2] & KEX_REPORT_PROPERTIES1_ECHO_BIT_MASK_V2)
+    {
+      LOG("%s: - Echo bit set \r\n", __FUNCTION__);
+    }
+    if (pgucCCBuffer[2] & KEX_REPORT_PROPERTIES1_REQUEST_CSA_BIT_MASK_V2)
+    {
+      LOG("%s: - Request CSA bit set \r\n", __FUNCTION__);
+    }
+    if (pgucCCBuffer[2] & KEX_REPORT_PROPERTIES1_NLS_SUPPORT_BIT_MASK_V2)
+    {
+      LOG("%s: - NLS Support bit set \r\n", __FUNCTION__);
+    }
+
+    LOG("%s: KEX schemes     = 0x%02X \r\n", __FUNCTION__, pgucCCBuffer[3]);
+    if (pgucCCBuffer[3] & 0x02)
+    {
+      LOG("%s: - KEX Scheme 1 supported \r\n", __FUNCTION__);
+    }
+    else
+    {
+      LOG("%s: - *** WARNING *** KEX Scheme 1 is NOT supported \r\n", __FUNCTION__);
+    }
+
+    LOG("%s: ECDH profiles   = 0x%02X \r\n", __FUNCTION__, pgucCCBuffer[4]);
+    if (pgucCCBuffer[4] & 0x01)
+    {
+      LOG("%s: - ECDH Profile Curve25519 supported \r\n", __FUNCTION__);
+    }
+    else
+    {
+      LOG("%s: - *** WARNING *** ECDH Profile Curve25519 is NOT supported \r\n", __FUNCTION__);
+    }
+
+    LOG("%s: Requested keys  = 0x%02X \r\n", __FUNCTION__, pgucCCBuffer[5]);
+    if (pgucCCBuffer[5] & 0x04)
+    {
+      LOG("%s: - S2 Access Control Class supported \r\n", __FUNCTION__);
+    }
+    if (pgucCCBuffer[5] & 0x02)
+    {
+      LOG("%s: - S2 Authenticated Class supported \r\n", __FUNCTION__);
+    }
+    if (pgucCCBuffer[5] & 0x01)
+    {
+      LOG("%s: - S2 Unauthenticated Class supported \r\n", __FUNCTION__);
+    }
+    if (pgucCCBuffer[5] & 0x80)
+    {
+      LOG("%s: - S0 Secure legacy devices supported \r\n", __FUNCTION__);
+    }
+  }
+
+  if (PUBLIC_KEY_REPORT_V2 == pgucCCBuffer[1])
+  {
+    LOG("%s: Options         = 0x%02X \r\n", __FUNCTION__, pgucCCBuffer[2]);
+    if (pgucCCBuffer[2] & 0x01)
+    {
+      LOG("%s: - Including Node bit set: sent by the including node \r\n", __FUNCTION__);
+    }
+    else
+    {
+      LOG("%s: - Including Node bit clear: sent by the joining node \r\n", __FUNCTION__);
+    }
+
+    LOG("%s: ECDH Public key (1st 16 bytes: DSK with some bytes possibly obfuscated with 0x00)... \r\n", __FUNCTION__);
+    PrintBytes(&pgucCCBuffer[3], 32, false, 0);
+
+  }
+
+}
+// end ZWave_Rx_CC_9F_Security_2_V2
+
+/** *****************************************************************************************************************************
+  * @brief  Dummy command handler for unsupported Z-Wave command class
+  * @param  None
+  * @retval None
+  */
+void ZWave_Rx_CC_XX_Unsupported(void)
+{
+  PrintBytes(pgucCCBuffer, gucCCBufferLength, false, 0);
+  LOG("%s: *** WARNING *** Command class 0x%02X not supported (yet)... \r\n", __FUNCTION__, pgucCCBuffer[0]);
+}
+// end ZWave_Rx_CC_XX_Unsupported
+
+/** *****************************************************************************************************************************
   * @brief  Dummy command handler for unsupported Z-Wave command
   * @param  None
   * @retval None
   */
 void ZWave_RES_CMD_XX_Unsupported(void)
 {
-  LOG("%s: *** WARNING *** Command 0x%02X not supported (yet)... \r\n", __FUNCTION__, ZWaveSerialFrame->cmd);
+  LOG("%s: *** WARNING *** Serial API command 0x%02X not supported (yet)... \r\n", __FUNCTION__, ZWaveSerialFrame->cmd);
 }
 // end ZWave_RES_CMD_XX_Unsupported
 
@@ -5073,14 +5417,16 @@ void ZWaveTask(void *argument)
   }
 
   //
-  // Initialize received command handler array
+  // Initialize received command handler arrays
   // (the command-indexed jump table of handler routines for received commands)
   //
-  // First, initialize the entire jump table with the "unsupported command" routine
+  // First, initialize the entire jump table with the "unsupported command" routines
   for (int i = 0; i < 256; ++i)
   {
     gtZWave_CMD_Handler[i] = ZWave_RES_CMD_XX_Unsupported;
+    gtZWave_CC_Handler[i]  = ZWave_Rx_CC_XX_Unsupported;
   }
+
   // Now fill in the entries for supported command handler routines
   gtZWave_CMD_Handler[FUNC_ID_SERIAL_API_GET_INIT_DATA]           = ZWave_RES_CMD_02_Get_Init_Data;
   gtZWave_CMD_Handler[FUNC_ID_ZW_GET_CONTROLLER_CAPABILITIES]     = ZWave_RES_CMD_05_ZW_Get_Controller_Capabilities;
@@ -5098,6 +5444,7 @@ void ZWaveTask(void *argument)
   gtZWave_CMD_Handler[FUNC_ID_ZW_REMOVE_NODE_FROM_NETWORK]        = ZWave_REQ_CMD_4B_ZW_Remove_Node_From_Network;
   gtZWave_CMD_Handler[FUNC_ID_ZW_SET_LEARN_MODE]                  = ZWave_RES_CMD_50_ZW_Set_Learn_Mode;
   gtZWave_CMD_Handler[FUNC_ID_ZW_ASSIGN_SUC_RETURN_ROUTE]         = ZWave_RSQ_CMD_51_ZW_Assign_SUC_Return_Route;
+  gtZWave_CMD_Handler[FUNC_ID_ZW_SET_SUC_NODE_ID]                 = ZWave_RSQ_CMD_54_ZW_Set_SUC_NodeID;
   gtZWave_CMD_Handler[FUNC_ID_ZW_DELETE_SUC_RETURN_ROUTE]         = ZWave_RSQ_CMD_55_ZW_Delete_SUC_Return_Route;
   gtZWave_CMD_Handler[FUNC_ID_ZW_GET_SUC_NODE_ID]                 = ZWave_RES_CMD_56_ZW_Get_SUC_Node_ID;
   gtZWave_CMD_Handler[FUNC_ID_ZW_REQUEST_NODE_INFO]               = ZWave_RES_CMD_60_ZW_Request_Node_Info;
@@ -5110,6 +5457,11 @@ void ZWaveTask(void *argument)
   gtZWave_CMD_Handler[FUNC_ID_GET_RADIO_PTI]                      = ZWave_RES_CMD_E8_Get_Radio_PTI;
   // Here's a handy template when implementing command handlers in the future
   //gtZWave_CMD_Handler[xxxxxxxxxxxxxxxxxx] = xxxxxxxxxxxxxxxxx;
+
+  // Also fill in the entries for supported command class handler routines
+  gtZWave_CC_Handler[COMMAND_CLASS_SECURITY_2_V2] = ZWave_Rx_CC_9F_Security_2_V2;
+  // Here's a handy template when implementing command class handlers in the future
+  //gtZWave_CC_Handler[xxxxxxxxxxxxxxxxxx] = xxxxxxxxxxxxxxxxx;
 
   // Initialize Z-Wave SerialAPI state machine
   ZWave_SerialAPI_StateMachine(ZWAVE_SM_CMD_INITIALIZE);
