@@ -390,6 +390,7 @@ void ZWave_RES_CMD_DE_Get_DCDC_Config(void);
 void ZWave_RES_CMD_DF_Set_DCDC_Config(void);
 void ZWave_RES_CMD_E8_Get_Radio_PTI(void);
 void ZWave_RES_CMD_XX_Unsupported(void);
+void ZWave_Rx_CC_26_Switch_Multilevel_V4(void);
 void ZWave_Rx_CC_9F_Security_2_V2(void);
 void ZWave_Rx_CC_XX_Unsupported(void);
 void ZWave_Send_REQ_CMD_02_Serial_API_Get_Init_Data(void);
@@ -3882,6 +3883,77 @@ void ZWave_RES_CMD_E8_Get_Radio_PTI(void)
 // end ZWave_RES_CMD_E8_Get_Radio_PTI
 
 /** *****************************************************************************************************************************
+  * @brief  Command class handler for CC 0x26 COMMAND_CLASS_SWITCH_MULTILEVEL_V4
+  * @param  None
+  * @retval None
+  */
+void ZWave_Rx_CC_26_Switch_Multilevel_V4(void)
+{
+  // Assume pgucCCBuffer and gucCCBufferLength have already been assigned
+
+  LOG("%s: Command class   = 0x%02X \r\n", __FUNCTION__, pgucCCBuffer[0]);
+  LOG("%s: - COMMAND_CLASS_SWITCH_MULTILEVEL_V4 \r\n", __FUNCTION__);
+
+  LOG("%s: Command         = 0x%02X \r\n", __FUNCTION__, pgucCCBuffer[1]);
+  switch (pgucCCBuffer[1])
+  {
+  case SWITCH_MULTILEVEL_SET:
+    LOG("%s: - SWITCH_MULTILEVEL_SET \r\n", __FUNCTION__);
+    break;
+  case SWITCH_MULTILEVEL_GET:
+    LOG("%s: - SWITCH_MULTILEVEL_GET \r\n", __FUNCTION__);
+    break;
+  case SWITCH_MULTILEVEL_REPORT:
+    LOG("%s: - SWITCH_MULTILEVEL_REPORT \r\n", __FUNCTION__);
+    break;
+  case SWITCH_MULTILEVEL_START_LEVEL_CHANGE:
+    LOG("%s: - SWITCH_MULTILEVEL_START_LEVEL_CHANGE \r\n", __FUNCTION__);
+    break;
+  case SWITCH_MULTILEVEL_STOP_LEVEL_CHANGE:
+    LOG("%s: - SWITCH_MULTILEVEL_STOP_LEVEL_CHANGE \r\n", __FUNCTION__);
+    break;
+  default:
+    LOG("%s: - *** WARNING *** Switch Multilevel command UNKNOWN \r\n", __FUNCTION__);
+    break;
+  }
+
+  if ( SWITCH_MULTILEVEL_SET    == pgucCCBuffer[1] )
+  {
+    LOG("%s: Value           = 0x%02X \r\n", __FUNCTION__, pgucCCBuffer[2]);
+  }
+
+  if ( SWITCH_MULTILEVEL_REPORT    == pgucCCBuffer[1] )
+  {
+    LOG("%s: Current Value   = 0x%02X \r\n", __FUNCTION__, pgucCCBuffer[2]);
+    if (0x00 == pgucCCBuffer[2])
+    {
+      LOG("%s: - OFF \r\n", __FUNCTION__)
+    }
+    else if (0x01 <= pgucCCBuffer[2] && pgucCCBuffer[2] <= 0x63)
+    {
+      LOG("%s: - ON, %02d %% \r\n", __FUNCTION__, pgucCCBuffer[2])
+    }
+    else if (0xFF == pgucCCBuffer[2])
+    {
+      LOG("%s: - ON; restored to most recent level \r\n", __FUNCTION__)
+    }
+    else
+    {
+      LOG("%s: - *** WARNING *** reserved value \r\n", __FUNCTION__);
+    }
+    LOG("%s: Target  Value   = 0x%02X \r\n", __FUNCTION__, pgucCCBuffer[3]);
+    LOG("%s: Duration        = 0x%02X \r\n", __FUNCTION__, pgucCCBuffer[4]);
+  }
+
+  if ( SWITCH_MULTILEVEL_START_LEVEL_CHANGE    == pgucCCBuffer[1] )
+  {
+    LOG("%s: Options         = 0x%02X \r\n", __FUNCTION__, pgucCCBuffer[3]);
+    LOG("%s: Start level     = 0x%02X \r\n", __FUNCTION__, pgucCCBuffer[4]);
+  }
+}
+// end ZWave_Rx_CC_26_Switch_Multilevel_V4
+
+/** *****************************************************************************************************************************
   * @brief  Command class handler for CC 0x9F COMMAND_CLASS_SECURITY_2_V2
   * @param  None
   * @retval None
@@ -4159,7 +4231,7 @@ void ZWave_Rx_CC_9F_Security_2_V2(void)
   */
 void ZWave_Rx_CC_XX_Unsupported(void)
 {
-  PrintBytes(pgucCCBuffer, gucCCBufferLength, false, 0);
+  //PrintBytes(pgucCCBuffer, gucCCBufferLength, false, 0);
   LOG("%s: *** WARNING *** Command class 0x%02X not supported (yet)... \r\n", __FUNCTION__, pgucCCBuffer[0]);
 }
 // end ZWave_Rx_CC_XX_Unsupported
@@ -4995,9 +5067,9 @@ void MainTask(void *argument)
   // Disable Z-Wave controller serial interrupt
   //__HAL_UART_DISABLE_IT(&huart2, UART_IT_RXNE);
 
-  //
+  /////////////////////////////////////
   // Initialize RTC
-  //
+  /////////////////////////////////////
   HAL_RTC_GetTime(&hrtc, &sMainRTCTime, RTC_FORMAT_BIN);
   // workaround for HAL_RTC_GetTime() failure to update: read date immediately afterwards
   HAL_RTC_GetDate(&hrtc, &sMainRTCDate, RTC_FORMAT_BIN);
@@ -5009,7 +5081,9 @@ void MainTask(void *argument)
       sMainRTCDate.Year,  sMainRTCDate.Month,   sMainRTCDate.Date,
       sMainRTCTime.Hours, sMainRTCTime.Minutes, sMainRTCTime.Seconds);
 
+  /////////////////////////////////////////////////////////
   // Arm the Diagnostic interrupt for the first byte
+  /////////////////////////////////////////////////////////
   ltHALStatus = HAL_UART_Receive_IT(&huart1, &gucReceivedByteFromDiagnostic, 1);
   //__HAL_UART_ENABLE_IT(&huart1, UART_IT_RXNE);
   if (ltHALStatus != HAL_OK)
@@ -5404,7 +5478,9 @@ void ZWaveTask(void *argument)
 
   LOG("%s: initializing...\r\n", __FUNCTION__);
 
+  //////////////////////////////////////////////////////////////////
   // Arm the Z-Wave controller interrupt for the first byte
+  //////////////////////////////////////////////////////////////////
   ltHALStatus = HAL_UART_Receive_IT(&huart2, &gucReceivedByteFromZWave, 1);
   //__HAL_UART_ENABLE_IT(&huart2, UART_IT_RXNE);
   if (ltHALStatus != HAL_OK)
@@ -5416,10 +5492,10 @@ void ZWaveTask(void *argument)
     //LOG("%s: HAL_UART_Receive_IT(&huart2) (for Z-Wave) returned HAL_OK\r\n", __FUNCTION__);
   }
 
-  //
+  //////////////////////////////////////////////////////////////////////////////
   // Initialize received command handler arrays
   // (the command-indexed jump table of handler routines for received commands)
-  //
+  //////////////////////////////////////////////////////////////////////////////
   // First, initialize the entire jump table with the "unsupported command" routines
   for (int i = 0; i < 256; ++i)
   {
@@ -5459,17 +5535,18 @@ void ZWaveTask(void *argument)
   //gtZWave_CMD_Handler[xxxxxxxxxxxxxxxxxx] = xxxxxxxxxxxxxxxxx;
 
   // Also fill in the entries for supported command class handler routines
-  gtZWave_CC_Handler[COMMAND_CLASS_SECURITY_2_V2] = ZWave_Rx_CC_9F_Security_2_V2;
+  gtZWave_CC_Handler[COMMAND_CLASS_SWITCH_MULTILEVEL_V4]          = ZWave_Rx_CC_26_Switch_Multilevel_V4;
+  gtZWave_CC_Handler[COMMAND_CLASS_SECURITY_2_V2]                 = ZWave_Rx_CC_9F_Security_2_V2;
   // Here's a handy template when implementing command class handlers in the future
   //gtZWave_CC_Handler[xxxxxxxxxxxxxxxxxx] = xxxxxxxxxxxxxxxxx;
 
+  //////////////////////////////////////////////////////////////////////////////
   // Initialize Z-Wave SerialAPI state machine
+  //////////////////////////////////////////////////////////////////////////////
   ZWave_SerialAPI_StateMachine(ZWAVE_SM_CMD_INITIALIZE);
 
   //////////////////////////////////////////////
-  //
   // Reset the EFR32ZG23 Z-Wave controller
-  //
   //////////////////////////////////////////////
   // TEST MAB 2025.11.13
   // Soft reset the ZWave controller
