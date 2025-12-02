@@ -373,6 +373,8 @@ void ZWave_RES_CMD_15_ZW_Get_Version(void);
 void ZWave_RES_CMD_20_Memory_Get_ID(void);
 void ZWave_RES_CMD_28_NVR_Get_Value(void);
 void ZWave_RES_CMD_41_ZW_Get_Node_Protocol_Info(void);
+void ZWave_RSQ_CMD_46_ZW_Assign_Return_Route(void);
+void ZWave_RSQ_CMD_47_ZW_Delete_Return_Route(void);
 void ZWave_REQ_CMD_49_ZW_Application_Update(void);
 void ZWave_REQ_CMD_4A_ZW_Add_Node_To_Network(void);
 void ZWave_REQ_CMD_4B_ZW_Remove_Node_From_Network(void);
@@ -3121,6 +3123,57 @@ void ZWave_RSQ_CMD_13_ZW_Send_Data(void)
      *           bDestinationckMeasuredNoiseFloor */
     LOG("-----------------------  Payload START -----------------------\r\n");
     PrintBytes(ZWaveSerialFrame->payload, ZWaveSerialFrame->len - 3, false, 0);
+    LOG("%s: Session ID                                    = 0x%02X \r\n", __FUNCTION__, ZWaveSerialFrame->payload[0]);
+    LOG("%s: TX status                                     = 0x%02X \r\n", __FUNCTION__, ZWaveSerialFrame->payload[1]);
+    LOG("%s: Transmit ticks                                = 0x%04X \r\n", __FUNCTION__, (0x100*ZWaveSerialFrame->payload[2]) + ZWaveSerialFrame->payload[3]);
+    LOG("%s: Repeater count                                = 0x%02X \r\n", __FUNCTION__, ZWaveSerialFrame->payload[4]);
+    LOG("%s: ACK RSSI                                      = 0x%02X \r\n", __FUNCTION__, ZWaveSerialFrame->payload[5]);
+    LOG("%s: Repeater 0 RSSI                               = 0x%02X \r\n", __FUNCTION__, ZWaveSerialFrame->payload[6]);
+    LOG("%s: Repeater 1 RSSI                               = 0x%02X \r\n", __FUNCTION__, ZWaveSerialFrame->payload[7]);
+    LOG("%s: Repeater 2 RSSI                               = 0x%02X \r\n", __FUNCTION__, ZWaveSerialFrame->payload[8]);
+    LOG("%s: Repeater 3 RSSI                               = 0x%02X \r\n", __FUNCTION__, ZWaveSerialFrame->payload[9]);
+    LOG("%s: ACK channel num                               = 0x%02X \r\n", __FUNCTION__, ZWaveSerialFrame->payload[10]);
+    LOG("%s: Tx  channel num                               = 0x%02X \r\n", __FUNCTION__, ZWaveSerialFrame->payload[11]);
+    LOG("%s: Route scheme state                            = 0x%02X \r\n", __FUNCTION__, ZWaveSerialFrame->payload[12]);
+    LOG("%s: Repeater 0 last route                         = 0x%02X \r\n", __FUNCTION__, ZWaveSerialFrame->payload[13]);
+    LOG("%s: Repeater 1 last route                         = 0x%02X \r\n", __FUNCTION__, ZWaveSerialFrame->payload[14]);
+    LOG("%s: Repeater 2 last route                         = 0x%02X \r\n", __FUNCTION__, ZWaveSerialFrame->payload[15]);
+    LOG("%s: Repeater 3 last route                         = 0x%02X \r\n", __FUNCTION__, ZWaveSerialFrame->payload[16]);
+    LOG("%s: Beam bits/last route speed                    = 0x%02X \r\n", __FUNCTION__, ZWaveSerialFrame->payload[17]);
+    if (ZWaveSerialFrame->payload[17] & 0x40)
+    {
+      LOG("%s: - destination requires 1000 msec beam to be reached \r\n", __FUNCTION__);
+    }
+    if (ZWaveSerialFrame->payload[17] & 0x20)
+    {
+      LOG("%s: - destination requires  250 msec beam to be reached \r\n", __FUNCTION__);
+    }
+    switch (ZWaveSerialFrame->payload[17] & 0x07)
+    {
+    case 0x01:
+      LOG("%s: - Z-Wave 9.6 kbits/sec \r\n", __FUNCTION__);
+      break;
+    case 0x02:
+      LOG("%s: - Z-Wave 40 kbits/sec \r\n", __FUNCTION__);
+      break;
+    case 0x03:
+      LOG("%s: - Z-Wave 100 kbits/sec \r\n", __FUNCTION__);
+      break;
+    case 0x04:
+      LOG("%s: - Z-Wave LR 100 kbits/sec \r\n", __FUNCTION__);
+      break;
+    default:
+      LOG("%s: - *** WARNING *** reserved/undefined value for Last Route Speed \r\n", __FUNCTION__);
+      break;
+    }
+    LOG("%s: Routing attempts                              = 0x%02X \r\n", __FUNCTION__, ZWaveSerialFrame->payload[18]);
+    LOG("%s: Last route failed link     functional NodeID  = 0x%02X \r\n", __FUNCTION__, ZWaveSerialFrame->payload[19]);
+    LOG("%s: Last route failed link non-functional NodeID  = 0x%02X \r\n", __FUNCTION__, ZWaveSerialFrame->payload[20]);
+    LOG("%s: Tx power                                      = 0x%02X \r\n", __FUNCTION__, ZWaveSerialFrame->payload[21]);
+    LOG("%s: Measured noise floor                          = 0x%02X \r\n", __FUNCTION__, ZWaveSerialFrame->payload[22]);
+    LOG("%s: Destination ACK MPDU Tx power                 = 0x%02X \r\n", __FUNCTION__, ZWaveSerialFrame->payload[23]);
+    LOG("%s: Destination ACK MPDU measured RSSI            = 0x%02X \r\n", __FUNCTION__, ZWaveSerialFrame->payload[24]);
+    LOG("%s: Destination ACK MPDU measured noise floor     = 0x%02X \r\n", __FUNCTION__, ZWaveSerialFrame->payload[25]);
     LOG("-----------------------  Payload  END  -----------------------\r\n");
   }
 }
@@ -3280,6 +3333,116 @@ void ZWave_RES_CMD_41_ZW_Get_Node_Protocol_Info(void)
 // end ZWave_RES_CMD_41_ZW_Get_Node_Protocol_Info
 
 /** *****************************************************************************************************************************
+  * @brief  Command handler for CMD 0x46 FUNC_ID_ZW_ASSIGN_RETURN_ROUTE ZW->HOST: RES | Cmd | retVal; REQ | Cmd | sessionID | txStatus
+  * @param  None
+  * @retval None
+  */
+void ZWave_RSQ_CMD_46_ZW_Assign_Return_Route(void)
+{
+  // This routine handles BOTH cases when Z-Wave controller sends the RESPONSE with a return value, and if the return value
+  // is TRUE, the controller sends a callback REQUEST with assorted data.
+
+  if (RESPONSE == ZWaveSerialFrame->type)
+  {
+    //////////////////////////////////////////////////////
+    // Handle the RESPONSE with single return value
+    //////////////////////////////////////////////////////
+    LOG("%s: Return value = 0x%02X\r\n", __FUNCTION__, ZWaveSerialFrame->payload[0]);
+    if (ZWaveSerialFrame->payload[0])
+    {
+      LOG("%s: - expect a callback REQUEST with assorted data...\r\n", __FUNCTION__);
+    }
+    else
+    {
+      LOG("%s: - No further data are expected\r\n", __FUNCTION__);
+    }
+  }
+  else
+  {
+    //////////////////////////////////////////////////////
+    // Handle the REQUEST with assorted data
+    //////////////////////////////////////////////////////
+    LOG("%s: Session ID = 0x%02X \r\n", __FUNCTION__, ZWaveSerialFrame->payload[0]);
+
+    LOG("%s: TX status  = 0x%02X \r\n", __FUNCTION__, ZWaveSerialFrame->payload[1]);
+    switch (ZWaveSerialFrame->payload[1])
+    {
+    case TRANSMIT_COMPLETE_OK:
+      LOG("%s: - transmit OK \r\n", __FUNCTION__);
+      break;
+    case TRANSMIT_COMPLETE_NO_ACK:
+      LOG("%s: - transmit ERROR (no ACK received) \r\n", __FUNCTION__);
+      break;
+    case TRANSMIT_COMPLETE_FAIL:
+      LOG("%s: - transmit ERROR (FAIL; network busy or jammed) \r\n", __FUNCTION__);
+      break;
+    case TRANSMIT_ROUTING_NOT_IDLE:
+      LOG("%s: - transmit ERROR (routing not idle) \r\n", __FUNCTION__);
+      break;
+    default:
+      LOG("%s: - *** WARNING *** txStatus value UNKNOWN \r\n", __FUNCTION__);
+      break;
+    }
+  }
+}
+//end ZWave_RSQ_CMD_46_ZW_Assign_Return_Route
+
+/** *****************************************************************************************************************************
+  * @brief  Command handler for CMD 0x47 FUNC_ID_ZW_DELETE_RETURN_ROUTE ZW->HOST: RES | Cmd | retVal; REQ | Cmd | sessionID | txStatus
+  * @param  None
+  * @retval None
+  */
+void ZWave_RSQ_CMD_47_ZW_Delete_Return_Route(void)
+{
+  // This routine handles BOTH cases when Z-Wave controller sends the RESPONSE with a return value, and if the return value
+  // is TRUE, the controller sends a callback REQUEST with assorted data.
+
+  if (RESPONSE == ZWaveSerialFrame->type)
+  {
+    //////////////////////////////////////////////////////
+    // Handle the RESPONSE with single return value
+    //////////////////////////////////////////////////////
+    LOG("%s: Return value = 0x%02X\r\n", __FUNCTION__, ZWaveSerialFrame->payload[0]);
+    if (ZWaveSerialFrame->payload[0])
+    {
+      LOG("%s: - expect a callback REQUEST with assorted data...\r\n", __FUNCTION__);
+    }
+    else
+    {
+      LOG("%s: - No further data are expected\r\n", __FUNCTION__);
+    }
+  }
+  else
+  {
+    //////////////////////////////////////////////////////
+    // Handle the REQUEST with assorted data
+    //////////////////////////////////////////////////////
+    LOG("%s: Session ID = 0x%02X \r\n", __FUNCTION__, ZWaveSerialFrame->payload[0]);
+
+    LOG("%s: TX status  = 0x%02X \r\n", __FUNCTION__, ZWaveSerialFrame->payload[1]);
+    switch (ZWaveSerialFrame->payload[1])
+    {
+    case TRANSMIT_COMPLETE_OK:
+      LOG("%s: - transmit OK \r\n", __FUNCTION__);
+      break;
+    case TRANSMIT_COMPLETE_NO_ACK:
+      LOG("%s: - transmit ERROR (no ACK received) \r\n", __FUNCTION__);
+      break;
+    case TRANSMIT_COMPLETE_FAIL:
+      LOG("%s: - transmit ERROR (FAIL; network busy or jammed) \r\n", __FUNCTION__);
+      break;
+    case TRANSMIT_ROUTING_NOT_IDLE:
+      LOG("%s: - transmit ERROR (routing not idle) \r\n", __FUNCTION__);
+      break;
+    default:
+      LOG("%s: - *** WARNING *** txStatus value UNKNOWN \r\n", __FUNCTION__);
+      break;
+    }
+  }
+}
+//end ZWave_RSQ_CMD_47_ZW_Delete_Return_Route
+
+/** *****************************************************************************************************************************
   * @brief  Command handler for CMD 0x49 FUNC_ID_ZW_APPLICATION_UPDATE ZW->HOST: various
   * @param  None
   * @retval None
@@ -3334,38 +3497,42 @@ void ZWave_REQ_CMD_49_ZW_Application_Update(void)
   // - Unsolicited data frame      (events NOT covered by the following exceptions)
   // - SmartStart Prime data frame (UPDATE_STATE_NODE_INFO_SMARTSTART_HOMEID_RECEIVED or UPDATE_STATE_NODE_INFO_SMARTSTART_HOMEID_RECEIVED_LR)
   // - SmartStart INIF data frame  (UPDATE_STATE_INCLUDED_NODE_INFO_RECEIVED)
+  // HOWEVER at least in Simplicity SDK 2025.6.2, app.c, ApplicationNodeUpdate(), only the supported command class list
+  // seems to be sent.
 
-  if (lucEvent != UPDATE_STATE_NODE_INFO_SMARTSTART_HOMEID_RECEIVED    &&
-      lucEvent != UPDATE_STATE_NODE_INFO_SMARTSTART_HOMEID_RECEIVED_LR &&
-      lucEvent != UPDATE_STATE_INCLUDED_NODE_INFO_RECEIVED                )
+//  if (lucEvent != UPDATE_STATE_NODE_INFO_SMARTSTART_HOMEID_RECEIVED    &&
+//      lucEvent != UPDATE_STATE_NODE_INFO_SMARTSTART_HOMEID_RECEIVED_LR &&
+//      lucEvent != UPDATE_STATE_INCLUDED_NODE_INFO_RECEIVED                )
   {
     // Unsolicited data frame
 
     uint8_t lucCommandClassListLength = ZWaveSerialFrame->payload[3];
-    uint8_t lucBasicDeviceType        = ZWaveSerialFrame->payload[4];
-    uint8_t lucGenericDeviceType      = ZWaveSerialFrame->payload[5];
-    uint8_t lucSpecificDeviceType     = ZWaveSerialFrame->payload[6];
+    //uint8_t lucBasicDeviceType        = ZWaveSerialFrame->payload[4];
+    //uint8_t lucGenericDeviceType      = ZWaveSerialFrame->payload[5];
+    //uint8_t lucSpecificDeviceType     = ZWaveSerialFrame->payload[6];
     LOG("%s: CC list length       = 0x%02X\r\n", __FUNCTION__, lucCommandClassListLength);
-    LOG("%s: Basic device type    = 0x%02X\r\n", __FUNCTION__, lucBasicDeviceType);
-    ZWave_Identify_Basic_Device_Type(lucBasicDeviceType);
+    //LOG("%s: Basic device type    = 0x%02X\r\n", __FUNCTION__, lucBasicDeviceType);
+    //ZWave_Identify_Basic_Device_Type(lucBasicDeviceType);
 
-    LOG("%s: Generic device type  = 0x%02X\r\n", __FUNCTION__, lucGenericDeviceType);
-    ZWave_Identify_Generic_Device_Type(lucGenericDeviceType);
+    //LOG("%s: Generic device type  = 0x%02X\r\n", __FUNCTION__, lucGenericDeviceType);
+    //ZWave_Identify_Generic_Device_Type(lucGenericDeviceType);
 
-    LOG("%s: Specific device type = 0x%02X\r\n", __FUNCTION__, lucSpecificDeviceType);
-    ZWave_Identify_Specific_Device_Type(lucGenericDeviceType, lucSpecificDeviceType);
+    //LOG("%s: Specific device type = 0x%02X\r\n", __FUNCTION__, lucSpecificDeviceType);
+    //ZWave_Identify_Specific_Device_Type(lucGenericDeviceType, lucSpecificDeviceType);
+
     LOG("----------------------- Supported Command Class list START -----------------------\r\n");
-    PrintBytes(&ZWaveSerialFrame->payload[7], lucCommandClassListLength - 3, false, 0);
+    //PrintBytes(&ZWaveSerialFrame->payload[7], lucCommandClassListLength - 3, false, 0);
+    PrintBytes(&ZWaveSerialFrame->payload[4], lucCommandClassListLength, false, 0);
     LOG("----------------------- Supported Command Class list  END  -----------------------\r\n");
   }
-  else
-  {
-    // SmartStart Prime data frame  OR  SmartStart INIF data frame
-
-    LOG("----------------------- The rest of the update payload (preliminary) START -----------------------\r\n");
-    PrintBytes(&ZWaveSerialFrame->payload[3], ZWaveSerialFrame->len - 6, false, 0);
-    LOG("----------------------- The rest of the update payload (preliminary)  END  -----------------------\r\n");
-  }
+//  else
+//  {
+//    // SmartStart Prime data frame  OR  SmartStart INIF data frame
+//
+//    LOG("----------------------- The rest of the update payload (preliminary) START -----------------------\r\n");
+//    PrintBytes(&ZWaveSerialFrame->payload[3], ZWaveSerialFrame->len - 6, false, 0);
+//    LOG("----------------------- The rest of the update payload (preliminary)  END  -----------------------\r\n");
+//  }
 
 }
 // end ZWave_REQ_CMD_49_ZW_Application_Update
@@ -5515,6 +5682,8 @@ void ZWaveTask(void *argument)
   gtZWave_CMD_Handler[FUNC_ID_MEMORY_GET_ID]                      = ZWave_RES_CMD_20_Memory_Get_ID;
   gtZWave_CMD_Handler[FUNC_ID_NVR_GET_VALUE]                      = ZWave_RES_CMD_28_NVR_Get_Value;
   gtZWave_CMD_Handler[FUNC_ID_ZW_GET_NODE_PROTOCOL_INFO]          = ZWave_RES_CMD_41_ZW_Get_Node_Protocol_Info;
+  gtZWave_CMD_Handler[FUNC_ID_ZW_ASSIGN_RETURN_ROUTE]             = ZWave_RSQ_CMD_46_ZW_Assign_Return_Route;
+  gtZWave_CMD_Handler[FUNC_ID_ZW_DELETE_RETURN_ROUTE]             = ZWave_RSQ_CMD_47_ZW_Delete_Return_Route;
   gtZWave_CMD_Handler[FUNC_ID_ZW_APPLICATION_UPDATE]              = ZWave_REQ_CMD_49_ZW_Application_Update;
   gtZWave_CMD_Handler[FUNC_ID_ZW_ADD_NODE_TO_NETWORK]             = ZWave_REQ_CMD_4A_ZW_Add_Node_To_Network;
   gtZWave_CMD_Handler[FUNC_ID_ZW_REMOVE_NODE_FROM_NETWORK]        = ZWave_REQ_CMD_4B_ZW_Remove_Node_From_Network;

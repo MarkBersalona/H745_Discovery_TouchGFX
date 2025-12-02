@@ -133,7 +133,7 @@ KEEP extern const uint32_t indicesGb[] TEXT_LOCATION_FLASH_ATTRIBUTE = {
     1508, // T_TEXTID_BUTTONSETTINGS: "Settings"
     1581, // T_TEXTID_BUTTONGOZONE: "Zone 33"
     1267, // T_TEXTID_BUTTONRETURNHOME: "Return to Main"
-    1072, // T___SINGLEUSE_SU1R: "2025.11.25 1517"
+    1072, // T___SINGLEUSE_SU1R: "2025.12.02 0954"
     669,  // T___SINGLEUSE_DZIZ: "Sensaphone Z-Wave Sentinel"
     1683, // T___SINGLEUSE_RQ58: "000"
     1344  // T_TEXTID_NUMBERTEXTAREA: "<>"
