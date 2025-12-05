@@ -1474,6 +1474,76 @@ void ZWave_Display_Received_Frame_Data(void)
 // end ZWave_Display_Received_Frame_Data
 
 /** *****************************************************************************************************************************
+  * @brief  Display Z-Wave Tx report
+  * @param  None (uses ZWaveSerialFrame)
+  * @retval None
+  */
+void ZWave_Display_Tx_Report(void)
+{
+  /* ZW->HOST: funcID | txStatus | wTransmitTicksMSB | wTransmitTicksLSB | bRepeaters | rssi_values.incoming[0] |
+   *           rssi_values.incoming[1] | rssi_values.incoming[2] | rssi_values.incoming[3] | rssi_values.incoming[4] |
+   *           bRouteSchemeState | repeater0 | repeater1 | repeater2 | repeater3 | routespeed |
+   *           bRouteTries | bLastFailedLink.from | bLastFailedLink.to |
+   *           bUsedTxpower | bMeasuredNoiseFloor | bAckDestinationUsedTxPower | bDestinationAckMeasuredRSSI |
+   *           bDestinationckMeasuredNoiseFloor */
+  LOG("----------------------- Tx report START -----------------------\r\n");
+  PrintBytes(ZWaveSerialFrame->payload, ZWaveSerialFrame->len - 3, false, 0);
+  LOG("%s: Session ID                                    = 0x%02X \r\n", __FUNCTION__, ZWaveSerialFrame->payload[0]);
+  LOG("%s: TX status                                     = 0x%02X \r\n", __FUNCTION__, ZWaveSerialFrame->payload[1]);
+  LOG("%s: Transmit ticks                                = 0x%04X \r\n", __FUNCTION__, (0x100*ZWaveSerialFrame->payload[2]) + ZWaveSerialFrame->payload[3]);
+  LOG("%s: Repeater count                                = 0x%02X \r\n", __FUNCTION__, ZWaveSerialFrame->payload[4]);
+  LOG("%s: ACK RSSI                                      = 0x%02X \r\n", __FUNCTION__, ZWaveSerialFrame->payload[5]);
+  LOG("%s: Repeater 0 RSSI                               = 0x%02X \r\n", __FUNCTION__, ZWaveSerialFrame->payload[6]);
+  LOG("%s: Repeater 1 RSSI                               = 0x%02X \r\n", __FUNCTION__, ZWaveSerialFrame->payload[7]);
+  LOG("%s: Repeater 2 RSSI                               = 0x%02X \r\n", __FUNCTION__, ZWaveSerialFrame->payload[8]);
+  LOG("%s: Repeater 3 RSSI                               = 0x%02X \r\n", __FUNCTION__, ZWaveSerialFrame->payload[9]);
+  LOG("%s: ACK channel num                               = 0x%02X \r\n", __FUNCTION__, ZWaveSerialFrame->payload[10]);
+  LOG("%s: Tx  channel num                               = 0x%02X \r\n", __FUNCTION__, ZWaveSerialFrame->payload[11]);
+  LOG("%s: Route scheme state                            = 0x%02X \r\n", __FUNCTION__, ZWaveSerialFrame->payload[12]);
+  LOG("%s: Repeater 0 last route                         = 0x%02X \r\n", __FUNCTION__, ZWaveSerialFrame->payload[13]);
+  LOG("%s: Repeater 1 last route                         = 0x%02X \r\n", __FUNCTION__, ZWaveSerialFrame->payload[14]);
+  LOG("%s: Repeater 2 last route                         = 0x%02X \r\n", __FUNCTION__, ZWaveSerialFrame->payload[15]);
+  LOG("%s: Repeater 3 last route                         = 0x%02X \r\n", __FUNCTION__, ZWaveSerialFrame->payload[16]);
+  LOG("%s: Beam bits/last route speed                    = 0x%02X \r\n", __FUNCTION__, ZWaveSerialFrame->payload[17]);
+  if (ZWaveSerialFrame->payload[17] & 0x40)
+  {
+    LOG("%s: - destination requires 1000 msec beam to be reached \r\n", __FUNCTION__);
+  }
+  if (ZWaveSerialFrame->payload[17] & 0x20)
+  {
+    LOG("%s: - destination requires  250 msec beam to be reached \r\n", __FUNCTION__);
+  }
+  switch (ZWaveSerialFrame->payload[17] & 0x07)
+  {
+  case 0x01:
+    LOG("%s: - Z-Wave 9.6 kbits/sec \r\n", __FUNCTION__);
+    break;
+  case 0x02:
+    LOG("%s: - Z-Wave 40 kbits/sec \r\n", __FUNCTION__);
+    break;
+  case 0x03:
+    LOG("%s: - Z-Wave 100 kbits/sec \r\n", __FUNCTION__);
+    break;
+  case 0x04:
+    LOG("%s: - Z-Wave LR 100 kbits/sec \r\n", __FUNCTION__);
+    break;
+  default:
+    LOG("%s: - *** WARNING *** reserved/undefined value for Last Route Speed \r\n", __FUNCTION__);
+    break;
+  }
+  LOG("%s: Routing attempts                              = 0x%02X \r\n", __FUNCTION__, ZWaveSerialFrame->payload[18]);
+  LOG("%s: Last route failed link     functional NodeID  = 0x%02X \r\n", __FUNCTION__, ZWaveSerialFrame->payload[19]);
+  LOG("%s: Last route failed link non-functional NodeID  = 0x%02X \r\n", __FUNCTION__, ZWaveSerialFrame->payload[20]);
+  LOG("%s: Tx power                                      = 0x%02X \r\n", __FUNCTION__, ZWaveSerialFrame->payload[21]);
+  LOG("%s: Measured noise floor                          = 0x%02X \r\n", __FUNCTION__, ZWaveSerialFrame->payload[22]);
+  LOG("%s: Destination ACK MPDU Tx power                 = 0x%02X \r\n", __FUNCTION__, ZWaveSerialFrame->payload[23]);
+  LOG("%s: Destination ACK MPDU measured RSSI            = 0x%02X \r\n", __FUNCTION__, ZWaveSerialFrame->payload[24]);
+  LOG("%s: Destination ACK MPDU measured noise floor     = 0x%02X \r\n", __FUNCTION__, ZWaveSerialFrame->payload[25]);
+  LOG("----------------------- Tx report  END  -----------------------\r\n");
+}
+// end ZWave_Display_Tx_Report
+
+/** *****************************************************************************************************************************
   * @brief  Add callback request to transmit callback queue
   * @param  aucCMD    - Command byte
   * @param  paucData  - pointer to data buffer
@@ -3115,66 +3185,7 @@ void ZWave_RSQ_CMD_13_ZW_Send_Data(void)
     //////////////////////////////////////////////////////
     // Handle the REQUEST with assorted data
     //////////////////////////////////////////////////////
-    /* ZW->HOST: funcID | txStatus | wTransmitTicksMSB | wTransmitTicksLSB | bRepeaters | rssi_values.incoming[0] |
-     *           rssi_values.incoming[1] | rssi_values.incoming[2] | rssi_values.incoming[3] | rssi_values.incoming[4] |
-     *           bRouteSchemeState | repeater0 | repeater1 | repeater2 | repeater3 | routespeed |
-     *           bRouteTries | bLastFailedLink.from | bLastFailedLink.to |
-     *           bUsedTxpower | bMeasuredNoiseFloor | bAckDestinationUsedTxPower | bDestinationAckMeasuredRSSI |
-     *           bDestinationckMeasuredNoiseFloor */
-    LOG("-----------------------  Payload START -----------------------\r\n");
-    PrintBytes(ZWaveSerialFrame->payload, ZWaveSerialFrame->len - 3, false, 0);
-    LOG("%s: Session ID                                    = 0x%02X \r\n", __FUNCTION__, ZWaveSerialFrame->payload[0]);
-    LOG("%s: TX status                                     = 0x%02X \r\n", __FUNCTION__, ZWaveSerialFrame->payload[1]);
-    LOG("%s: Transmit ticks                                = 0x%04X \r\n", __FUNCTION__, (0x100*ZWaveSerialFrame->payload[2]) + ZWaveSerialFrame->payload[3]);
-    LOG("%s: Repeater count                                = 0x%02X \r\n", __FUNCTION__, ZWaveSerialFrame->payload[4]);
-    LOG("%s: ACK RSSI                                      = 0x%02X \r\n", __FUNCTION__, ZWaveSerialFrame->payload[5]);
-    LOG("%s: Repeater 0 RSSI                               = 0x%02X \r\n", __FUNCTION__, ZWaveSerialFrame->payload[6]);
-    LOG("%s: Repeater 1 RSSI                               = 0x%02X \r\n", __FUNCTION__, ZWaveSerialFrame->payload[7]);
-    LOG("%s: Repeater 2 RSSI                               = 0x%02X \r\n", __FUNCTION__, ZWaveSerialFrame->payload[8]);
-    LOG("%s: Repeater 3 RSSI                               = 0x%02X \r\n", __FUNCTION__, ZWaveSerialFrame->payload[9]);
-    LOG("%s: ACK channel num                               = 0x%02X \r\n", __FUNCTION__, ZWaveSerialFrame->payload[10]);
-    LOG("%s: Tx  channel num                               = 0x%02X \r\n", __FUNCTION__, ZWaveSerialFrame->payload[11]);
-    LOG("%s: Route scheme state                            = 0x%02X \r\n", __FUNCTION__, ZWaveSerialFrame->payload[12]);
-    LOG("%s: Repeater 0 last route                         = 0x%02X \r\n", __FUNCTION__, ZWaveSerialFrame->payload[13]);
-    LOG("%s: Repeater 1 last route                         = 0x%02X \r\n", __FUNCTION__, ZWaveSerialFrame->payload[14]);
-    LOG("%s: Repeater 2 last route                         = 0x%02X \r\n", __FUNCTION__, ZWaveSerialFrame->payload[15]);
-    LOG("%s: Repeater 3 last route                         = 0x%02X \r\n", __FUNCTION__, ZWaveSerialFrame->payload[16]);
-    LOG("%s: Beam bits/last route speed                    = 0x%02X \r\n", __FUNCTION__, ZWaveSerialFrame->payload[17]);
-    if (ZWaveSerialFrame->payload[17] & 0x40)
-    {
-      LOG("%s: - destination requires 1000 msec beam to be reached \r\n", __FUNCTION__);
-    }
-    if (ZWaveSerialFrame->payload[17] & 0x20)
-    {
-      LOG("%s: - destination requires  250 msec beam to be reached \r\n", __FUNCTION__);
-    }
-    switch (ZWaveSerialFrame->payload[17] & 0x07)
-    {
-    case 0x01:
-      LOG("%s: - Z-Wave 9.6 kbits/sec \r\n", __FUNCTION__);
-      break;
-    case 0x02:
-      LOG("%s: - Z-Wave 40 kbits/sec \r\n", __FUNCTION__);
-      break;
-    case 0x03:
-      LOG("%s: - Z-Wave 100 kbits/sec \r\n", __FUNCTION__);
-      break;
-    case 0x04:
-      LOG("%s: - Z-Wave LR 100 kbits/sec \r\n", __FUNCTION__);
-      break;
-    default:
-      LOG("%s: - *** WARNING *** reserved/undefined value for Last Route Speed \r\n", __FUNCTION__);
-      break;
-    }
-    LOG("%s: Routing attempts                              = 0x%02X \r\n", __FUNCTION__, ZWaveSerialFrame->payload[18]);
-    LOG("%s: Last route failed link     functional NodeID  = 0x%02X \r\n", __FUNCTION__, ZWaveSerialFrame->payload[19]);
-    LOG("%s: Last route failed link non-functional NodeID  = 0x%02X \r\n", __FUNCTION__, ZWaveSerialFrame->payload[20]);
-    LOG("%s: Tx power                                      = 0x%02X \r\n", __FUNCTION__, ZWaveSerialFrame->payload[21]);
-    LOG("%s: Measured noise floor                          = 0x%02X \r\n", __FUNCTION__, ZWaveSerialFrame->payload[22]);
-    LOG("%s: Destination ACK MPDU Tx power                 = 0x%02X \r\n", __FUNCTION__, ZWaveSerialFrame->payload[23]);
-    LOG("%s: Destination ACK MPDU measured RSSI            = 0x%02X \r\n", __FUNCTION__, ZWaveSerialFrame->payload[24]);
-    LOG("%s: Destination ACK MPDU measured noise floor     = 0x%02X \r\n", __FUNCTION__, ZWaveSerialFrame->payload[25]);
-    LOG("-----------------------  Payload  END  -----------------------\r\n");
+    ZWave_Display_Tx_Report();
   }
 }
 // end ZWave_RSQ_CMD_13_ZW_Send_Data
@@ -3960,12 +3971,7 @@ void ZWave_RES_CMD_A9_ZW_Send_Data_Bridge(void)
     //////////////////////////////////////////////////////
     // Handle the REQUEST with assorted data
     //////////////////////////////////////////////////////
-    LOG("%s: Session ID             = 0x%02X\r\n", __FUNCTION__, ZWaveSerialFrame->payload[0]);
-    LOG("%s: Tx status              = 0x%02X\r\n", __FUNCTION__, ZWaveSerialFrame->payload[1]);
-    //LOG("%s: Received length  = 0x%02X\r\n", __FUNCTION__, ZWaveSerialFrame->len);
-    LOG("----------------------- Tx report (preliminary) START -----------------------\r\n");
-    PrintBytes(&ZWaveSerialFrame->payload[2], ZWaveSerialFrame->len - 5, false, 0);
-    LOG("----------------------- Tx report (preliminary)  END  -----------------------\r\n");
+    ZWave_Display_Tx_Report();
  }
 }
 // end ZWave_RES_CMD_A9_ZW_Send_Data_Bridge
