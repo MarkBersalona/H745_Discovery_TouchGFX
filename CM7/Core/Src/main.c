@@ -3505,45 +3505,76 @@ void ZWave_REQ_CMD_49_ZW_Application_Update(void)
   LOG("%s: Remote node ID       = 0x%04X\r\n", __FUNCTION__, (0x100*ZWaveSerialFrame->payload[1]) + ZWaveSerialFrame->payload[2]);
 
   // At this point there are 3 different data formats
-  // - Unsolicited data frame      (events NOT covered by the following exceptions)
   // - SmartStart Prime data frame (UPDATE_STATE_NODE_INFO_SMARTSTART_HOMEID_RECEIVED or UPDATE_STATE_NODE_INFO_SMARTSTART_HOMEID_RECEIVED_LR)
   // - SmartStart INIF data frame  (UPDATE_STATE_INCLUDED_NODE_INFO_RECEIVED)
-  // HOWEVER at least in Simplicity SDK 2025.6.2, app.c, ApplicationNodeUpdate(), only the supported command class list
-  // seems to be sent.
+  // - Unsolicited data frame      (events NOT covered by the above exceptions)
 
-//  if (lucEvent != UPDATE_STATE_NODE_INFO_SMARTSTART_HOMEID_RECEIVED    &&
-//      lucEvent != UPDATE_STATE_NODE_INFO_SMARTSTART_HOMEID_RECEIVED_LR &&
-//      lucEvent != UPDATE_STATE_INCLUDED_NODE_INFO_RECEIVED                )
+  if (lucEvent == UPDATE_STATE_NODE_INFO_SMARTSTART_HOMEID_RECEIVED    ||
+      lucEvent == UPDATE_STATE_NODE_INFO_SMARTSTART_HOMEID_RECEIVED_LR    )
+  {
+    // SmartStart Prime data frame
+
+    uint8_t lucFrameLength = ZWaveSerialFrame->payload[3];
+    uint32_t lulNWIHomeID = (0x1000000 * ZWaveSerialFrame->payload[4]) +
+                            (  0x10000 * ZWaveSerialFrame->payload[5]) +
+                            (    0x100 * ZWaveSerialFrame->payload[6]) +
+                            (            ZWaveSerialFrame->payload[7]);
+    uint8_t lucCommandClassListLength = ZWaveSerialFrame->payload[8];
+    uint8_t lucBasicDeviceType        = ZWaveSerialFrame->payload[9];
+    uint8_t lucGenericDeviceType      = ZWaveSerialFrame->payload[10];
+    uint8_t lucSpecificDeviceType     = ZWaveSerialFrame->payload[11];
+    LOG("%s: NWI HomeID           = 0x%08X\r\n", __FUNCTION__, lulNWIHomeID);
+    LOG("%s: - (a.k.a. DSK bytes 9-12) \r\n", __FUNCTION__);
+    LOG("%s: Frame length         = 0x%02X\r\n", __FUNCTION__, lucFrameLength);
+    LOG("%s: Basic device type    = 0x%02X\r\n", __FUNCTION__, lucBasicDeviceType);
+    ZWave_Identify_Basic_Device_Type(lucBasicDeviceType);
+
+    LOG("%s: Generic device type  = 0x%02X\r\n", __FUNCTION__, lucGenericDeviceType);
+    ZWave_Identify_Generic_Device_Type(lucGenericDeviceType);
+
+    LOG("%s: Specific device type = 0x%02X\r\n", __FUNCTION__, lucSpecificDeviceType);
+    ZWave_Identify_Specific_Device_Type(lucGenericDeviceType, lucSpecificDeviceType);
+
+    LOG("%s: CC list length       = 0x%02X\r\n", __FUNCTION__, lucCommandClassListLength);
+    LOG("----------------------- Supported Command Class list START -----------------------\r\n");
+    PrintBytes(&ZWaveSerialFrame->payload[12], lucCommandClassListLength, false, 0);
+    LOG("----------------------- Supported Command Class list  END  -----------------------\r\n");
+  }
+  else if (lucEvent == UPDATE_STATE_INCLUDED_NODE_INFO_RECEIVED)
+  {
+    // SmartStart INIF data frame
+
+    LOG("%s: Reserved byte        = 0x%02X\r\n", __FUNCTION__, ZWaveSerialFrame->payload[3]);
+    LOG("%s: Rx status            = 0x%02X\r\n", __FUNCTION__, ZWaveSerialFrame->payload[4]);
+    uint32_t lulNWIHomeID = (0x1000000 * ZWaveSerialFrame->payload[5]) +
+                            (  0x10000 * ZWaveSerialFrame->payload[6]) +
+                            (    0x100 * ZWaveSerialFrame->payload[7]) +
+                            (            ZWaveSerialFrame->payload[8]);
+    LOG("%s: NWI HomeID           = 0x%08X\r\n", __FUNCTION__, lulNWIHomeID);
+  }
+  else
   {
     // Unsolicited data frame
 
     uint8_t lucCommandClassListLength = ZWaveSerialFrame->payload[3];
-    //uint8_t lucBasicDeviceType        = ZWaveSerialFrame->payload[4];
-    //uint8_t lucGenericDeviceType      = ZWaveSerialFrame->payload[5];
-    //uint8_t lucSpecificDeviceType     = ZWaveSerialFrame->payload[6];
+    uint8_t lucBasicDeviceType        = ZWaveSerialFrame->payload[4];
+    uint8_t lucGenericDeviceType      = ZWaveSerialFrame->payload[5];
+    uint8_t lucSpecificDeviceType     = ZWaveSerialFrame->payload[6];
     LOG("%s: CC list length       = 0x%02X\r\n", __FUNCTION__, lucCommandClassListLength);
-    //LOG("%s: Basic device type    = 0x%02X\r\n", __FUNCTION__, lucBasicDeviceType);
-    //ZWave_Identify_Basic_Device_Type(lucBasicDeviceType);
+    LOG("%s: Basic device type    = 0x%02X\r\n", __FUNCTION__, lucBasicDeviceType);
+    ZWave_Identify_Basic_Device_Type(lucBasicDeviceType);
 
-    //LOG("%s: Generic device type  = 0x%02X\r\n", __FUNCTION__, lucGenericDeviceType);
-    //ZWave_Identify_Generic_Device_Type(lucGenericDeviceType);
+    LOG("%s: Generic device type  = 0x%02X\r\n", __FUNCTION__, lucGenericDeviceType);
+    ZWave_Identify_Generic_Device_Type(lucGenericDeviceType);
 
-    //LOG("%s: Specific device type = 0x%02X\r\n", __FUNCTION__, lucSpecificDeviceType);
-    //ZWave_Identify_Specific_Device_Type(lucGenericDeviceType, lucSpecificDeviceType);
+    LOG("%s: Specific device type = 0x%02X\r\n", __FUNCTION__, lucSpecificDeviceType);
+    ZWave_Identify_Specific_Device_Type(lucGenericDeviceType, lucSpecificDeviceType);
 
     LOG("----------------------- Supported Command Class list START -----------------------\r\n");
-    //PrintBytes(&ZWaveSerialFrame->payload[7], lucCommandClassListLength - 3, false, 0);
-    PrintBytes(&ZWaveSerialFrame->payload[4], lucCommandClassListLength, false, 0);
+    PrintBytes(&ZWaveSerialFrame->payload[7], lucCommandClassListLength - 3, false, 0);
+    //PrintBytes(&ZWaveSerialFrame->payload[4], lucCommandClassListLength, false, 0);
     LOG("----------------------- Supported Command Class list  END  -----------------------\r\n");
   }
-//  else
-//  {
-//    // SmartStart Prime data frame  OR  SmartStart INIF data frame
-//
-//    LOG("----------------------- The rest of the update payload (preliminary) START -----------------------\r\n");
-//    PrintBytes(&ZWaveSerialFrame->payload[3], ZWaveSerialFrame->len - 6, false, 0);
-//    LOG("----------------------- The rest of the update payload (preliminary)  END  -----------------------\r\n");
-//  }
 
 }
 // end ZWave_REQ_CMD_49_ZW_Application_Update
@@ -3914,7 +3945,7 @@ void ZWave_RES_CMD_A8_Application_Command_Handler_Bridge(void)
   LOG("%s: Destination node ID                    = 0x%04X\r\n", __FUNCTION__, (0x100*ZWaveSerialFrame->payload[1]) + ZWaveSerialFrame->payload[2]);
   LOG("%s: Source node ID                         = 0x%04X\r\n", __FUNCTION__, (0x100*ZWaveSerialFrame->payload[3]) + ZWaveSerialFrame->payload[4]);
   LOG("%s: Payload length                         = 0x%02X\r\n", __FUNCTION__, ZWaveSerialFrame->payload[5]);
-  int i = ZWaveSerialFrame->payload[5];
+  int i = ZWaveSerialFrame->payload[5]; // Payload length
   if (i)
   {
     LOG("-----------------------  Command data START -----------------------\r\n");
@@ -3926,7 +3957,7 @@ void ZWave_RES_CMD_A8_Application_Command_Handler_Bridge(void)
     LOG("-----------------------  Command data  END  -----------------------\r\n");
   }
   LOG("%s: Multicast destination node mask length = 0x%02X\r\n", __FUNCTION__, ZWaveSerialFrame->payload[6+i]);
-  int j = ZWaveSerialFrame->payload[6+i];
+  int j = ZWaveSerialFrame->payload[6+i]; // Multicast destination node mask length
   if (j)
   {
     LOG("-----------------------  Multicast destination node masks START -----------------------\r\n");
@@ -3987,7 +4018,21 @@ void ZWave_RES_CMD_DA_Serial_API_Get_LR_Nodes(void)
   LOG("%s: BITMASK_OFFSET  = 0x%02X\r\n", __FUNCTION__, ZWaveSerialFrame->payload[1]);
   LOG("%s: BITMASK_LEN     = 0x%02X\r\n", __FUNCTION__, ZWaveSerialFrame->payload[2]);
   LOG("%s: BITMASK_ARRAY: \r\n", __FUNCTION__);
-  PrintBytes(&ZWaveSerialFrame->payload[3], MAX_LR_NODEMASK_LENGTH, false, 0);
+  //PrintBytes(&ZWaveSerialFrame->payload[3], MAX_LR_NODEMASK_LENGTH, false, 0);
+  uint16_t luiNodeID;
+  uint8_t lucOffset = ZWaveSerialFrame->payload[1];
+  for (uint8_t lucByteIndexJ = 0; lucByteIndexJ < ZWaveSerialFrame->payload[2]; ++lucByteIndexJ)
+  {
+    for (uint8_t lucBitIndexI = 0; lucBitIndexI < 8; ++lucBitIndexI)
+    {
+      if ( ZWaveSerialFrame->payload[3+lucByteIndexJ] & (0x01 << lucBitIndexI) )
+      {
+        // Bit is set, it represents an active NodeID
+        luiNodeID = 256 + (8*lucByteIndexJ) + lucBitIndexI + (128*8*lucOffset);
+        LOG("%s: - Node %d (0x%04X) is active \r\n", __FUNCTION__, luiNodeID, luiNodeID);
+      }
+    }
+  }
 }
 // end ZWave_RES_CMD_DA_Serial_API_Get_LR_Nodes
 
