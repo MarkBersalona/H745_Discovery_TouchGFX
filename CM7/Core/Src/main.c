@@ -59,7 +59,9 @@ typedef StaticSemaphore_t osStaticMutexDef_t;
 #endif
 
 // Enable host control of Z-Wave controller
-//#define ENABLE_ZWAVE_CONTROLLER_HOST
+// 0 = disable host control of Z-Wave controller (let PC Controller take control)
+// 1 = enable  host control of Z-Wave controller
+#define ENABLE_ZWAVE_CONTROLLER_HOST 0
 
 /* USER CODE END PD */
 
@@ -83,6 +85,8 @@ MDMA_HandleTypeDef hmdma_jpeg_outfifo_th;
 LTDC_HandleTypeDef hltdc;
 
 QSPI_HandleTypeDef hqspi;
+
+RNG_HandleTypeDef hrng;
 
 RTC_HandleTypeDef hrtc;
 
@@ -352,6 +356,7 @@ static void MX_USART1_UART_Init(void);
 static void MX_RTC_Init(void);
 static void MX_SDMMC1_MMC_Init(void);
 static void MX_USART2_UART_Init(void);
+static void MX_RNG_Init(void);
 void MainTask(void *argument);
 void TouchGFX_Task(void *argument);
 void InputTask(void *argument);
@@ -403,11 +408,13 @@ void ZWave_Send_REQ_CMD_08_Serial_API_Soft_Reset(void);
 void ZWave_Send_REQ_CMD_0B_Serial_API_Setup(eSerialAPISetupCmd aeSetupCommand, int16_t aiParameter1, int16_t aiParameter2);
 void ZWave_Send_REQ_CMD_20_Memory_Get_ID(void);
 void ZWave_Send_REQ_CMD_41_Get_Node_Protocol_Info(uint16_t auiNodeID);
+void ZWave_Send_REQ_CMD_4A_Add_Node_to_Network(uint8_t aucOptions, uint8_t aucSessionID, uint8_t* paucNWIAuthID);
 void ZWave_Send_REQ_CMD_56_Get_SUC_Node_ID(void);
 void ZWave_Send_REQ_CMD_DA_Serial_API_Get_LR_Nodes(void);
 void ZWave_Send_REQ_CMD_DE_Get_DCDC_Config(void);
 void ZWave_Send_REQ_CMD_DF_Set_DCDC_Config(sl_dcdc_config_t atDCDCMode);
 void ZWave_Send_REQ_CMD_E8_Get_Radio_PTI(void);
+void ZWave_Transmit_Frame(uint8_t aucCMD, uint8_t aucType, const uint8_t* paucPayload, uint8_t aucLength);
 uint8_t ZWave_XOR_Checksum(uint8_t aucInitialValue, const uint8_t *paucDataBuffer, uint8_t aucLength);
 
 /* USER CODE END PFP */
@@ -499,6 +506,7 @@ int main(void)
   MX_FATFS_Init();
   MX_SDMMC1_MMC_Init();
   MX_USART2_UART_Init();
+  MX_RNG_Init();
   MX_TouchGFX_Init();
   /* Call PreOsInit function */
   MX_TouchGFX_PreOSInit();
@@ -609,12 +617,13 @@ void SystemClock_Config(void)
   /** Initializes the RCC Oscillators according to the specified parameters
   * in the RCC_OscInitTypeDef structure.
   */
-  RCC_OscInitStruct.OscillatorType = RCC_OSCILLATORTYPE_HSI|RCC_OSCILLATORTYPE_LSI
-                              |RCC_OSCILLATORTYPE_HSE;
+  RCC_OscInitStruct.OscillatorType = RCC_OSCILLATORTYPE_HSI48|RCC_OSCILLATORTYPE_HSI
+                              |RCC_OSCILLATORTYPE_LSI|RCC_OSCILLATORTYPE_HSE;
   RCC_OscInitStruct.HSEState = RCC_HSE_ON;
   RCC_OscInitStruct.HSIState = RCC_HSI_DIV1;
   RCC_OscInitStruct.HSICalibrationValue = RCC_HSICALIBRATION_DEFAULT;
   RCC_OscInitStruct.LSIState = RCC_LSI_ON;
+  RCC_OscInitStruct.HSI48State = RCC_HSI48_ON;
   RCC_OscInitStruct.PLL.PLLState = RCC_PLL_ON;
   RCC_OscInitStruct.PLL.PLLSource = RCC_PLLSOURCE_HSE;
   RCC_OscInitStruct.PLL.PLLM = 5;
@@ -877,6 +886,33 @@ static void MX_QUADSPI_Init(void)
   /* USER CODE BEGIN QUADSPI_Init 2 */
   initBspQuadSpi(&Error_Handler);
   /* USER CODE END QUADSPI_Init 2 */
+
+}
+
+/**
+  * @brief RNG Initialization Function
+  * @param None
+  * @retval None
+  */
+static void MX_RNG_Init(void)
+{
+
+  /* USER CODE BEGIN RNG_Init 0 */
+
+  /* USER CODE END RNG_Init 0 */
+
+  /* USER CODE BEGIN RNG_Init 1 */
+
+  /* USER CODE END RNG_Init 1 */
+  hrng.Instance = RNG;
+  hrng.Init.ClockErrorDetection = RNG_CED_ENABLE;
+  if (HAL_RNG_Init(&hrng) != HAL_OK)
+  {
+    Error_Handler();
+  }
+  /* USER CODE BEGIN RNG_Init 2 */
+
+  /* USER CODE END RNG_Init 2 */
 
 }
 
@@ -1459,6 +1495,22 @@ void PrintStartupBanner(void)
 // end PrintStartupBanner
 
 /** *****************************************************************************************************************************
+  * @brief  Return 32-bit very pseudorandom number
+  * @param  None
+  * @retval 32-bit unsigned value
+  */
+uint32_t RandomValue(void)
+{
+  static uint32_t lulReturnValue;
+
+  // Using HAL library and STM32H7xx random number generator
+  HAL_RNG_GenerateRandomNumber(&hrng, &lulReturnValue);
+
+  return lulReturnValue;
+}
+// end RandomValue
+
+/** *****************************************************************************************************************************
   * @brief  Display received frame data (to debug port)
   * @param  None
   * @retval None
@@ -1468,7 +1520,7 @@ void ZWave_Display_Received_Frame_Data(void)
   // Display received frame data
   LOG("Received frame:\r\n");
   LOG("------------------------------------------------------------------------------\r\n");
-  PrintBytes(ZWaveSerialFrame, ZWaveSerialFrame->len + 1, false, 0); // Length doesn't include SOF so need to increment length
+  PrintBytes(ZWaveSerialFrame->payload, ZWaveSerialFrame->len + 1, false, 0); // Length doesn't include SOF so need to increment length
   LOG("------------------------------------------------------------------------------\r\n");
 }
 // end ZWave_Display_Received_Frame_Data
@@ -1658,7 +1710,9 @@ uint8_t ZWave_Enqueue_Request_Unsolicited(uint8_t aucCMD, uint8_t* paucData, uin
 ZWaveRxParseResult_t ZWave_Handle_CHECKSUM(uint8_t aucRxByte, uint8_t aucIsACKRequired)
 {
   static ZWaveRxParseResult_t ltResult;
+  #if ENABLE_ZWAVE_CONTROLLER_HOST
   static uint8_t lucResponse;
+  #endif
 
   LOG("%s: CHECKSUM byte is 0x%02X\r\n", __FUNCTION__, aucRxByte);
 
@@ -1677,7 +1731,9 @@ ZWaveRxParseResult_t ZWave_Handle_CHECKSUM(uint8_t aucRxByte, uint8_t aucIsACKRe
   // comm_interface.c, SerialAPIStateHandler() state is stateTxSerial, stateCallbackTxSerial or stateCommandTxSerial
   /* Drop the new frame we received - we don't have time to handle it. */
   ltResult = ZWAVE_RX_PARSE_IDLE;
+  #if ENABLE_ZWAVE_CONTROLLER_HOST
   lucResponse = CAN;
+  #endif
 
   /* Do we send ACK/NAK according to checksum... */
   /* if not then the received frame is dropped! */
@@ -1685,7 +1741,9 @@ ZWaveRxParseResult_t ZWave_Handle_CHECKSUM(uint8_t aucRxByte, uint8_t aucIsACKRe
   {
     uint8_t checksum = ZWave_XOR_Checksum(0xFF, &(ZWaveSerialFrame->len), ZWaveSerialFrame->len);
     ltResult = (aucRxByte == checksum) ? ZWAVE_RX_PARSE_FRAME_RECEIVED : ZWAVE_RX_PARSE_FRAME_ERROR;
+    #if ENABLE_ZWAVE_CONTROLLER_HOST
     lucResponse = (aucRxByte == checksum) ? ACK : NAK;
+    #endif
   }
 
   // At this point the received frame (minus the checksum) has been saved to the Rx buffer
@@ -1699,7 +1757,7 @@ ZWaveRxParseResult_t ZWave_Handle_CHECKSUM(uint8_t aucRxByte, uint8_t aucIsACKRe
   //LOG("%s: Transitioning from CHECKSUM to SOF\r\n", __FUNCTION__);
   gtZWaveRxInterface.state = ZWAVE_RX_SOF;
 
-  #ifdef ENABLE_ZWAVE_CONTROLLER_HOST
+  #if ENABLE_ZWAVE_CONTROLLER_HOST
   ///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
   // Transmit ACK (checksum OK), NAK (checksum error) or CAN (unable to process received frame: received frame dropped)
   ///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
@@ -2809,7 +2867,7 @@ uint32_t lulZpalRetentionResetInfo = (0x1000000*ZWaveSerialFrame->payload[7+i]) 
                                        (          ZWaveSerialFrame->payload[10+i]) ;
   LOG("%s: Retained reset info       = 0x%08X\r\n", __FUNCTION__, lulZpalRetentionResetInfo);
 
-  #ifdef ENABLE_ZWAVE_CONTROLLER_HOST
+  #if ENABLE_ZWAVE_CONTROLLER_HOST
   ///////////////////////////////////////////////////////////////////////////
   //// TEST MAB 2025.11.12
   //// When the Serial API Started request is received,
@@ -3221,7 +3279,7 @@ void ZWave_RES_CMD_15_ZW_Get_Version(void)
     LOG("%s: - ELIBRARYTYPE_CONTROLLER \r\n", __FUNCTION__);
     break;
   default:
-    LOG("%s: - *** WARNING *** Library byte 0x%02X is unknown or deprecated \r\n", __FUNCTION__);
+    LOG("%s: - *** WARNING *** Library byte 0x%02X is unknown or deprecated \r\n", __FUNCTION__, ZWaveSerialFrame->payload[strlen(ZWaveSerialFrame->payload)+1]);
     break;
   }
 }
@@ -3249,7 +3307,7 @@ void ZWave_RES_CMD_20_Memory_Get_ID(void)
   gulZWaveHomeID = lulHomeID;
   guiZWaveNodeID = luiNodeID;
 
-  #ifdef ENABLE_ZWAVE_CONTROLLER_HOST
+  #if ENABLE_ZWAVE_CONTROLLER_HOST
   ///////////////////////////////////////////////////////////////////////////
   /// TEST MAB 2025.11.13
   /// Send Get Node Protocol Info for the Z-Wave controller's NodeID
@@ -3257,6 +3315,9 @@ void ZWave_RES_CMD_20_Memory_Get_ID(void)
   /// TEST MAB 2025.11.14
   /// Try an invalid NodeID
   //ZWave_Send_REQ_CMD_41_Get_Node_Protocol_Info(guiZWaveNodeID+1);
+
+  // Start listening for SmartStart Prime commands, report to host application
+  ZWave_Send_REQ_CMD_4A_Add_Node_to_Network(ADD_NODE_OPTION_NETWORK_WIDE|ADD_NODE_SMART_START, 0x4E, NULL);
   ///////////////////////////////////////////////////////////////////////////
   #endif // ENABLE_ZWAVE_CONTROLLER_HOST
 }
@@ -4301,16 +4362,16 @@ void ZWave_Rx_CC_9F_Security_2_V2(void)
       LOG("%s: - No extensions present \r\n", __FUNCTION__);
       lucExtensionsPresent = false;
     }
-    uint8_t lucEncryptedExtensionsPresent;
+    //uint8_t lucEncryptedExtensionsPresent;
     if (pgucCCBuffer[3] & SECURITY_2_MESSAGE_ENCAPSULATION_PROPERTIES1_ENCRYPTED_EXTENSION_BIT_MASK_V2)
     {
       LOG("%s: - One or more encrypted extensions are present \r\n", __FUNCTION__);
-      lucEncryptedExtensionsPresent = true;
+      //lucEncryptedExtensionsPresent = true;
     }
     else
     {
       LOG("%s: - No encrypted extensions present \r\n", __FUNCTION__);
-      lucEncryptedExtensionsPresent = false;
+      //lucEncryptedExtensionsPresent = false;
     }
 
     if (lucExtensionsPresent)
@@ -4465,7 +4526,7 @@ void ZWave_RES_CMD_XX_Unsupported(void)
 }
 // end ZWave_RES_CMD_XX_Unsupported
 
-#ifdef ENABLE_ZWAVE_CONTROLLER_HOST
+#if ENABLE_ZWAVE_CONTROLLER_HOST
 
 /** *****************************************************************************************************************************
   * @brief  Prepare and send REQ CMD 02 Serial API Get Init Data
@@ -4650,7 +4711,7 @@ void ZWave_Send_REQ_CMD_20_Memory_Get_ID(void)
 
 /** *****************************************************************************************************************************
   * @brief  Prepare and send REQ CMD 41 Get Node Protocol Info
-  * @param  None
+  * @param  uint16_t auiNodeID - 2-byte NodeID
   * @retval None
   */
 void ZWave_Send_REQ_CMD_41_Get_Node_Protocol_Info(uint16_t auiNodeID)
@@ -4671,6 +4732,33 @@ void ZWave_Send_REQ_CMD_41_Get_Node_Protocol_Info(uint16_t auiNodeID)
   // ENDIF
 }
 // end ZWave_Send_REQ_CMD_41_Get_Node_Protocol_Info
+
+/** *****************************************************************************************************************************
+  * @brief  Prepare and send REQ CMD 4A Add Node to Network
+  * @param  uint8_t aucOptions     - Power | NWI | Protocol | SFLND | Mode (4 bits)
+  * @param  uint8_t aucSessionID   - session ID
+  * @param  uint8_t* paucNWIAuthID - pointer to buffer containing NWI and Auth HomeIDs (8 bytes total)
+  * @retval None
+  */
+void ZWave_Send_REQ_CMD_4A_Add_Node_to_Network(uint8_t aucOptions, uint8_t aucSessionID, uint8_t* paucNWIAuthID)
+{
+  uint8_t lucBufferLength;
+
+  gucZWaveWorkbuf[0] = aucOptions;
+  gucZWaveWorkbuf[1] = aucSessionID;
+  lucBufferLength = 2;
+
+  if ( ADD_NODE_HOME_ID == (aucOptions & 0x0F) )
+  {
+    // Copy the 4 NWI HomeID and 4 Auth HomeID bytes (8 total)
+    memcpy(&gucZWaveWorkbuf[2], paucNWIAuthID, 8);
+    lucBufferLength += 8;
+  }
+
+  ZWave_Enqueue_Request(FUNC_ID_ZW_ADD_NODE_TO_NETWORK, gucZWaveWorkbuf, lucBufferLength);
+  LOG("%s: Sending FUNC_ID_ZW_ADD_NODE_TO_NETWORK\r\n", __FUNCTION__);
+}
+// end ZWave_Send_REQ_CMD_4A_Add_Node_to_Network
 
 /** *****************************************************************************************************************************
   * @brief  Prepare and send REQ CMD 56 Get SUC Node ID
@@ -4711,7 +4799,7 @@ void ZWave_Send_REQ_CMD_DE_Get_DCDC_Config(void)
 
 /** *****************************************************************************************************************************
   * @brief  Prepare and send REQ CMD DF Set DCDC Config
-  * @param  None
+  * @param  atDCDCMode
   * @retval None
   */
 void ZWave_Send_REQ_CMD_DF_Set_DCDC_Config(sl_dcdc_config_t atDCDCMode)
@@ -5033,7 +5121,7 @@ ZWaveState ZWave_SerialAPI_StateMachine(ZWaveStateMachineCommand stateMachineCom
         // ELSE
         else
         {
-          LOG("%s: *** WARNING *** too many retries; popping the request from the callback queue\r\n");
+          LOG("%s: *** WARNING *** too many retries; popping the request from the callback queue\r\n", __FUNCTION__);
           // Pop the request from the callback queue
           ZWave_Pop_Callback_Queue();
 
@@ -5091,7 +5179,7 @@ ZWaveState ZWave_SerialAPI_StateMachine(ZWaveStateMachineCommand stateMachineCom
         // ELSE
         else
         {
-          LOG("%s: *** WARNING *** too many retries; popping the request from the command queue\r\n");
+          LOG("%s: *** WARNING *** too many retries; popping the request from the command queue\r\n", __FUNCTION__);
           // Pop the request from the command queue
           ZWave_Pop_Command_Queue();
 
@@ -5220,7 +5308,7 @@ void ZWave_Transmit_Frame(uint8_t aucCMD, uint8_t aucType, const uint8_t* paucPa
   HAL_UART_Transmit(&huart2, (uint8_t *)&ltFrame, ltFrame.len + 2, 100);
   LOG("%s: Transmitting to Z-Wave controller\r\n", __FUNCTION__);
   LOG("******************** Transmitting to Z-Wave controller START ******************** \r\n");
-  PrintBytes(&ltFrame, ltFrame.len + 2, false, 0);
+  PrintBytes((uint8_t *)&ltFrame, ltFrame.len + 2, false, 0);
   LOG("******************** Transmitting to Z-Wave controller  END  ******************** \r\n");
 
   // Start the ACK and buffer check timers
@@ -5313,7 +5401,43 @@ void MainTask(void *argument)
     //LOG("%s: HAL_UART_Receive_IT(&huart1) (for Diagnostic) returned HAL_OK\r\n", __FUNCTION__);
   }
 
-  /* Infinite loop */
+  /////////////////////////////////////////////////////////
+  // TEST MAB 2025.12.26
+  // Test the random number generator
+
+  uint16_t luiRandomValue;
+  uint16_t luiRandomBinCount[16];
+  uint8_t lucRandomBinIndex;
+
+  LOG("%s: Testing random number generator...\r\n", __FUNCTION__);
+  // Initialize random bin counters
+  for (int i = 0; i < 16; ++i)
+  {
+    luiRandomBinCount[i] = 0;
+  }
+  // Generate N random numbers
+  for (int i = 0; i < 20; ++i)
+  {
+    for (int j = 0; j < 10; ++j)
+    {
+      luiRandomValue = RandomValue() % 0xFFFF;
+      LOG("0x%04X \t", luiRandomValue);
+      lucRandomBinIndex = luiRandomValue / 0x1000;
+      ++luiRandomBinCount[lucRandomBinIndex];
+    }
+    LOG("\r\n");
+  }
+  // Display bin counts
+  LOG("%s: Random bin counts...\r\n", __FUNCTION__);
+  for (int i = 0; i < 16; ++i)
+  {
+    if (i == 8) LOG("     ");
+    LOG("0x%02X ", luiRandomBinCount[i]);
+  }
+  LOG("\r\n");
+  /////////////////////////////////////////////////////////
+
+  /* ************************************************** Infinite loop ************************************************** */
   for(;;)
   {
     //
@@ -5428,10 +5552,15 @@ void MainTask(void *argument)
     {
       lucOldMinute = sMainRTCTime.Minutes;
 
-      LOG("%s: ............... RTC is 20%02d.%02d.%02d %02d:%02d:%02d UTC ...............\r\n",
+//      LOG("%s: ............... RTC is 20%02d.%02d.%02d %02d:%02d:%02d UTC ...............\r\n",
+//          __FUNCTION__,
+//          sMainRTCDate.Year,  sMainRTCDate.Month,   sMainRTCDate.Date,
+//          sMainRTCTime.Hours, sMainRTCTime.Minutes, sMainRTCTime.Seconds);
+      LOG("%s: ............... RTC is 20%02d.%02d.%02d %02d:%02d:%02d UTC; runtime %d seconds ...............\r\n",
           __FUNCTION__,
           sMainRTCDate.Year,  sMainRTCDate.Month,   sMainRTCDate.Date,
-          sMainRTCTime.Hours, sMainRTCTime.Minutes, sMainRTCTime.Seconds);
+          sMainRTCTime.Hours, sMainRTCTime.Minutes, sMainRTCTime.Seconds,
+          gulElapsedTime_Runtime_sec);
 
 //      // Display UNTIMED Standby state if active
 //      luiStandbyState = getSystemStandbyState();
@@ -5770,7 +5899,7 @@ void ZWaveTask(void *argument)
   //////////////////////////////////////////////
   // TEST MAB 2025.11.13
   // Soft reset the ZWave controller
-  #ifdef ENABLE_ZWAVE_CONTROLLER_HOST
+  #if ENABLE_ZWAVE_CONTROLLER_HOST
   ZWave_Send_REQ_CMD_08_Serial_API_Soft_Reset();
   #endif
 
