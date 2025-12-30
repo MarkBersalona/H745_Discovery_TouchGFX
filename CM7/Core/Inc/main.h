@@ -301,6 +301,33 @@ typedef enum {
                                                /* Can be extended with future capability bits here */
 } eSerialAPIStartedCapabilities;
 
+typedef enum ZWave_Node_State
+{
+  ZWAVE_NODE_EMPTY,         // DSK not written
+  ZWAVE_NODE_READY,         // DSK written to node provisioning list; end node not connected
+  ZWAVE_NODE_DETECTED,      // End node with correlated DSK detected
+  ZWAVE_NODE_INCLUSION,     // End node joining home network
+  ZWAVE_NODE_BOOTSTRAP,     // End node sharing key information
+  ZWAVE_NODE_ACTIVE,        // End node fully connected, including security
+  ZWAVE_NODE_REMOVED,       // End node being removed from home network; DSK being erased from node provisioning list
+} ZWaveNodeState;
+
+//  Node provisioning list (i.e. DSK and state variables for end nodes
+#define DSK_LENGTH_BYTES   16
+#define ZWAVE_NODE_PROVISIONING_LIST_MESH_ONLY (0)
+#define ZWAVE_NODE_PROVISIONING_LIST_LR_CAPABLE (1)
+#define ZWAVE_NODE_PROVISIONING_LIST_SMARTSTART (0)
+#define ZWAVE_NODE_PROVISIONING_LIST_S2_MANUAL (1)
+typedef struct {
+    uint8_t  dsk[DSK_LENGTH_BYTES];
+    uint8_t  lr_capable;       // 0 = mesh only, 1 = LR capable
+    uint16_t requested_keys;   // bitmask for S2 keys
+    uint8_t  boot_mode;        // e.g., SmartStart vs S2 manual
+    ZWaveNodeState  status;    // pending, included, ignored, failed
+    // optional more fields
+} pl_entry_t;
+#define NODE_PROVISIONING_LIST_COUNT (5)
+
 /* USER CODE END Private defines */
 
 #ifdef __cplusplus
