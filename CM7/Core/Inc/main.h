@@ -327,6 +327,7 @@ typedef struct {
     // optional more fields
 } pl_entry_t;
 #define NODE_PROVISIONING_LIST_COUNT (5)
+#define DSK_UNAVAILABLE (0xFF)
 
 /* USER CODE END Private defines */
 

@@ -1648,7 +1648,7 @@ uint8_t ZWave_DSK_Extract_NWIAuthHomeID(uint8_t aucDSKIndex, uint8_t* paucNWIAut
   */
 uint8_t ZWave_DSK_Find_Zeroized(void)
 {
-  uint8_t lucReturnValue = 0xFF; // Assume no zeroized DSKs are present until proven otherwise
+  uint8_t lucReturnValue = DSK_UNAVAILABLE; // Assume no zeroized DSKs are present until proven otherwise
   uint8_t lucIsDSKZeroized;
 
   for (uint8_t lucDSKIndex = 0; lucDSKIndex < NODE_PROVISIONING_LIST_COUNT; ++lucDSKIndex)
@@ -3918,7 +3918,7 @@ void ZWave_REQ_CMD_49_ZW_Application_Update(void)
     LOG("%s: NWI HomeID           = 0x%08X\r\n", __FUNCTION__, lulNWIHomeID);
     LOG("%s: - (a.k.a. DSK bytes 9-12, but MSB | 0xC0 and LSB & 0xFE) \r\n", __FUNCTION__);
     lucCandidateDSKIndex = ZWave_Scan_ProvisioningList_For_NWIHomeID(lulNWIHomeID);
-    if (lucCandidateDSKIndex != 0xFF && UPDATE_STATE_NODE_INFO_SMARTSTART_HOMEID_RECEIVED_LR == lucEvent)
+    if (lucCandidateDSKIndex != DSK_UNAVAILABLE && UPDATE_STATE_NODE_INFO_SMARTSTART_HOMEID_RECEIVED_LR == lucEvent)
     {
       // Check if any DSKs are currently being processed, if none then change DSK status to DETECTED
       if (ZWave_DSK_IsProcessing())
@@ -4878,7 +4878,7 @@ void ZWave_RES_CMD_XX_Unsupported(void)
   */
 uint8_t ZWave_Scan_ProvisioningList_For_NWIHomeID(uint32_t aulNWIHomeID)
 {
-  uint8_t lucReturnValue = 0xFF;
+  uint8_t lucReturnValue = DSK_UNAVAILABLE;
   uint32_t lulCandidateNWIHomeID;
 
   // NOTE: NWI HomeID is derived from DSK bytes 8-11 (0-indexed),
@@ -6334,7 +6334,7 @@ void ZWaveTask(void *argument)
   ZWave_DSK_Zeroize(lucAvailableDSKIndex);
   // END Zeroize a random DSK
   lucAvailableDSKIndex = ZWave_DSK_Find_Zeroized();
-  if (lucAvailableDSKIndex != 0xFF)
+  if (lucAvailableDSKIndex != DSK_UNAVAILABLE)
   {
     ZWave_DSK_Write_From_String(lucAvailableDSKIndex, "41518-18177-63256-08527-46087-44111-60645-12807");
     memset(lucDSKString, 0x00, sizeof(lucDSKString));
@@ -6480,8 +6480,7 @@ void ZWaveTask(void *argument)
                               (  0x10000 * lucNWIAuthHomeIDBuffer[5]) +
                               (    0x100 * lucNWIAuthHomeIDBuffer[6]) +
                               (            lucNWIAuthHomeIDBuffer[7]);
-              //LOG("%s: DSK 1: NNNNN-NNNNN-NNNNN-NNNNN-NNNNN-NNNNN-NNNNN-NNNNN\r\n", __FUNCTION__, i, lucDSKString);
-              LOG("%s: - NWI  HomeID:                   %08X \r\n", __FUNCTION__, lulNWIHomeID);
+              LOG("%s: - NWI  HomeID:                   %08X \r\n",             __FUNCTION__, lulNWIHomeID);
               LOG("%s: - Auth HomeID:                               %08X \r\n", __FUNCTION__, lulAuthHomeID);
             }
             // END Display NWI and Auth HomeIDs
@@ -6559,9 +6558,9 @@ void ZWaveTask(void *argument)
         // Also check for the first zeroized DSK, if any
         uint8_t lucFirstZeroizedDSKIndex;
         lucFirstZeroizedDSKIndex = ZWave_DSK_Find_Zeroized();
-        if (lucFirstZeroizedDSKIndex == 0xFF)
+        if (lucFirstZeroizedDSKIndex == DSK_UNAVAILABLE)
         {
-          LOG("%s: *** WARNING *** no zeroized DSK is present in the node provisioning list \r\n", __FUNCTION__);
+          LOG("%s: *** WARNING *** no zeroized DSK is available in the node provisioning list \r\n", __FUNCTION__);
         }
         else
         {
