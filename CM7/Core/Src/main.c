@@ -371,12 +371,13 @@ void ZWaveTask(void *argument);
 
 /* USER CODE BEGIN PFP */
 
+uint8_t ZWave_DSK_Extract_NWIAuthHomeID(uint8_t aucDSKIndex, uint8_t* paucNWIAuthHomeIDBuffer);
 uint8_t ZWave_DSK_Find_Zeroized(void);
+uint8_t ZWave_DSK_IsProcessing(void);
 uint8_t ZWave_DSK_IsZeroized(uint8_t aucDSKIndex);
 void ZWave_DSK_Write(uint8_t aucDSKIndex, uint8_t* paucDSKBuffer);
 uint8_t ZWave_DSK_Write_From_String(uint8_t aucDSKIndex, uint8_t* paucDSKString);
 void ZWave_DSK_Zeroize(uint8_t aucDSKIndex);
-uint8_t ZWave_Is_DSK_Processing(void);
 void ZWave_REQ_CMD_0A_Serial_API_Started(void);
 void ZWave_RES_CMD_02_Get_Init_Data(void);
 void ZWave_RES_CMD_05_ZW_Get_Controller_Capabilities(void);
@@ -1607,6 +1608,40 @@ void ZWave_Display_Tx_Report(void)
 // end ZWave_Display_Tx_Report
 
 /** *****************************************************************************************************************************
+  * @brief  Extract the NWI and Auth HomeID from the specified DSK in the node provisioning list
+  * @param  uint8_t   aucDSKIndex   - index into node provisioning list [0, NODE_PROVISIONING_LIST_COUNT-1]
+  * @param  uint8_t*  paucNWIAuthHomeIDBuffer - pointer to a byte buffer to which the NWI and Auth HomeIDs will be written
+  * @retval TRUE if NWI and Auth HomeIDs extracted successfully; FALSE otherwise
+  */
+uint8_t ZWave_DSK_Extract_NWIAuthHomeID(uint8_t aucDSKIndex, uint8_t* paucNWIAuthHomeIDBuffer)
+{
+  uint8_t lucReturnValue = TRUE;
+
+  if (0 <= aucDSKIndex && aucDSKIndex < NODE_PROVISIONING_LIST_COUNT)
+  {
+    // NWI HomeID derived from DSK bytes 8-11; MSB|0xC0; LSB&0xFE
+    paucNWIAuthHomeIDBuffer[0] = gtNodeProvisioningList[aucDSKIndex].dsk[8] | 0xC0;
+    paucNWIAuthHomeIDBuffer[1] = gtNodeProvisioningList[aucDSKIndex].dsk[9];
+    paucNWIAuthHomeIDBuffer[2] = gtNodeProvisioningList[aucDSKIndex].dsk[10];
+    paucNWIAuthHomeIDBuffer[3] = gtNodeProvisioningList[aucDSKIndex].dsk[11] & 0xFE;
+
+    // Auth HomeID derived from DSK bytes 12-15; MSB|0xC0; LSB&0xFE
+    paucNWIAuthHomeIDBuffer[4] = gtNodeProvisioningList[aucDSKIndex].dsk[12] | 0xC0;
+    paucNWIAuthHomeIDBuffer[5] = gtNodeProvisioningList[aucDSKIndex].dsk[13];
+    paucNWIAuthHomeIDBuffer[6] = gtNodeProvisioningList[aucDSKIndex].dsk[14];
+    paucNWIAuthHomeIDBuffer[7] = gtNodeProvisioningList[aucDSKIndex].dsk[15] & 0xFE;
+  }
+  else
+  {
+    LOG("%s: *** WARNING *** invalid DSK index %d, NWI and Auth HomeID extraction aborted \r\n", __FUNCTION__, aucDSKIndex);
+    lucReturnValue = FALSE;
+  }
+
+  return lucReturnValue;
+}
+// end ZWave_DSK_Extract_NWIAuthHomeID
+
+/** *****************************************************************************************************************************
   * @brief  Find the first zeroized DSK in the node provisioning list
   * @param  None
   * @retval Index into the node provisioning list of the first zeroized DSK [0, NODE_PROVISIONING_LIST_COUNT-1]; 0xFF if none available
@@ -1644,6 +1679,36 @@ uint8_t ZWave_DSK_Find_Zeroized(void)
   return lucReturnValue;
 }
 // end ZWave_DSK_Find_Zeroized
+
+/** *****************************************************************************************************************************
+  * @brief  Check if any DSK is currently being processed
+  * @param  None
+  * @retval TRUE if any DSK is currently being processed; FALSE otherwise
+  */
+uint8_t ZWave_DSK_IsProcessing(void)
+{
+  uint8_t lucReturnValue = FALSE;
+
+  // Check each DSK in the provisioning list
+  for (int i = 0; i < NODE_PROVISIONING_LIST_COUNT; ++i)
+  {
+    if ( gtNodeProvisioningList[i].status != ZWAVE_NODE_EMPTY  &&
+         gtNodeProvisioningList[i].status != ZWAVE_NODE_READY  &&
+         gtNodeProvisioningList[i].status != ZWAVE_NODE_ACTIVE    )
+    {
+      // A DSK has been found with is neither EMPTY, READY nor ACTIVE
+      // Therefore this DSK is currently being processed
+      lucReturnValue = TRUE;
+      LOG("%s: *** WARNING *** DSK %d is currently being processed\r\n", __FUNCTION__, i);
+
+      // Might as well quit checking
+      break;
+    }
+  }
+
+  return lucReturnValue;
+}
+// end ZWave_DSK_IsProcessing
 
 /** *****************************************************************************************************************************
   * @brief  Test if a specified DSK in the node provisioning list is zeroized
@@ -1836,6 +1901,7 @@ void ZWave_DSK_Zeroize(uint8_t aucDSKIndex)
 {
   if (0 <= aucDSKIndex && aucDSKIndex < NODE_PROVISIONING_LIST_COUNT)
   {
+    LOG("%s: Zeroizing DSK %d\r\n", __FUNCTION__, aucDSKIndex);
     gtNodeProvisioningList[aucDSKIndex].lr_capable = ZWAVE_NODE_PROVISIONING_LIST_MESH_ONLY;
     for (int j = 0; j < DSK_LENGTH_BYTES; ++j)
     {
@@ -2632,36 +2698,6 @@ void ZWave_Identify_Specific_Device_Type(uint8_t aucGenericDeviceType, uint8_t a
 
 }
 // end ZWave_Identify_Specific_Device_Type
-
-/** *****************************************************************************************************************************
-  * @brief  Check if any DSK is currently being processed
-  * @param  None
-  * @retval TRUE if any DSK is currently being processed; FALSE otherwise
-  */
-uint8_t ZWave_Is_DSK_Processing(void)
-{
-  uint8_t lucReturnValue = FALSE;
-
-  // Check each DSK in the provisioning list
-  for (int i = 0; i < NODE_PROVISIONING_LIST_COUNT; ++i)
-  {
-    if ( gtNodeProvisioningList[i].status != ZWAVE_NODE_EMPTY  &&
-         gtNodeProvisioningList[i].status != ZWAVE_NODE_READY  &&
-         gtNodeProvisioningList[i].status != ZWAVE_NODE_ACTIVE    )
-    {
-      // A DSK has been found with is neither EMPTY, READY nor ACTIVE
-      // Therefore this DSK is currently being processed
-      lucReturnValue = TRUE;
-      LOG("%s: *** WARNING *** DSK %d is currently being processed\r\n", __FUNCTION__, i);
-
-      // Might as well quit checking
-      break;
-    }
-  }
-
-  return lucReturnValue;
-}
-// end ZWave_Is_DSK_Processing
 
 /** *****************************************************************************************************************************
   * @brief  Parse received FIFO bytes from Z-Wave controller
@@ -3885,7 +3921,7 @@ void ZWave_REQ_CMD_49_ZW_Application_Update(void)
     if (lucCandidateDSKIndex != 0xFF && UPDATE_STATE_NODE_INFO_SMARTSTART_HOMEID_RECEIVED_LR == lucEvent)
     {
       // Check if any DSKs are currently being processed, if none then change DSK status to DETECTED
-      if (ZWave_Is_DSK_Processing())
+      if (ZWave_DSK_IsProcessing())
       {
         LOG("%s: *** WARNING *** A DSK is already being processed\r\n", __FUNCTION__);
       }
@@ -6245,26 +6281,36 @@ void ZWaveTask(void *argument)
   //////////////////////////////////////////////////////////////////////////////
   // Initialize Z-Wave node provisioning list
   //////////////////////////////////////////////////////////////////////////////
+  static char lucIntegerString[10];
+  static char lucDSKString[60];
+  static uint16_t luiTempDSKInt;
+  static char lucDSKHexString[60];
   LOG("%s: --------- Initializing Node Provisioning list... ---------\r\n", __FUNCTION__);
-  // Zeroize DSKs (initialize any valid DSKs later)
+  // ----- Zeroize DSKs (initialize any valid DSKs later)
   LOG("%s: Zeroized DSKs\r\n", __FUNCTION__);
   for (int i = 0; i < NODE_PROVISIONING_LIST_COUNT; ++i)
   {
-    LOG("%s: DSK %d: ", __FUNCTION__, i);
     ZWave_DSK_Zeroize(i);
+  }
+  for (int i = 0; i < NODE_PROVISIONING_LIST_COUNT; ++i)
+  {
+    memset(lucDSKString, 0x00, sizeof(lucDSKString));
     for (int j = 0; j < DSK_LENGTH_BYTES; j += 2)
     {
-      LOG("%05d", 0x100*gtNodeProvisioningList[i].dsk[j] + gtNodeProvisioningList[i].dsk[j+1]);
-      if (j < DSK_LENGTH_BYTES-2) LOG("-");
+      luiTempDSKInt = 0x100*gtNodeProvisioningList[i].dsk[j] + gtNodeProvisioningList[i].dsk[j+1];
+      memset(lucIntegerString, 0x00, sizeof(lucIntegerString));
+      sprintf(lucIntegerString, "%05d", luiTempDSKInt);
+      strcat(lucDSKString, lucIntegerString);
+      if (j < DSK_LENGTH_BYTES-2) strcat(lucDSKString, "-");
     }
-    LOG("\r\n");
+    LOG("%s: DSK %d: %s\r\n", __FUNCTION__, i, lucDSKString);
   }
-//  // Initialize with random values for DSKs (initialize any valid DSKs later)
+//  // ----- Initialize with random values for DSKs (initialize any valid DSKs later)
 //  uint8_t lucDSKBuffer[DSK_LENGTH_BYTES];
 //  LOG("%s: Randomized DSKs\r\n", __FUNCTION__);
 //  for (int i = 0; i < NODE_PROVISIONING_LIST_COUNT; ++i)
 //  {
-//    LOG("%s: DSK %d: ", __FUNCTION__, i);
+//    memset(lucDSKString, 0x00, sizeof(lucDSKString));
 //    for (int j = 0; j < DSK_LENGTH_BYTES; ++j)
 //    {
 //      lucDSKBuffer[j] = (uint8_t)RandomValue();
@@ -6272,26 +6318,35 @@ void ZWaveTask(void *argument)
 //    ZWave_DSK_Write(i, lucDSKBuffer);
 //    for (int j = 0; j < DSK_LENGTH_BYTES; j += 2)
 //    {
-//      LOG("%05d", 0x100*gtNodeProvisioningList[i].dsk[j] + gtNodeProvisioningList[i].dsk[j+1]);
-//      if (j < DSK_LENGTH_BYTES-2) LOG("-");
+//      luiTempDSKInt = 0x100*gtNodeProvisioningList[i].dsk[j] + gtNodeProvisioningList[i].dsk[j+1];
+//      memset(lucIntegerString, 0x00, sizeof(lucIntegerString));
+//      sprintf(lucIntegerString, "%05d", luiTempDSKInt);
+//      strcat(lucDSKString, lucIntegerString);
+//      if (j < DSK_LENGTH_BYTES-2) strcat(lucDSKString, "-");
 //    }
-//    LOG("\r\n");
+//    LOG("%s: DSK %d: %s\r\n", __FUNCTION__, i, lucDSKString);
 //  }
-  // Set up a valid DSK for existing End node
+  // ----- Set up a valid DSK for existing End node
   LOG("%s: Valid DSKs\r\n", __FUNCTION__);
-  uint16_t luiTempDSKInt;
-  #define PL_VALID_DSK_INDEX (2)
-  uint8_t lucAvailableDSKIndex = ZWave_DSK_Find_Zeroized();
+  uint8_t lucAvailableDSKIndex;
+  // Zeroize a random DSK
+  lucAvailableDSKIndex = RandomValue() % NODE_PROVISIONING_LIST_COUNT;
+  ZWave_DSK_Zeroize(lucAvailableDSKIndex);
+  // END Zeroize a random DSK
+  lucAvailableDSKIndex = ZWave_DSK_Find_Zeroized();
   if (lucAvailableDSKIndex != 0xFF)
   {
     ZWave_DSK_Write_From_String(lucAvailableDSKIndex, "41518-18177-63256-08527-46087-44111-60645-12807");
-    LOG("%s: DSK %d: ", __FUNCTION__, lucAvailableDSKIndex);
+    memset(lucDSKString, 0x00, sizeof(lucDSKString));
     for (int j = 0; j < DSK_LENGTH_BYTES; j += 2)
     {
-      LOG("%05d", 0x100*gtNodeProvisioningList[lucAvailableDSKIndex].dsk[j] + gtNodeProvisioningList[lucAvailableDSKIndex].dsk[j+1]);
-      if (j < DSK_LENGTH_BYTES-2) LOG("-");
+      luiTempDSKInt = 0x100*gtNodeProvisioningList[lucAvailableDSKIndex].dsk[j] + gtNodeProvisioningList[lucAvailableDSKIndex].dsk[j+1];
+      memset(lucIntegerString, 0x00, sizeof(lucIntegerString));
+      sprintf(lucIntegerString, "%05d", luiTempDSKInt);
+      strcat(lucDSKString, lucIntegerString);
+      if (j < DSK_LENGTH_BYTES-2) strcat(lucDSKString, "-");
     }
-    LOG("\r\n");
+    LOG("%s: DSK %d: %s\r\n", __FUNCTION__, lucAvailableDSKIndex, lucDSKString);
   }
   LOG("%s: --------- END Initializing Node Provisioning list ---------\r\n", __FUNCTION__);
 
@@ -6380,31 +6435,56 @@ void ZWaveTask(void *argument)
       //////////////////////////////////////////////////////////////////////////////
       //// TEST MAb 2025.12.29
       //// Every N minutes display the node provisioning list
-      //// TEST MAb 2025.12.30
+      //// TEST MAB 2025.12.30
       //// Also check for the 1st zeroized DSK, if any
-      char lucIntegerString[10];
-      char lucDSKString[60];
-      uint16_t luiTempDSKInt;
-      static uint8_t lucCountdownToNodeProvisioningListStatus_minutes = 5;
+      uint8_t lucNWIAuthHomeIDBuffer[8];
+      uint32_t lulNWIHomeID;
+      uint32_t lulAuthHomeID;
+      #define NODE_PL_DISPLAY_INTERVAL_MINUTES (5)
+      static uint8_t lucCountdownToNodeProvisioningListStatus_minutes = NODE_PL_DISPLAY_INTERVAL_MINUTES;
       if (--lucCountdownToNodeProvisioningListStatus_minutes == 0)
       {
-        lucCountdownToNodeProvisioningListStatus_minutes = 5;
+        lucCountdownToNodeProvisioningListStatus_minutes = NODE_PL_DISPLAY_INTERVAL_MINUTES;
 
         for (int i = 0; i < NODE_PROVISIONING_LIST_COUNT; ++i)
         {
           if (!ZWave_DSK_IsZeroized(i))
           {
             // Display DSK
-            memset(lucDSKString, 0x00, sizeof(lucDSKString));
+            memset(lucDSKString,    0x00, sizeof(lucDSKString));
+            memset(lucDSKHexString, 0x00, sizeof(lucDSKHexString));
             for (int j = 0; j < DSK_LENGTH_BYTES; j+=2)
             {
               luiTempDSKInt = 0x100*gtNodeProvisioningList[i].dsk[j] + gtNodeProvisioningList[i].dsk[j+1];
-              snprintf(lucIntegerString, 6, "%05d", luiTempDSKInt);
+              memset(lucIntegerString, 0x00, sizeof(lucIntegerString));
+              sprintf(lucIntegerString, "%05d", luiTempDSKInt);
               strcat(lucDSKString, lucIntegerString);
               if (j < DSK_LENGTH_BYTES-2) strcat(lucDSKString, "-");
+              memset(lucIntegerString, 0x00, sizeof(lucIntegerString));
+              sprintf(lucIntegerString, "%04X", luiTempDSKInt);
+              strcat(lucDSKHexString, lucIntegerString);
+              if (j < DSK_LENGTH_BYTES-2) strcat(lucDSKHexString, "--");
             }
             LOG("%s: DSK %d: %s\r\n", __FUNCTION__, i, lucDSKString);
+            LOG("%s:         %s\r\n", __FUNCTION__,    lucDSKHexString);
             // END Display DSK
+
+            // Display NWI and Auth HomeIDs
+            if (ZWave_DSK_Extract_NWIAuthHomeID(i, lucNWIAuthHomeIDBuffer))
+            {
+              lulNWIHomeID =  (0x1000000 * lucNWIAuthHomeIDBuffer[0]) +
+                              (  0x10000 * lucNWIAuthHomeIDBuffer[1]) +
+                              (    0x100 * lucNWIAuthHomeIDBuffer[2]) +
+                              (            lucNWIAuthHomeIDBuffer[3]);
+              lulAuthHomeID = (0x1000000 * lucNWIAuthHomeIDBuffer[4]) +
+                              (  0x10000 * lucNWIAuthHomeIDBuffer[5]) +
+                              (    0x100 * lucNWIAuthHomeIDBuffer[6]) +
+                              (            lucNWIAuthHomeIDBuffer[7]);
+              //LOG("%s: DSK 1: NNNNN-NNNNN-NNNNN-NNNNN-NNNNN-NNNNN-NNNNN-NNNNN\r\n", __FUNCTION__, i, lucDSKString);
+              LOG("%s: - NWI  HomeID:                   %08X \r\n", __FUNCTION__, lulNWIHomeID);
+              LOG("%s: - Auth HomeID:                               %08X \r\n", __FUNCTION__, lulAuthHomeID);
+            }
+            // END Display NWI and Auth HomeIDs
 
             // Test if zeroized
             if (ZWave_DSK_IsZeroized(i))
