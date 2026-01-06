@@ -61,7 +61,7 @@ typedef StaticSemaphore_t osStaticMutexDef_t;
 // Enable host control of Z-Wave controller
 // 0 = disable host control of Z-Wave controller (let PC Controller take control)
 // 1 = enable  host control of Z-Wave controller
-#define ENABLE_ZWAVE_CONTROLLER_HOST 0
+#define ENABLE_ZWAVE_CONTROLLER_HOST 1
 
 /* USER CODE END PD */
 
@@ -247,6 +247,14 @@ uint_32          sOldUNIXTime = 0;
 // Elapsed runtime
 uint32_t gulElapsedTime_Runtime_sec = 0;
 
+// Inclusion completed or failed
+uint8_t gucIsInclusionFinished = FALSE;
+uint8_t gucIsInclusionFailed   = FALSE;
+
+// S2 bootstrap completed or failed
+uint8_t gucIsBootstrapFinished = FALSE;
+uint8_t gucIsBootstrapFailed   = FALSE;
+
 /////////////////////////////
 //// TEST MAB 2025.10.03
 //// Temporary "saved" IP address bytes
@@ -341,6 +349,14 @@ uint8_t  gucCCBufferLength;
 // Node Provisioning list (i.e. DSK and state variables for end nodes)
 pl_entry_t gtNodeProvisioningList[NODE_PROVISIONING_LIST_COUNT];
 
+//
+// Index of DSK currently being processed (may be NO DSK being processed)
+uint8_t gucProcessingDSK = DSK_UNAVAILABLE;
+
+// Session ID
+uint8_t gucSessionID;
+
+
 
 /* USER CODE END PV */
 
@@ -411,6 +427,7 @@ void ZWave_RES_CMD_XX_Unsupported(void);
 void ZWave_Rx_CC_26_Switch_Multilevel_V4(void);
 void ZWave_Rx_CC_9F_Security_2_V2(void);
 void ZWave_Rx_CC_XX_Unsupported(void);
+uint8_t ZWave_Scan_ProvisioningList_For_DSK(uint8_t* paucDSKBuffer, uint8_t aucNeedExactMatch);
 uint8_t ZWave_Scan_ProvisioningList_For_NWIHomeID(uint32_t aulNWIHomeID);
 void ZWave_Send_REQ_CMD_02_Serial_API_Get_Init_Data(void);
 void ZWave_Send_REQ_CMD_03_Serial_API_Application_Node_Information(void);
@@ -420,12 +437,15 @@ void ZWave_Send_REQ_CMD_08_Serial_API_Soft_Reset(void);
 void ZWave_Send_REQ_CMD_0B_Serial_API_Setup(eSerialAPISetupCmd aeSetupCommand, int16_t aiParameter1, int16_t aiParameter2);
 void ZWave_Send_REQ_CMD_20_Memory_Get_ID(void);
 void ZWave_Send_REQ_CMD_41_Get_Node_Protocol_Info(uint16_t auiNodeID);
+void ZWave_Send_REQ_CMD_42_Set_Default(void);
 void ZWave_Send_REQ_CMD_4A_Add_Node_to_Network(uint8_t aucOptions, uint8_t aucSessionID, uint8_t* paucNWIAuthID);
 void ZWave_Send_REQ_CMD_56_Get_SUC_Node_ID(void);
 void ZWave_Send_REQ_CMD_DA_Serial_API_Get_LR_Nodes(void);
 void ZWave_Send_REQ_CMD_DE_Get_DCDC_Config(void);
 void ZWave_Send_REQ_CMD_DF_Set_DCDC_Config(sl_dcdc_config_t atDCDCMode);
 void ZWave_Send_REQ_CMD_E8_Get_Radio_PTI(void);
+uint8_t ZWave_SessionID_Randomize(void);
+uint8_t ZWave_SessionID_Update(uint8_t aucSessionID);
 void ZWave_Transmit_Frame(uint8_t aucCMD, uint8_t aucType, const uint8_t* paucPayload, uint8_t aucLength);
 uint8_t ZWave_XOR_Checksum(uint8_t aucInitialValue, const uint8_t *paucDataBuffer, uint8_t aucLength);
 
@@ -1692,14 +1712,14 @@ uint8_t ZWave_DSK_IsProcessing(void)
   // Check each DSK in the provisioning list
   for (int i = 0; i < NODE_PROVISIONING_LIST_COUNT; ++i)
   {
-    if ( gtNodeProvisioningList[i].status != ZWAVE_NODE_EMPTY  &&
-         gtNodeProvisioningList[i].status != ZWAVE_NODE_READY  &&
-         gtNodeProvisioningList[i].status != ZWAVE_NODE_ACTIVE    )
+    if ( gtNodeProvisioningList[i].status != SMARTSTART_EMPTY  &&
+         gtNodeProvisioningList[i].status != SMARTSTART_READY  &&
+         gtNodeProvisioningList[i].status != SMARTSTART_ACTIVE    )
     {
       // A DSK has been found with is neither EMPTY, READY nor ACTIVE
       // Therefore this DSK is currently being processed
       lucReturnValue = TRUE;
-      LOG("%s: *** WARNING *** DSK %d is currently being processed\r\n", __FUNCTION__, i);
+      //LOG("%s: *** WARNING *** DSK %d is currently being processed\r\n", __FUNCTION__, i);
 
       // Might as well quit checking
       break;
@@ -1765,7 +1785,7 @@ void ZWave_DSK_Write(uint8_t aucDSKIndex, uint8_t* paucDSKBuffer)
       gtNodeProvisioningList[aucDSKIndex].dsk[j] = paucDSKBuffer[j];
     }
     gtNodeProvisioningList[aucDSKIndex].boot_mode = ZWAVE_NODE_PROVISIONING_LIST_SMARTSTART;
-    gtNodeProvisioningList[aucDSKIndex].status = ZWAVE_NODE_READY;
+    gtNodeProvisioningList[aucDSKIndex].status = SMARTSTART_READY;
   }
   else
   {
@@ -1908,7 +1928,7 @@ void ZWave_DSK_Zeroize(uint8_t aucDSKIndex)
       gtNodeProvisioningList[aucDSKIndex].dsk[j] = 0;
     }
     gtNodeProvisioningList[aucDSKIndex].boot_mode = ZWAVE_NODE_PROVISIONING_LIST_S2_MANUAL; // initialize with zeroized DSK, so assume no SmartStart
-    gtNodeProvisioningList[aucDSKIndex].status = ZWAVE_NODE_EMPTY; // initialize with zeroized DSK, so status is EMPTY
+    gtNodeProvisioningList[aucDSKIndex].status = SMARTSTART_EMPTY; // initialize with zeroized DSK, so status is EMPTY
   }
   else
   {
@@ -3190,6 +3210,14 @@ uint32_t lulZpalRetentionResetInfo = (0x1000000*ZWaveSerialFrame->payload[7+i]) 
   LOG("%s: Retained reset info       = 0x%08X\r\n", __FUNCTION__, lulZpalRetentionResetInfo);
 
   #if ENABLE_ZWAVE_CONTROLLER_HOST
+//  ///////////////////////////////////////////////////////////////////////////
+//  //// TEST MAB 2026.01.06
+//  //// Set the controller to its defaults
+//  //// (erase pre-existing nodes, networks, etc.)
+//  gucSessionID = ZWave_SessionID_Randomize();
+//  ZWave_Send_REQ_CMD_42_Set_Default();
+//  ///////////////////////////////////////////////////////////////////////////
+
   ///////////////////////////////////////////////////////////////////////////
   //// TEST MAB 2025.11.12
   //// When the Serial API Started request is received,
@@ -3639,7 +3667,10 @@ void ZWave_RES_CMD_20_Memory_Get_ID(void)
   //ZWave_Send_REQ_CMD_41_Get_Node_Protocol_Info(guiZWaveNodeID+1);
 
   // Start listening for SmartStart Prime commands, report to host application
-  ZWave_Send_REQ_CMD_4A_Add_Node_to_Network(ADD_NODE_OPTION_NETWORK_WIDE|ADD_NODE_SMART_START, 0x4E, NULL);
+  LOG("%s: Start listening for SmartStart Prime commands, report to host application \r\n", __FUNCTION__);
+  //ZWave_Send_REQ_CMD_4A_Add_Node_to_Network(ADD_NODE_OPTION_NETWORK_WIDE|ADD_NODE_SMART_START, 0x4E, NULL);
+  gucSessionID = ZWave_SessionID_Randomize(); // range [1, 255]
+  ZWave_Send_REQ_CMD_4A_Add_Node_to_Network(ADD_NODE_OPTION_NETWORK_WIDE|ADD_NODE_SMART_START, gucSessionID, NULL);
   ///////////////////////////////////////////////////////////////////////////
   #endif // ENABLE_ZWAVE_CONTROLLER_HOST
 }
@@ -3928,7 +3959,8 @@ void ZWave_REQ_CMD_49_ZW_Application_Update(void)
       else
       {
         LOG("%s: Transitioning DSK %d from READY to DETECTED \r\n", __FUNCTION__, lucCandidateDSKIndex);
-        gtNodeProvisioningList[lucCandidateDSKIndex].status = ZWAVE_NODE_DETECTED;
+        gtNodeProvisioningList[lucCandidateDSKIndex].status = SMARTSTART_DETECTED;
+        gucProcessingDSK = lucCandidateDSKIndex;
       }
     }
     LOG("%s: Frame length         = 0x%02X\r\n", __FUNCTION__, lucFrameLength);
@@ -4011,12 +4043,15 @@ void ZWave_REQ_CMD_4A_ZW_Add_Node_To_Network(void)
     break;
   case ADD_NODE_STATUS_PROTOCOL_DONE:
     LOG("%s: - Inclusion completed (protocol part) \r\n", __FUNCTION__);
+    gucIsInclusionFinished = TRUE;
     break;
   case ADD_NODE_STATUS_DONE:
     LOG("%s: - Inclusion completed \r\n", __FUNCTION__);
+    gucIsInclusionFinished = TRUE;
     break;
   case ADD_NODE_STATUS_FAILED:
     LOG("%s: - Inclusion FAILED \r\n", __FUNCTION__);
+    gucIsInclusionFailed = TRUE;
     break;
   case ADD_NODE_STATUS_FIND_NEIGHBORS_DONE:
     LOG("%s: - Find neighbors completed (SFLND was TRUE) \r\n", __FUNCTION__);
@@ -4842,6 +4877,13 @@ void ZWave_Rx_CC_9F_Security_2_V2(void)
 
     LOG("%s: ECDH Public key (1st 16 bytes: DSK with some bytes possibly obfuscated with 0x00)... \r\n", __FUNCTION__);
     PrintBytes(&pgucCCBuffer[3], 32, false, 0);
+    ////////////////////////////////////////////////
+    //// TEST MAB 2026.01.02
+    //// Try to detect DSK in node provisioning list
+    #define INCOMPLETE_DSK_MATCH_ACCEPTABLE (FALSE)
+    #define FULL_DSK_MATCH_REQUIRED (TRUE)
+    ZWave_Scan_ProvisioningList_For_DSK(&pgucCCBuffer[3], INCOMPLETE_DSK_MATCH_ACCEPTABLE);
+    ////////////////////////////////////////////////
 
   }
 
@@ -4870,6 +4912,56 @@ void ZWave_RES_CMD_XX_Unsupported(void)
   LOG("%s: *** WARNING *** Serial API command 0x%02X not supported (yet)... \r\n", __FUNCTION__, ZWaveSerialFrame->cmd);
 }
 // end ZWave_RES_CMD_XX_Unsupported
+
+/** *****************************************************************************************************************************
+  * @brief  Scan Node Provisioning List for matching DSK
+  * @param  uint8_t* paucDSKBuffer - pointer to a byte buffer containing the 16-byte DSK
+  * @param  uint8_t  aucNeedExactMatch - TRUE for exact 16-byte DSK match required; FALSE for "close enough" match
+  * @retval DSK index if matching DSK is found; 0xFF if no matching DSKs found
+  */
+uint8_t ZWave_Scan_ProvisioningList_For_DSK(uint8_t* paucDSKBuffer, uint8_t aucNeedExactMatch)
+{
+  uint8_t lucReturnValue = DSK_UNAVAILABLE; // Assume no matching DSKs are present until proven otherwise
+  uint8_t lucIsDSKMatch;
+  uint8_t lucDSKStartByte;
+
+  // An exact match compares all 16 bytes of a DSK
+  // A "close enough" match skips the first 2 bytes of a DSK
+  if (aucNeedExactMatch)
+  {
+    lucDSKStartByte = 0;
+  }
+  else
+  {
+    lucDSKStartByte = 2;
+  }
+
+  for (uint8_t lucDSKIndex = 0; lucDSKIndex < NODE_PROVISIONING_LIST_COUNT; ++lucDSKIndex)
+  {
+    // Assume this given DSK is a match until proven otherwise
+    lucIsDSKMatch = TRUE;
+
+    // Check each byte of this DSK in the provisioning list
+    for (uint8_t lucDSKByte = lucDSKStartByte; lucDSKByte < DSK_LENGTH_BYTES; ++lucDSKByte)
+    {
+      if (paucDSKBuffer[lucDSKByte] != gtNodeProvisioningList[lucDSKIndex].dsk[lucDSKByte])
+      {
+        lucIsDSKMatch = FALSE;
+      }
+    }
+
+    // If we've found a matching DSK, return the DSK index
+    if (lucIsDSKMatch)
+    {
+      LOG("%s: DSK %d is a match \r\n", __FUNCTION__, lucDSKIndex);
+      lucReturnValue = lucDSKIndex;
+      break;  // Quit searching for a matching DSK
+    }
+  }
+
+  return lucReturnValue;
+}
+// end ZWave_Scan_ProvisioningList_For_DSK
 
 /** *****************************************************************************************************************************
   * @brief  Scan Node Provisioning List for any/all matching DSKs for NWI HomeID
@@ -5107,6 +5199,20 @@ void ZWave_Send_REQ_CMD_41_Get_Node_Protocol_Info(uint16_t auiNodeID)
   // ENDIF
 }
 // end ZWave_Send_REQ_CMD_41_Get_Node_Protocol_Info
+
+/** *****************************************************************************************************************************
+  * @brief  Prepare and send REQ CMD 42 Set Default
+  * @param  None
+  * @retval None
+  */
+void ZWave_Send_REQ_CMD_42_Set_Default(void)
+{
+  gucSessionID = ZWave_SessionID_Update(gucSessionID);
+  gucZWaveWorkbuf[0] = gucSessionID;
+  ZWave_Enqueue_Request(FUNC_ID_ZW_SET_DEFAULT, gucZWaveWorkbuf, 1);
+  LOG("%s: Sending FUNC_ID_ZW_SET_DEFAULT\r\n", __FUNCTION__);
+}
+// end ZWave_Send_REQ_CMD_42_SetDefault
 
 /** *****************************************************************************************************************************
   * @brief  Prepare and send REQ CMD 4A Add Node to Network
@@ -5611,6 +5717,317 @@ ZWaveState ZWave_SerialAPI_StateMachine(ZWaveStateMachineCommand stateMachineCom
   return leZWaveState;
 }
 // end ZWave_SerialAPI_StateMachine
+
+/** *****************************************************************************************************************************
+  * @brief  Create a random SessionID in the range [1, 255]
+  * @param  None
+  * @retval Random SessionID in range [1, 255]
+  */
+uint8_t ZWave_SessionID_Randomize(void)
+{
+  uint8_t lucSessionID = 0;
+
+  while (0 == lucSessionID)
+  {
+    lucSessionID = RandomValue() % 256;
+  }
+
+  return lucSessionID;
+}
+// end ZWave_SessionID_Randomize
+
+/** *****************************************************************************************************************************
+  * @brief  Update a SessionID in the range [1, 255]
+  * @param  uint8_t aucSessionID - current SessionID value
+  * @retval Updated SessionID in range [1, 255]
+  */
+uint8_t ZWave_SessionID_Update(uint8_t aucSessionID)
+{
+  uint8_t lucSessionID = 0;
+
+  while (0 == lucSessionID)
+  {
+    lucSessionID = aucSessionID + 1;
+  }
+
+  return lucSessionID;
+}
+// end ZWave_SessionID_Update
+
+/** *****************************************************************************************************************************
+  * @brief  SmartStart state machine
+  * @param  stateMachineCommand - INITIALIZE, RUN or STATE
+  * @retval Present state
+  */
+/***********************************************
+ZWave_SmartStart_StateMachine
+
+  IF command is INITIALIZE
+    Clear elapsed time
+    Initialize subordinate state machines
+    Set state to EMPTY
+
+  ELSE IF command is RUN
+    Update elapsed time
+    IF a DSK is being processed
+      Set state to the processing DSK state
+    ELSE
+      Set state to EMPTY
+    ENDIF
+
+    IF state is EMPTY
+      Do nothing
+    ELSE IF state is READY
+      Do nothing
+    ELSE IF state is DETECTED
+      Start node inclusion for the active DSK
+      Set state to INCLUSION
+    ELSE IF state is INCLUSION
+      Update elapsed inclusion time
+      IF node inclusion failed OR timed out
+        Resume listening for SmartStart Prime commands, report to host application
+        Set state to READY
+      ELSE IF node inclusion has completed
+        Stop node inclusion
+        Set state to BOOTSTRAP
+      ENDIF
+    ELSE IF state is BOOTSTRAP
+      Update elapsed bootstrap time
+      IF S2 bootstrap failed OR timed out
+        Set state to INCLUSION
+      ELSE IF S2 bootstrap has completed
+        Set state to ACTIVE
+      ENDIF
+    ELSE IF state is ACTIVE
+      IF active DSK has been removed
+        Set state to REMOVED
+      ENDIF
+    ELSE IF state is REMOVED
+      Zeroize active DSK
+      Set state to EMPTY
+    ENDIF
+
+  ELSE IF command is STATE
+    Do nothing (present state will be returned)
+
+  ELSE
+    Flag faulty state machine call
+  ENDIF (command)
+
+  Return present state
+
+END ZWave_SmartStart_StateMachine
+************************************************/
+SmartStartState ZWave_SmartStart_StateMachine(SmartStartStateMachineCommand stateMachineCommand)
+{
+  static SmartStartState leSmartStartState = SMARTSTART_EMPTY;
+  static uint32_t lulElapsedTime_sec = 0;
+  static uint8_t lucOldSecond = 100; // Nonsense initial value guarantees update when RTC first read
+  static uint32_t lulElapsedTime_Inclusion_msec;
+  static uint32_t lulElapsedTime_Bootstrap_msec;
+  #define INCLUSION_TIMEOUT_MSEC (30000)
+  #define BOOTSTRAP_TIMEOUT_MSEC (10000)
+  static uint8_t lucNWIAuthHomeIDBuffer[8];
+
+  //////////////////////////////////////////////////////////////////////////
+  // IF command is INITIALIZE
+  if (SMARTSTART_SM_CMD_INITIALIZE == stateMachineCommand)
+  {
+    LOG("%s: initializing\r\n", __FUNCTION__);
+    // Clear elapsed time
+    lulElapsedTime_sec = 0;
+
+    // Initialize subordinate state machines
+
+    // Set state to EMPTY
+    LOG("%s: Transitioning from initialization to EMPTY\r\n", __FUNCTION__);
+    leSmartStartState = SMARTSTART_EMPTY;
+  }
+
+  //////////////////////////////////////////////////////////////////////////
+  // ELSE IF command is RUN
+  else if (SMARTSTART_SM_CMD_RUN == stateMachineCommand)
+  {
+    // Update elapsed time
+    // (update only when the RTC seconds update, i.e. update once per second)
+    if (lucOldSecond != sMainRTCTime.Seconds)
+    {
+      lucOldSecond = sMainRTCTime.Seconds;
+
+      ++lulElapsedTime_sec;
+    }
+
+    // IF a DSK is being processed
+    if (ZWave_DSK_IsProcessing())
+    {
+      // Set state to the processing DSK state
+      leSmartStartState = gtNodeProvisioningList[gucProcessingDSK].status;
+    }
+    // ELSE
+    else
+    {
+      // Set state to EMPTY
+      leSmartStartState = SMARTSTART_EMPTY;
+    }
+    // ENDIF
+
+
+    //-------------------------------------------------------
+    // IF state is EMPTY
+    if (SMARTSTART_EMPTY == leSmartStartState)
+    {
+      // Do nothing
+    }
+
+    //-------------------------------------------------------
+    // ELSE IF state is READY
+    else if (SMARTSTART_READY == leSmartStartState)
+    {
+      // Do nothing
+    }
+
+    //-------------------------------------------------------
+    // ELSE IF state is DETECTED
+    else if (SMARTSTART_DETECTED == leSmartStartState)
+    {
+      // Start node inclusion for the active DSK
+      LOG("%s: Starting node inclusion for DSK %d \r\n", __FUNCTION__, gucProcessingDSK);
+      ZWave_DSK_Extract_NWIAuthHomeID(gucProcessingDSK, lucNWIAuthHomeIDBuffer);
+      gucSessionID = ZWave_SessionID_Update(gucSessionID);
+      ZWave_Send_REQ_CMD_4A_Add_Node_to_Network(ADD_NODE_OPTION_NETWORK_WIDE|ADD_NODE_OPTION_LR|ADD_NODE_HOME_ID, gucSessionID, lucNWIAuthHomeIDBuffer);
+      //ZWave_Send_REQ_CMD_4A_Add_Node_to_Network(ADD_NODE_OPTION_NETWORK_WIDE|ADD_NODE_HOME_ID, gucSessionID, lucNWIAuthHomeIDBuffer);
+
+      // Set state to INCLUSION
+      lulElapsedTime_Inclusion_msec = 0;
+      gucIsInclusionFailed   = FALSE;
+      gucIsInclusionFinished = FALSE;
+      LOG("%s: Transitioning DSK %d from DETECTED to INCLUSION\r\n", __FUNCTION__, gucProcessingDSK);
+      leSmartStartState                               = SMARTSTART_INCLUSION;
+      gtNodeProvisioningList[gucProcessingDSK].status = SMARTSTART_INCLUSION;
+    }
+
+    //-------------------------------------------------------
+    // ELSE IF state is INCLUSION
+    else if (SMARTSTART_INCLUSION == leSmartStartState)
+    {
+      // Update elapsed inclusion time
+      lulElapsedTime_Inclusion_msec += ZWAVE_TASK_PERIOD;
+
+      // IF node inclusion failed OR timed out
+      if ( gucIsInclusionFailed || lulElapsedTime_Inclusion_msec > INCLUSION_TIMEOUT_MSEC)
+      {
+        if (gucIsInclusionFailed)
+        {
+          LOG("%s: *** WARNING *** Inclusion for DSK %d failed \r\n", __FUNCTION__, gucProcessingDSK);
+        }
+        if (lulElapsedTime_Inclusion_msec > INCLUSION_TIMEOUT_MSEC)
+        {
+          LOG("%s: *** WARNING *** Inclusion for DSK %d timed out \r\n", __FUNCTION__, gucProcessingDSK);
+        }
+
+        // Resume listening for SmartStart Prime commands, report to host application
+        LOG("%s: Resume listening for SmartStart Prime commands, report to host application \r\n", __FUNCTION__);
+        gucSessionID = ZWave_SessionID_Update(gucSessionID);
+        ZWave_Send_REQ_CMD_4A_Add_Node_to_Network(ADD_NODE_OPTION_NETWORK_WIDE|ADD_NODE_SMART_START, gucSessionID, NULL);
+
+        // Set state to READY
+        LOG("%s: Transitioning DSK %d from INCLUSION to READY\r\n", __FUNCTION__, gucProcessingDSK);
+        leSmartStartState                               = SMARTSTART_READY;
+        gtNodeProvisioningList[gucProcessingDSK].status = SMARTSTART_READY;
+        gucProcessingDSK = DSK_UNAVAILABLE;
+      }
+      // ELSE IF node inclusion has completed
+      else if (gucIsInclusionFinished)
+      {
+        LOG("%s: Inclusion for DSK %d completed in %d msec \r\n", __FUNCTION__, gucProcessingDSK, lulElapsedTime_Inclusion_msec);
+
+        // Stop node inclusion
+        LOG("%s: Stopping node inclusion \r\n", __FUNCTION__);
+        ZWave_Send_REQ_CMD_4A_Add_Node_to_Network(ADD_NODE_STOP, gucSessionID, NULL);
+
+        // Set state to BOOTSTRAP
+        lulElapsedTime_Bootstrap_msec = 0;
+        gucIsBootstrapFailed   = FALSE;
+        gucIsBootstrapFinished = FALSE;
+        LOG("%s: Transitioning DSK %d from INCLUSION to BOOTSTRAP\r\n", __FUNCTION__, gucProcessingDSK);
+        leSmartStartState                               = SMARTSTART_BOOTSTRAP;
+        gtNodeProvisioningList[gucProcessingDSK].status = SMARTSTART_BOOTSTRAP;
+      }
+      // ENDIF
+    }
+
+    //-------------------------------------------------------
+    // ELSE IF state is BOOTSTRAP
+    else if (SMARTSTART_BOOTSTRAP == leSmartStartState)
+    {
+      // Update elapsed bootstrap time
+      lulElapsedTime_Bootstrap_msec += ZWAVE_TASK_PERIOD;
+
+      // IF S2 bootstrap failed OR timed out
+      if ( gucIsBootstrapFailed || lulElapsedTime_Bootstrap_msec > BOOTSTRAP_TIMEOUT_MSEC)
+      {
+        if (gucIsBootstrapFailed)
+        {
+          LOG("%s: *** WARNING *** S2 Bootstrap for DSK %d failed \r\n", __FUNCTION__, gucProcessingDSK);
+        }
+        if (lulElapsedTime_Bootstrap_msec > BOOTSTRAP_TIMEOUT_MSEC)
+        {
+          LOG("%s: *** WARNING *** S2 Bootstrap for DSK %d timed out \r\n", __FUNCTION__, gucProcessingDSK);
+        }
+
+        // Set state to INCLUSION
+        lulElapsedTime_Inclusion_msec = 0;
+        gucIsInclusionFailed   = FALSE;
+        gucIsInclusionFinished = FALSE;
+        LOG("%s: Transitioning DSK %d from BOOTSTRAP to INCLUSION\r\n", __FUNCTION__, gucProcessingDSK);
+        leSmartStartState                               = SMARTSTART_INCLUSION;
+        gtNodeProvisioningList[gucProcessingDSK].status = SMARTSTART_INCLUSION;
+      }
+      // ELSE IF S2 bootstrap has completed
+      else if (gucIsBootstrapFinished)
+      {
+        // Set state to ACTIVE
+      }
+      // ENDIF
+    }
+
+    //-------------------------------------------------------
+    // ELSE IF state is ACTIVE
+    else if (SMARTSTART_ACTIVE == leSmartStartState)
+    {
+    }
+
+    //-------------------------------------------------------
+    // ELSE IF state is REMOVED
+    else if (SMARTSTART_REMOVED == leSmartStartState)
+    {
+    }
+
+  }
+
+  //////////////////////////////////////////////////////////////////////////
+  // ELSE IF command is STATE
+  else if (SMARTSTART_SM_CMD_STATE == stateMachineCommand)
+  {
+    // Do nothing (present state will be returned)
+  }
+
+  //////////////////////////////////////////////////////////////////////////
+  // ELSE
+  else
+  {
+    // Flag faulty state machine call
+    LOG("\r\n>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>\r\n");
+    LOG("\r\n%s: Invalid state machine command: stateMachineCommand = %d\r\n", __FUNCTION__, stateMachineCommand);
+    LOG("\r\n>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>\r\n");
+  }
+  // ENDIF (command)
+  //////////////////////////////////////////////////////////////////////////
+
+  // Return present state
+  return leSmartStartState;
+}
+// end ZWave_SmartStart_StateMachine
 
 /** *****************************************************************************************************************************
   * @brief  Transit a Z-Wave frame
@@ -6237,6 +6654,7 @@ void ZWaveTask(void *argument)
   gtZWave_CMD_Handler[FUNC_ID_MEMORY_GET_ID]                      = ZWave_RES_CMD_20_Memory_Get_ID;
   gtZWave_CMD_Handler[FUNC_ID_NVR_GET_VALUE]                      = ZWave_RES_CMD_28_NVR_Get_Value;
   gtZWave_CMD_Handler[FUNC_ID_ZW_GET_NODE_PROTOCOL_INFO]          = ZWave_RES_CMD_41_ZW_Get_Node_Protocol_Info;
+  //gtZWave_CMD_Handler[FUNC_ID_ZW_SET_DEFAULT]                     = xxxxxxxxxxxxxxxxx;
   gtZWave_CMD_Handler[FUNC_ID_ZW_ASSIGN_RETURN_ROUTE]             = ZWave_RSQ_CMD_46_ZW_Assign_Return_Route;
   gtZWave_CMD_Handler[FUNC_ID_ZW_DELETE_RETURN_ROUTE]             = ZWave_RSQ_CMD_47_ZW_Delete_Return_Route;
   gtZWave_CMD_Handler[FUNC_ID_ZW_APPLICATION_UPDATE]              = ZWave_REQ_CMD_49_ZW_Application_Update;
@@ -6269,6 +6687,11 @@ void ZWaveTask(void *argument)
   //////////////////////////////////////////////////////////////////////////////
   ZWave_SerialAPI_StateMachine(ZWAVE_SM_CMD_INITIALIZE);
 
+  //////////////////////////////////////////////////////////////////////////////
+  // Initialize Z-Wave SmartStart state machine
+  //////////////////////////////////////////////////////////////////////////////
+  ZWave_SmartStart_StateMachine(SMARTSTART_SM_CMD_INITIALIZE);
+
   //////////////////////////////////////////////
   // Reset the EFR32ZG23 Z-Wave controller
   //////////////////////////////////////////////
@@ -6286,36 +6709,15 @@ void ZWaveTask(void *argument)
   static uint16_t luiTempDSKInt;
   static char lucDSKHexString[60];
   LOG("%s: --------- Initializing Node Provisioning list... ---------\r\n", __FUNCTION__);
-  // ----- Zeroize DSKs (initialize any valid DSKs later)
-  LOG("%s: Zeroized DSKs\r\n", __FUNCTION__);
-  for (int i = 0; i < NODE_PROVISIONING_LIST_COUNT; ++i)
-  {
-    ZWave_DSK_Zeroize(i);
-  }
-  for (int i = 0; i < NODE_PROVISIONING_LIST_COUNT; ++i)
-  {
-    memset(lucDSKString, 0x00, sizeof(lucDSKString));
-    for (int j = 0; j < DSK_LENGTH_BYTES; j += 2)
-    {
-      luiTempDSKInt = 0x100*gtNodeProvisioningList[i].dsk[j] + gtNodeProvisioningList[i].dsk[j+1];
-      memset(lucIntegerString, 0x00, sizeof(lucIntegerString));
-      sprintf(lucIntegerString, "%05d", luiTempDSKInt);
-      strcat(lucDSKString, lucIntegerString);
-      if (j < DSK_LENGTH_BYTES-2) strcat(lucDSKString, "-");
-    }
-    LOG("%s: DSK %d: %s\r\n", __FUNCTION__, i, lucDSKString);
-  }
-//  // ----- Initialize with random values for DSKs (initialize any valid DSKs later)
-//  uint8_t lucDSKBuffer[DSK_LENGTH_BYTES];
-//  LOG("%s: Randomized DSKs\r\n", __FUNCTION__);
+//  // ----- Zeroize DSKs (initialize any valid DSKs later)
+//  LOG("%s: Zeroized DSKs\r\n", __FUNCTION__);
+//  for (int i = 0; i < NODE_PROVISIONING_LIST_COUNT; ++i)
+//  {
+//    ZWave_DSK_Zeroize(i);
+//  }
 //  for (int i = 0; i < NODE_PROVISIONING_LIST_COUNT; ++i)
 //  {
 //    memset(lucDSKString, 0x00, sizeof(lucDSKString));
-//    for (int j = 0; j < DSK_LENGTH_BYTES; ++j)
-//    {
-//      lucDSKBuffer[j] = (uint8_t)RandomValue();
-//    }
-//    ZWave_DSK_Write(i, lucDSKBuffer);
 //    for (int j = 0; j < DSK_LENGTH_BYTES; j += 2)
 //    {
 //      luiTempDSKInt = 0x100*gtNodeProvisioningList[i].dsk[j] + gtNodeProvisioningList[i].dsk[j+1];
@@ -6326,6 +6728,27 @@ void ZWaveTask(void *argument)
 //    }
 //    LOG("%s: DSK %d: %s\r\n", __FUNCTION__, i, lucDSKString);
 //  }
+  // ----- Initialize with random values for DSKs (initialize any valid DSKs later)
+  uint8_t lucDSKBuffer[DSK_LENGTH_BYTES];
+  LOG("%s: Randomized DSKs\r\n", __FUNCTION__);
+  for (int i = 0; i < NODE_PROVISIONING_LIST_COUNT; ++i)
+  {
+    memset(lucDSKString, 0x00, sizeof(lucDSKString));
+    for (int j = 0; j < DSK_LENGTH_BYTES; ++j)
+    {
+      lucDSKBuffer[j] = (uint8_t)RandomValue();
+    }
+    ZWave_DSK_Write(i, lucDSKBuffer);
+    for (int j = 0; j < DSK_LENGTH_BYTES; j += 2)
+    {
+      luiTempDSKInt = 0x100*gtNodeProvisioningList[i].dsk[j] + gtNodeProvisioningList[i].dsk[j+1];
+      memset(lucIntegerString, 0x00, sizeof(lucIntegerString));
+      sprintf(lucIntegerString, "%05d", luiTempDSKInt);
+      strcat(lucDSKString, lucIntegerString);
+      if (j < DSK_LENGTH_BYTES-2) strcat(lucDSKString, "-");
+    }
+    LOG("%s: DSK %d: %s\r\n", __FUNCTION__, i, lucDSKString);
+  }
   // ----- Set up a valid DSK for existing End node
   LOG("%s: Valid DSKs\r\n", __FUNCTION__);
   uint8_t lucAvailableDSKIndex;
@@ -6524,25 +6947,25 @@ void ZWaveTask(void *argument)
             // Display status
             switch (gtNodeProvisioningList[i].status)
             {
-            case ZWAVE_NODE_EMPTY:
+            case SMARTSTART_EMPTY:
               LOG("%s: - DSK not written \r\n", __FUNCTION__);
               break;
-            case ZWAVE_NODE_READY:
+            case SMARTSTART_READY:
               LOG("%s: - DSK written to node provisioning list; end node not connected \r\n", __FUNCTION__);
               break;
-            case ZWAVE_NODE_DETECTED:
+            case SMARTSTART_DETECTED:
               LOG("%s: - End node with correlated DSK detected \r\n", __FUNCTION__);
               break;
-            case ZWAVE_NODE_INCLUSION:
+            case SMARTSTART_INCLUSION:
               LOG("%s: - End node joining home network \r\n", __FUNCTION__);
               break;
-            case ZWAVE_NODE_BOOTSTRAP:
+            case SMARTSTART_BOOTSTRAP:
               LOG("%s: - End node sharing key information \r\n", __FUNCTION__);
               break;
-            case ZWAVE_NODE_ACTIVE:
+            case SMARTSTART_ACTIVE:
               LOG("%s: - End node fully connected, including security \r\n", __FUNCTION__);
               break;
-            case ZWAVE_NODE_REMOVED:
+            case SMARTSTART_REMOVED:
               LOG("%s: - End node being removed from home network; DSK being erased from node provisioning list \r\n", __FUNCTION__);
               break;
             default:
@@ -6622,6 +7045,15 @@ void ZWaveTask(void *argument)
     //////////////////////////////////////////////
     ZWave_SerialAPI_StateMachine(ZWAVE_SM_CMD_RUN);
 
+    //////////////////////////////////////////////
+    //
+    // Run the SmartStart state machine
+    //
+    //////////////////////////////////////////////
+    if (ZWave_DSK_IsProcessing())
+    {
+      ZWave_SmartStart_StateMachine(SMARTSTART_SM_CMD_RUN);
+    }
 
     //////////////////////////////////////////////
     //

@@ -106,7 +106,7 @@
 #define VERSION_C                 "1"
 #define VERSION_D                 "" __DATE__ " " __TIME__
 #define VERSION_ENCODED           0x00000100
-#define VERSION_DATE             "2025.12.31"
+#define VERSION_DATE             "2026.01.06"
 # endif
 #else
 #define VERSION_A		  "1"
@@ -275,7 +275,7 @@
 #define OUTPUT_TASK_PERIOD  100
 #define NETWORK_TASK_PERIOD 500
 #define DATALOG_TASK_PERIOD 500
-#define ZWAVE_TASK_PERIOD     5
+#define ZWAVE_TASK_PERIOD    20
 #endif
 
 
