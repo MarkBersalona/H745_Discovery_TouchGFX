@@ -331,6 +331,7 @@ typedef enum
   SMARTSTART_READY,         // DSK written to node provisioning list; end node not connected
   SMARTSTART_DETECTED,      // End node with correlated DSK detected
   SMARTSTART_INCLUSION,     // End node joining home network
+  SMARTSTART_EXCLUSION,     // End node removed from home network
   SMARTSTART_BOOTSTRAP,     // End node sharing key information
   SMARTSTART_ACTIVE,        // End node fully connected, including security
   SMARTSTART_REMOVED,       // End node being removed from home network; DSK being erased from node provisioning list
@@ -348,6 +349,7 @@ typedef struct {
     uint16_t requested_keys;   // bitmask for S2 keys
     uint8_t  boot_mode;        // e.g., SmartStart vs S2 manual
     SmartStartState  status;   // pending, included, ignored, failed
+    uint16_t NodeID;           // 2-byte NodeID
     // optional more fields
 } pl_entry_t;
 #define NODE_PROVISIONING_LIST_COUNT (5)

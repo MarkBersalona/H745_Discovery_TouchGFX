@@ -251,6 +251,10 @@ uint32_t gulElapsedTime_Runtime_sec = 0;
 uint8_t gucIsInclusionFinished = FALSE;
 uint8_t gucIsInclusionFailed   = FALSE;
 
+// Exclusion completed
+uint8_t gucIsExclusionFinished = FALSE;
+uint8_t gucIsExclusionFailed   = FALSE;
+
 // S2 bootstrap completed or failed
 uint8_t gucIsBootstrapFinished = FALSE;
 uint8_t gucIsBootstrapFailed   = FALSE;
@@ -356,6 +360,13 @@ uint8_t gucProcessingDSK = DSK_UNAVAILABLE;
 // Session ID
 uint8_t gucSessionID;
 
+//
+// Copy of LR nodes [0x0100, 0x04FF]
+//
+uint8_t gucLRNodes[MAX_LR_NODEMASK_LENGTH];
+
+// general useage NodeID
+uint16_t guiNodeID;
 
 
 /* USER CODE END PV */
@@ -404,7 +415,9 @@ void ZWave_RSQ_CMD_13_ZW_Send_Data(void);
 void ZWave_RES_CMD_15_ZW_Get_Version(void);
 void ZWave_RES_CMD_20_Memory_Get_ID(void);
 void ZWave_RES_CMD_28_NVR_Get_Value(void);
+void ZWave_REQ_CMD_3F_ZW_Remove_Node_ID_From_Network(void);
 void ZWave_RES_CMD_41_ZW_Get_Node_Protocol_Info(void);
+void ZWave_REQ_CMD_42_ZW_Set_Default(void);
 void ZWave_RSQ_CMD_46_ZW_Assign_Return_Route(void);
 void ZWave_RSQ_CMD_47_ZW_Delete_Return_Route(void);
 void ZWave_REQ_CMD_49_ZW_Application_Update(void);
@@ -416,6 +429,7 @@ void ZWave_RSQ_CMD_54_ZW_Set_SUC_NodeID(void);
 void ZWave_RSQ_CMD_55_ZW_Delete_SUC_Return_Route(void);
 void ZWave_RES_CMD_56_ZW_Get_SUC_Node_ID(void);
 void ZWave_RES_CMD_60_ZW_Request_Node_Info(void);
+void ZWave_RES_CMD_62_ZW_Is_Failed_Node(void);
 void ZWave_RES_CMD_A6_ZW_Is_Virtual_Node(void);
 void ZWave_RES_CMD_A8_Application_Command_Handler_Bridge(void);
 void ZWave_RES_CMD_A9_ZW_Send_Data_Bridge(void);
@@ -428,6 +442,7 @@ void ZWave_Rx_CC_26_Switch_Multilevel_V4(void);
 void ZWave_Rx_CC_9F_Security_2_V2(void);
 void ZWave_Rx_CC_XX_Unsupported(void);
 uint8_t ZWave_Scan_ProvisioningList_For_DSK(uint8_t* paucDSKBuffer, uint8_t aucNeedExactMatch);
+uint8_t ZWave_Scan_ProvisioningList_For_NodeID(uint16_t auiNodeID);
 uint8_t ZWave_Scan_ProvisioningList_For_NWIHomeID(uint32_t aulNWIHomeID);
 void ZWave_Send_REQ_CMD_02_Serial_API_Get_Init_Data(void);
 void ZWave_Send_REQ_CMD_03_Serial_API_Application_Node_Information(void);
@@ -436,10 +451,12 @@ void ZWave_Send_REQ_CMD_07_Serial_API_Get_Capabilities(void);
 void ZWave_Send_REQ_CMD_08_Serial_API_Soft_Reset(void);
 void ZWave_Send_REQ_CMD_0B_Serial_API_Setup(eSerialAPISetupCmd aeSetupCommand, int16_t aiParameter1, int16_t aiParameter2);
 void ZWave_Send_REQ_CMD_20_Memory_Get_ID(void);
+void ZWave_Send_REQ_CMD_3F_Remove_Specific_Node_from_Network(uint8_t aucOptions, uint8_t aucSessionID, uint16_t auiNodeID);
 void ZWave_Send_REQ_CMD_41_Get_Node_Protocol_Info(uint16_t auiNodeID);
 void ZWave_Send_REQ_CMD_42_Set_Default(void);
 void ZWave_Send_REQ_CMD_4A_Add_Node_to_Network(uint8_t aucOptions, uint8_t aucSessionID, uint8_t* paucNWIAuthID);
 void ZWave_Send_REQ_CMD_56_Get_SUC_Node_ID(void);
+void ZWave_Send_REQ_CMD_62_Is_Node_Failed(uint16_t auiNodeID);
 void ZWave_Send_REQ_CMD_DA_Serial_API_Get_LR_Nodes(void);
 void ZWave_Send_REQ_CMD_DE_Get_DCDC_Config(void);
 void ZWave_Send_REQ_CMD_DF_Set_DCDC_Config(sl_dcdc_config_t atDCDCMode);
@@ -1543,6 +1560,171 @@ uint32_t RandomValue(void)
 // end RandomValue
 
 /** *****************************************************************************************************************************
+  * @brief  Check and count number of bit that is set in a nodemask
+  * @param paucMask Pointer to nodemask that should be counted
+  * @param aucLength Length of nodemask to count
+  * @return Number of bits set in nodemask [0, 255]
+  */
+uint8_t ZW_NodeMaskBitsIn(const uint8_t* paucMask, uint8_t aucLength)
+{
+  uint16_t luiBitsSetcount = 0;
+  uint8_t lucReturnValue;
+
+  // Count each set bit in the node mask
+  // NOTE: aucLength could be up to 255, so if all bits set, count is 0x800 (2-byte value)
+  for (uint8_t lucByteIndex = 0; lucByteIndex < aucLength; ++lucByteIndex)
+  {
+    for (uint8_t lucBitIndex = 0; lucBitIndex < 8; ++lucBitIndex)
+    {
+      if ( paucMask[lucByteIndex] & (1<<lucBitIndex) )
+      {
+        ++luiBitsSetcount;
+      }
+    }
+  }
+
+  // Since the return value is only 8 bits long, limit return value to [0, 255]
+  lucReturnValue = (luiBitsSetcount > 255) ? 255 : luiBitsSetcount;
+  LOG("%s: reporting %d active nodes \r\n", __FUNCTION__, lucReturnValue);
+  if (luiBitsSetcount > 255)
+  {
+    LOG("%s: - *** WARNING *** actually detected %d active nodes \r\n", __FUNCTION__, luiBitsSetcount);
+  }
+
+  return lucReturnValue;
+}
+// end ZW_NodeMaskBitsIn
+
+/** *****************************************************************************************************************************
+  * @brief  Clear the node bit in a node bitmask
+  * @param  paucMask Pointer to Nodemask list that should be set
+  * @param  auiNodeID Node ID that should be cleared in the mask
+  * @retval None
+  */
+void ZW_NodeMaskClearBit(uint8_t* paucMask, node_id_t auiNodeID)
+{
+  // from NodeMask.h and from Z-Wave Host API specification
+  // NodeID = 256 + (8 * node_list_byte_index) + (node_list_byte_bit) + (128 * 8 * node_list_start_offset)
+  // Since node_list_start_offset = 0, node_list_byte_index in [0, 127] and node_list_byte_bit in [0, 7]
+  //  (NodeID - 256) / 8 = node_list_byte_index
+  //  (NodeID %   8)     = node_list_byte_bit
+
+  uint8_t lucByteIndex = (auiNodeID-256) / 8;
+  uint8_t lucBitIndex  = auiNodeID % 8;
+  LOG("%s: NodeID = 0x%04X \t byte index = 0x%02X \t bit index = %d \t bit mask = 0x%02X \r\n", __FUNCTION__, auiNodeID, lucByteIndex, lucBitIndex, (uint8_t)~(1<<lucBitIndex) );
+
+  // Now that we've got a byte index and bit index, clear the specific bit in the specified byte
+  paucMask[lucByteIndex] &= (uint8_t)~(1 << lucBitIndex);
+}
+// end ZW_NodeMaskClearBit
+
+/** *****************************************************************************************************************************
+  * @brief  Find the next NodeIndex that is set in a nodemask
+  * @param auiCurrentNodeID Last NodeId found (0 for first call)
+  * @param paucMask Pointer to Nodemask list that should be searched
+  * @return Next NodeId from the nodemask if found, or 0 if not found.
+  */
+node_id_t ZW_NodeMaskGetNextNodeIndex(node_id_t auiCurrentNodeID, uint8_t* paucMask)
+{
+  // from NodeMask.h and from Z-Wave Host API specification
+  // NodeID = 256 + (8 * node_list_byte_index) + (node_list_byte_bit) + (128 * 8 * node_list_start_offset)
+  // Since node_list_start_offset = 0, node_list_byte_index in [0, 127] and node_list_byte_bit in [0, 7]
+  //  (NodeID - 256) / 8 = node_list_byte_index
+  //  (NodeID %   8)     = node_list_byte_bit
+
+  node_id_t luiCurrentNodeID;
+  uint8_t lucCurrentByteIndex;
+  uint8_t lucCurrentBitIndex;
+  node_id_t ltNextNodeID = 0;
+  uint8_t lucNextByteIndex;
+  uint8_t lucNextBitIndex;
+
+  // First, get the byte and bit indexes of the current NodeID
+  if (auiCurrentNodeID)
+  {
+    // Calculate byte and bit indexes of current NodeID
+    lucCurrentByteIndex = (auiCurrentNodeID-256) / 8;
+    lucCurrentBitIndex  = auiCurrentNodeID % 8;
+    //LOG("%s: current NodeID = 0x%04X \t byte index = 0x%02X \t bit index = %d \t bit mask = 0x%02X \r\n", __FUNCTION__, auiCurrentNodeID, lucCurrentByteIndex, lucCurrentBitIndex, (1<<lucCurrentBitIndex) );
+
+    // Point to the next candidate NodeID and get byte and bit indexes
+    luiCurrentNodeID = auiCurrentNodeID + 1;
+    lucCurrentByteIndex = (luiCurrentNodeID-256) / 8;
+    lucCurrentBitIndex  = (luiCurrentNodeID-256) % 8;
+    //LOG("%s: start   NodeID = 0x%04X \t byte index = 0x%02X \t bit index = %d \t bit mask = 0x%02X \r\n", __FUNCTION__, luiCurrentNodeID, lucCurrentByteIndex, lucCurrentBitIndex, (1<<lucCurrentBitIndex) );
+  }
+  else
+  {
+    // NodeID is 0, so start searching at the beginning of the node list
+    lucCurrentByteIndex = 0;
+    lucCurrentBitIndex  = 0;
+    //LOG("%s: current NodeID = 0x%04X \t byte index = 0x%02X \t bit index = %d \t bit mask = 0x%02X \r\n", __FUNCTION__, auiCurrentNodeID, lucCurrentByteIndex, lucCurrentBitIndex, (1<<lucCurrentBitIndex) );
+  }
+
+  // Next, scan the rest of the node list for the next set bit (if any)
+  for (uint8_t lucByteIndex = lucCurrentByteIndex; lucByteIndex < MAX_LR_NODEMASK_LENGTH; ++lucByteIndex)
+  {
+    for (uint8_t lucBitIndex = lucCurrentBitIndex; lucBitIndex < 8; ++lucBitIndex)
+    {
+      if ( paucMask[lucByteIndex] & (1<<lucBitIndex) )
+      {
+        // An active NodeID has been found
+        ltNextNodeID = 256 + (8*lucByteIndex) + lucBitIndex;
+        lucNextByteIndex = lucByteIndex;
+        lucNextBitIndex  = lucBitIndex;
+        LOG("%s: next    NodeID = 0x%04X \t byte index = 0x%02X \t bit index = %d \t bit mask = 0x%02X \r\n", __FUNCTION__, ltNextNodeID, lucNextByteIndex, lucNextBitIndex, (1<<lucNextBitIndex) );
+
+        // Break out of the for loops, we've found the next NodeID
+        lucBitIndex  = 8;
+        lucByteIndex = MAX_LR_NODEMASK_LENGTH;
+      }
+    }
+
+    // After the first byte's remaining bits have been checked, next and subsequent bytes must be checked for all 8 bits
+    lucCurrentBitIndex = 0;
+  }
+
+  if (0==ltNextNodeID)
+  {
+    LOG("%s: No more active nodes detected \r\n", __FUNCTION__ );
+  }
+
+  return ltNextNodeID;
+}
+// end ZW_NodeMaskGetNextNodeIndex
+
+/** *****************************************************************************************************************************
+  * @brief  Set the node bit in a node bitmask
+  * @param  paucMask Pointer to Nodemask list that should be set
+  * @param  auiNodeID Node ID that should be set in the mask
+  * @retval None
+  */
+void ZW_NodeMaskSetBit(uint8_t* paucMask, node_id_t auiNodeID)
+{
+  // from NodeMask.h and from Z-Wave Host API specification
+  // NodeID = 256 + (8 * node_list_byte_index) + (node_list_byte_bit) + (128 * 8 * node_list_start_offset)
+  // Since node_list_start_offset = 0, node_list_byte_index in [0, 127] and node_list_byte_bit in [0, 7]
+  //  (NodeID - 256) / 8 = node_list_byte_index
+  //  (NodeID %   8)     = node_list_byte_bit
+
+  uint8_t lucByteIndex = (auiNodeID-256) / 8;
+  uint8_t lucBitIndex  = auiNodeID % 8;
+  LOG("%s: NodeID = 0x%04X \t byte index = 0x%02X \t bit index = %d \t bit mask = 0x%02X \r\n", __FUNCTION__, auiNodeID, lucByteIndex, lucBitIndex, (1<<lucBitIndex) );
+
+  // Now that we've got a byte index and bit index, set the specific bit in the specified byte
+  paucMask[lucByteIndex] |= (1 << lucBitIndex);
+}
+// end ZW_NodeMaskSetBit
+
+/* ***************************************************************************************************************************** */
+/* ***************************************************************************************************************************** */
+/* ***************************************************************************************************************************** */
+/* ***************************************************************************************************************************** */
+/* ***************************************************************************************************************************** */
+/* ***************************************************************************************************************************** */
+/* ***************************************************************************************************************************** */
+
+/** *****************************************************************************************************************************
   * @brief  Display received frame data (to debug port)
   * @param  None
   * @retval None
@@ -1929,6 +2111,7 @@ void ZWave_DSK_Zeroize(uint8_t aucDSKIndex)
     }
     gtNodeProvisioningList[aucDSKIndex].boot_mode = ZWAVE_NODE_PROVISIONING_LIST_S2_MANUAL; // initialize with zeroized DSK, so assume no SmartStart
     gtNodeProvisioningList[aucDSKIndex].status = SMARTSTART_EMPTY; // initialize with zeroized DSK, so status is EMPTY
+    gtNodeProvisioningList[aucDSKIndex].NodeID = 0x0000; // initialize NodeID
   }
   else
   {
@@ -3692,6 +3875,65 @@ void ZWave_RES_CMD_28_NVR_Get_Value(void)
 // end ZWave_RES_CMD_28_NVR_Get_Value
 
 /** *****************************************************************************************************************************
+  * @brief  Command handler for CMD 0x3F FUNC_ID_ZW_REMOVE_NODE_ID_FROM_NETWORK ZW->HOST
+  * @param  None
+  * @retval None
+  */
+void ZWave_REQ_CMD_3F_ZW_Remove_Node_ID_From_Network(void)
+{
+  // The host should be receiving the callback (request) data frames
+  LOG("%s: Session ID             = 0x%02X\r\n", __FUNCTION__, ZWaveSerialFrame->payload[0]);
+  LOG("%s: Status                 = 0x%02X\r\n", __FUNCTION__, ZWaveSerialFrame->payload[1]);
+  switch (ZWaveSerialFrame->payload[1])
+  {
+  case REMOVE_NODE_STATUS_LEARN_READY:
+    LOG("%s: - Network Exclusion started \r\n", __FUNCTION__);
+    break;
+  case REMOVE_NODE_STATUS_NODE_FOUND:
+    LOG("%s: - Node found \r\n", __FUNCTION__);
+    break;
+  case REMOVE_NODE_STATUS_REMOVING_SLAVE:
+    LOG("%s: - Exclusion ongoing (for End node) \r\n", __FUNCTION__);
+    break;
+  case REMOVE_NODE_STATUS_REMOVING_CONTROLLER:
+    LOG("%s: - Exclusion ongoing (for Controller node) \r\n", __FUNCTION__);
+    break;
+  case REMOVE_NODE_STATUS_DONE:
+    LOG("%s: - Exclusion completed \r\n", __FUNCTION__);
+    gucIsExclusionFinished = TRUE;
+    break;
+  case REMOVE_NODE_STATUS_FAILED:
+    LOG("%s: - Exclusion FAILED \r\n", __FUNCTION__);
+    gucIsExclusionFailed = TRUE;
+    break;
+  case ADD_NODE_STATUS_NOT_PRIMARY:
+    LOG("%s: - NOT Primary \r\n", __FUNCTION__);
+    break;
+  default:
+    LOG("%s: - *** WARNING *** unrecognized or reserved status \r\n", __FUNCTION__);
+    break;
+  }
+
+  LOG("%s: NodeID                 = 0x%04X\r\n", __FUNCTION__, (0x100*ZWaveSerialFrame->payload[2]) + ZWaveSerialFrame->payload[3]);
+  LOG("%s: Data length            = 0x%02X\r\n", __FUNCTION__, ZWaveSerialFrame->payload[4]);
+  if (ZWaveSerialFrame->payload[4])
+  {
+    LOG("%s: Basic device type      = 0x%02X\r\n", __FUNCTION__, ZWaveSerialFrame->payload[5]);
+    ZWave_Identify_Basic_Device_Type(ZWaveSerialFrame->payload[5]);
+
+    LOG("%s: Generic device type    = 0x%02X\r\n", __FUNCTION__, ZWaveSerialFrame->payload[6]);
+    ZWave_Identify_Generic_Device_Type(ZWaveSerialFrame->payload[6]);
+
+    LOG("%s: Specific device type   = 0x%02X\r\n", __FUNCTION__, ZWaveSerialFrame->payload[7]);
+    ZWave_Identify_Specific_Device_Type(ZWaveSerialFrame->payload[6], ZWaveSerialFrame->payload[7]);
+    LOG("-----------------------  Supported Command Classes START -----------------------\r\n");
+    PrintBytes(&ZWaveSerialFrame->payload[8], ZWaveSerialFrame->payload[4] - 3, false, 0);
+    LOG("-----------------------  Supported Command Classes  END  -----------------------\r\n");
+  }
+}
+// end ZWave_REQ_CMD_3F_ZW_Remove_Node_ID_From_Network
+
+/** *****************************************************************************************************************************
   * @brief  Command handler for CMD 0x41 FUNC_ID_ZW_GET_NODE_PROTOCOL_INFO ZW->HOST: Cmd | NodeInfo[]
   * @param  None
   * @retval None
@@ -3756,6 +3998,17 @@ void ZWave_RES_CMD_41_ZW_Get_Node_Protocol_Info(void)
 
 }
 // end ZWave_RES_CMD_41_ZW_Get_Node_Protocol_Info
+
+/** *****************************************************************************************************************************
+  * @brief  Command handler for CMD 0x42 FUNC_ID_ZW_SET_DEFAULT ZW->HOST
+  * @param  None
+  * @retval None
+  */
+void ZWave_REQ_CMD_42_ZW_Set_Default(void)
+{
+  LOG("%s: Session ID = 0x%02X\r\n", __FUNCTION__, ZWaveSerialFrame->payload[0]);
+}
+// end ZWave_REQ_CMD_42_ZW_Set_Default
 
 /** *****************************************************************************************************************************
   * @brief  Command handler for CMD 0x46 FUNC_ID_ZW_ASSIGN_RETURN_ROUTE ZW->HOST: RES | Cmd | retVal; REQ | Cmd | sessionID | txStatus
@@ -4065,6 +4318,11 @@ void ZWave_REQ_CMD_4A_ZW_Add_Node_To_Network(void)
   }
 
   LOG("%s: NodeID                 = 0x%04X\r\n", __FUNCTION__, (0x100*ZWaveSerialFrame->payload[2]) + ZWaveSerialFrame->payload[3]);
+  if (ADD_NODE_STATUS_ADDING_SLAVE == ZWaveSerialFrame->payload[1] && gucProcessingDSK < NODE_PROVISIONING_LIST_COUNT)
+  {
+    LOG("%s: Saving DSK %d NodeID 0x%04X \r\n", __FUNCTION__, gucProcessingDSK, (0x100*ZWaveSerialFrame->payload[2]) + ZWaveSerialFrame->payload[3]);
+    gtNodeProvisioningList[gucProcessingDSK].NodeID = (0x100*ZWaveSerialFrame->payload[2]) + ZWaveSerialFrame->payload[3];
+  }
   LOG("%s: Data length            = 0x%02X\r\n", __FUNCTION__, ZWaveSerialFrame->payload[4]);
   if (ZWaveSerialFrame->payload[4])
   {
@@ -4352,6 +4610,26 @@ void ZWave_RES_CMD_60_ZW_Request_Node_Info(void)
 // end ZWave_RES_CMD_60_ZW_Request_Node_Info
 
 /** *****************************************************************************************************************************
+  * @brief  Command handler for CMD 0x62 FUNC_ID_ZW_IS_FAILED_NODE_ID ZW->HOST: Cmd | failedNodeIDPresence
+  * @param  None
+  * @retval None
+  */
+void ZWave_RES_CMD_62_ZW_Is_Failed_Node(void)
+{
+  if (ZWaveSerialFrame->payload[0])
+  {
+    //LOG("%s: *** WARNING *** NodeID 0x%04X is indeed present in the controller failed NodeID list \r\n", __FUNCTION__, gtNodeProvisioningList[gucProcessingDSK].NodeID);
+    LOG("%s: *** WARNING *** NodeID 0x%04X is indeed present in the controller failed NodeID list \r\n", __FUNCTION__, guiNodeID);
+  }
+  else
+  {
+    //LOG("%s: NodeID 0x%04X is NOT present in the controller failed NodeID list \r\n", __FUNCTION__, gtNodeProvisioningList[gucProcessingDSK].NodeID);
+    LOG("%s: NodeID 0x%04X is NOT present in the controller failed NodeID list \r\n", __FUNCTION__, guiNodeID);
+  }
+}
+// end ZWave_RES_CMD_60_ZW_Request_Node_Info
+
+/** *****************************************************************************************************************************
   * @brief  Command handler for CMD 0xA6 FUNC_ID_ZW_IS_VIRTUAL_NODE ZW->HOST: Cmd | retVal
   * @param  None
   * @retval None
@@ -4459,7 +4737,7 @@ void ZWave_RES_CMD_DA_Serial_API_Get_LR_Nodes(void)
   LOG("%s: BITMASK_OFFSET  = 0x%02X\r\n", __FUNCTION__, ZWaveSerialFrame->payload[1]);
   LOG("%s: BITMASK_LEN     = 0x%02X\r\n", __FUNCTION__, ZWaveSerialFrame->payload[2]);
   LOG("%s: BITMASK_ARRAY: \r\n", __FUNCTION__);
-  //PrintBytes(&ZWaveSerialFrame->payload[3], MAX_LR_NODEMASK_LENGTH, false, 0);
+  PrintBytes(&ZWaveSerialFrame->payload[3], MAX_LR_NODEMASK_LENGTH, false, 0);
   uint16_t luiNodeID;
   uint8_t lucOffset = ZWaveSerialFrame->payload[1];
   for (uint8_t lucByteIndexJ = 0; lucByteIndexJ < ZWaveSerialFrame->payload[2]; ++lucByteIndexJ)
@@ -4474,6 +4752,13 @@ void ZWave_RES_CMD_DA_Serial_API_Get_LR_Nodes(void)
       }
     }
   }
+  ////////////////////////////////////////////////////////////////////////////////////////
+  //// TEST MAB 2026.01.07
+  //// Save the LR nodes bitmask array
+  memcpy(gucLRNodes, &ZWaveSerialFrame->payload[3], MAX_LR_NODEMASK_LENGTH);
+  LOG("%s: Copy of BITMASK_ARRAY: \r\n", __FUNCTION__);
+  PrintBytes(gucLRNodes, MAX_LR_NODEMASK_LENGTH, false, 0);
+  ////////////////////////////////////////////////////////////////////////////////////////
 }
 // end ZWave_RES_CMD_DA_Serial_API_Get_LR_Nodes
 
@@ -4964,6 +5249,28 @@ uint8_t ZWave_Scan_ProvisioningList_For_DSK(uint8_t* paucDSKBuffer, uint8_t aucN
 // end ZWave_Scan_ProvisioningList_For_DSK
 
 /** *****************************************************************************************************************************
+  * @brief  Scan Node Provisioning List for any/all matching DSKs for NodeID
+  * @param  uint16_t auiNodeID - 2-byte NodeID to search in provisioning list
+  * @retval DSK index if any matching DSKs are found; 0xFF if no matching DSKs found
+  */
+uint8_t ZWave_Scan_ProvisioningList_For_NodeID(uint16_t auiNodeID)
+{
+  uint8_t lucReturnValue = DSK_UNAVAILABLE;
+
+  for (int i = 0; i < NODE_PROVISIONING_LIST_COUNT; ++i)
+  {
+    if (gtNodeProvisioningList[i].NodeID == auiNodeID)
+    {
+      lucReturnValue = i;
+      LOG("%s: DSK %d appears to be a match! \r\n", __FUNCTION__, i);
+    }
+  }
+
+  return lucReturnValue;
+}
+// end ZWave_Scan_ProvisioningList_For_NodeID
+
+/** *****************************************************************************************************************************
   * @brief  Scan Node Provisioning List for any/all matching DSKs for NWI HomeID
   * @param  uint32_t aulNWIHomeID - NWI HomeID to search in provisioning list
   * @retval DSK index if any matching DSKs are found; 0xFF if no matching DSKs found
@@ -5177,6 +5484,25 @@ void ZWave_Send_REQ_CMD_20_Memory_Get_ID(void)
 // end ZWave_Send_REQ_CMD_20_Memory_Get_ID
 
 /** *****************************************************************************************************************************
+  * @brief  Prepare and send REQ CMD 3F Remove Specific Node from Network
+  * @param  uint8_t aucOptions     - Power | NWI | Protocol | SFLND | Mode (4 bits)
+  * @param  uint8_t aucSessionID   - session ID
+  * @param  uint16_t auiNodeID     - 2-byte NodeID to be removed from network
+  * @retval None
+  */
+void ZWave_Send_REQ_CMD_3F_Remove_Specific_Node_from_Network(uint8_t aucOptions, uint8_t aucSessionID, uint16_t auiNodeID)
+{
+  gucZWaveWorkbuf[0] = aucOptions;
+  gucZWaveWorkbuf[1] = (uint8_t)(auiNodeID / 0x100);
+  gucZWaveWorkbuf[2] = (uint8_t)(auiNodeID & 0xFF);
+  gucZWaveWorkbuf[3] = aucSessionID;
+
+  ZWave_Enqueue_Request(FUNC_ID_ZW_REMOVE_NODE_ID_FROM_NETWORK, gucZWaveWorkbuf, 4);
+  LOG("%s: Sending FUNC_ID_ZW_REMOVE_NODE_ID_FROM_NETWORK\r\n", __FUNCTION__);
+}
+// end ZWave_Send_REQ_CMD_3F_Remove_Specific_Node_from_Network
+
+/** *****************************************************************************************************************************
   * @brief  Prepare and send REQ CMD 41 Get Node Protocol Info
   * @param  uint16_t auiNodeID - 2-byte NodeID
   * @retval None
@@ -5252,6 +5578,21 @@ void ZWave_Send_REQ_CMD_56_Get_SUC_Node_ID(void)
   LOG("%s: Sending FUNC_ID_ZW_GET_SUC_NODE_ID\r\n", __FUNCTION__);
 }
 // end ZWave_Send_REQ_CMD_56_Get_SUC_Node_ID
+
+/** *****************************************************************************************************************************
+  * @brief  Prepare and send REQ CMD 62 Is Node Failed
+  * @param  uint16_t auiNodeID     - 2-byte NodeID to be checked if in failed node list
+  * @retval None
+  */
+void ZWave_Send_REQ_CMD_62_Is_Node_Failed(uint16_t auiNodeID)
+{
+  gucZWaveWorkbuf[0] = (uint8_t)(auiNodeID / 0x100);
+  gucZWaveWorkbuf[1] = (uint8_t)(auiNodeID & 0xFF);
+
+  ZWave_Enqueue_Request(FUNC_ID_ZW_IS_FAILED_NODE_ID, gucZWaveWorkbuf, 2);
+  LOG("%s: Sending FUNC_ID_ZW_IS_FAILED_NODE_ID\r\n", __FUNCTION__);
+}
+// end ZWave_Send_REQ_CMD_62_Is_Node_Failed
 
 /** *****************************************************************************************************************************
   * @brief  Prepare and send REQ CMD DA Serial API Get LR Nodes
@@ -5785,12 +6126,17 @@ ZWave_SmartStart_StateMachine
     ELSE IF state is INCLUSION
       Update elapsed inclusion time
       IF node inclusion failed OR timed out
-        Resume listening for SmartStart Prime commands, report to host application
-        Set state to READY
+        Remove this specific node from the network
+        Set state to EXCLUSION
       ELSE IF node inclusion has completed
         Stop node inclusion
         Set state to BOOTSTRAP
       ENDIF
+    ELSE IF state is EXCLUSION
+      IF node exclusion completed
+        Resume listening for SmartStart Prime commands, report to host application
+        Set state to READY
+      ENDIf
     ELSE IF state is BOOTSTRAP
       Update elapsed bootstrap time
       IF S2 bootstrap failed OR timed out
@@ -5891,11 +6237,13 @@ SmartStartState ZWave_SmartStart_StateMachine(SmartStartStateMachineCommand stat
     else if (SMARTSTART_DETECTED == leSmartStartState)
     {
       // Start node inclusion for the active DSK
+      #if ENABLE_ZWAVE_CONTROLLER_HOST
       LOG("%s: Starting node inclusion for DSK %d \r\n", __FUNCTION__, gucProcessingDSK);
       ZWave_DSK_Extract_NWIAuthHomeID(gucProcessingDSK, lucNWIAuthHomeIDBuffer);
       gucSessionID = ZWave_SessionID_Update(gucSessionID);
       ZWave_Send_REQ_CMD_4A_Add_Node_to_Network(ADD_NODE_OPTION_NETWORK_WIDE|ADD_NODE_OPTION_LR|ADD_NODE_HOME_ID, gucSessionID, lucNWIAuthHomeIDBuffer);
       //ZWave_Send_REQ_CMD_4A_Add_Node_to_Network(ADD_NODE_OPTION_NETWORK_WIDE|ADD_NODE_HOME_ID, gucSessionID, lucNWIAuthHomeIDBuffer);
+      #endif // ENABLE_ZWAVE_CONTROLLER_HOST
 
       // Set state to INCLUSION
       lulElapsedTime_Inclusion_msec = 0;
@@ -5925,25 +6273,49 @@ SmartStartState ZWave_SmartStart_StateMachine(SmartStartStateMachineCommand stat
           LOG("%s: *** WARNING *** Inclusion for DSK %d timed out \r\n", __FUNCTION__, gucProcessingDSK);
         }
 
-        // Resume listening for SmartStart Prime commands, report to host application
-        LOG("%s: Resume listening for SmartStart Prime commands, report to host application \r\n", __FUNCTION__);
-        gucSessionID = ZWave_SessionID_Update(gucSessionID);
-        ZWave_Send_REQ_CMD_4A_Add_Node_to_Network(ADD_NODE_OPTION_NETWORK_WIDE|ADD_NODE_SMART_START, gucSessionID, NULL);
+        //////////////////////////////////////////////////////////////////////////////////////////////////////
+        //// TEST MAB 2026.01.06
+        //// Check if the NodeID is in the controller list of failed NodeIDs
+        #if ENABLE_ZWAVE_CONTROLLER_HOST
+        ZWave_Send_REQ_CMD_62_Is_Node_Failed(gtNodeProvisioningList[gucProcessingDSK].NodeID);
+        #endif
+        //////////////////////////////////////////////////////////////////////////////////////////////////////
 
-        // Set state to READY
-        LOG("%s: Transitioning DSK %d from INCLUSION to READY\r\n", __FUNCTION__, gucProcessingDSK);
-        leSmartStartState                               = SMARTSTART_READY;
-        gtNodeProvisioningList[gucProcessingDSK].status = SMARTSTART_READY;
-        gucProcessingDSK = DSK_UNAVAILABLE;
+        #if ENABLE_ZWAVE_CONTROLLER_HOST
+        // Remove this specific node from the network
+        gucSessionID = ZWave_SessionID_Update(gucSessionID);
+        LOG("%s: Will attempt to delete DSK %d NodeID=0x%04X from network... \r\n", __FUNCTION__, gucProcessingDSK, gtNodeProvisioningList[gucProcessingDSK].NodeID);
+        ZWave_Send_REQ_CMD_3F_Remove_Specific_Node_from_Network(REMOVE_NODE_OPTION_NORMAL_POWER|REMOVE_NODE_OPTION_NETWORK_WIDE|ADD_NODE_OPTION_LR|REMOVE_NODE_ANY,
+                                                                gucSessionID,
+                                                                gtNodeProvisioningList[gucProcessingDSK].NodeID);
+//        ZWave_Send_REQ_CMD_3F_Remove_Specific_Node_from_Network(REMOVE_NODE_OPTION_NETWORK_WIDE|REMOVE_NODE_ANY,
+//                                                                gucSessionID,
+//                                                                gtNodeProvisioningList[gucProcessingDSK].NodeID);
+//        ZWave_Send_REQ_CMD_3F_Remove_Specific_Node_from_Network(REMOVE_NODE_ANY,
+//                                                                gucSessionID,
+//                                                                gtNodeProvisioningList[gucProcessingDSK].NodeID);
+//        ZWave_Send_REQ_CMD_3F_Remove_Specific_Node_from_Network(REMOVE_NODE_OPTION_NORMAL_POWER|REMOVE_NODE_ANY,
+//                                                                gucSessionID,
+//                                                                gtNodeProvisioningList[gucProcessingDSK].NodeID);
+        #endif
+
+        // Set state to EXCLUSION
+        LOG("%s: Transitioning DSK %d from INCLUSION to EXCLUSION\r\n", __FUNCTION__, gucProcessingDSK);
+        gucIsExclusionFinished = FALSE;
+        gucIsExclusionFailed   = FALSE;
+        leSmartStartState                               = SMARTSTART_EXCLUSION;
+        gtNodeProvisioningList[gucProcessingDSK].status = SMARTSTART_EXCLUSION;
       }
       // ELSE IF node inclusion has completed
       else if (gucIsInclusionFinished)
       {
         LOG("%s: Inclusion for DSK %d completed in %d msec \r\n", __FUNCTION__, gucProcessingDSK, lulElapsedTime_Inclusion_msec);
 
+        #if ENABLE_ZWAVE_CONTROLLER_HOST
         // Stop node inclusion
         LOG("%s: Stopping node inclusion \r\n", __FUNCTION__);
         ZWave_Send_REQ_CMD_4A_Add_Node_to_Network(ADD_NODE_STOP, gucSessionID, NULL);
+        #endif
 
         // Set state to BOOTSTRAP
         lulElapsedTime_Bootstrap_msec = 0;
@@ -5954,6 +6326,29 @@ SmartStartState ZWave_SmartStart_StateMachine(SmartStartStateMachineCommand stat
         gtNodeProvisioningList[gucProcessingDSK].status = SMARTSTART_BOOTSTRAP;
       }
       // ENDIF
+    }
+
+    //-------------------------------------------------------
+    // ELSE IF state is EXCLUSION
+    else if (SMARTSTART_EXCLUSION == leSmartStartState)
+    {
+      // IF node exclusion completed
+      if (gucIsExclusionFinished || gucIsExclusionFailed)
+      {
+        #if ENABLE_ZWAVE_CONTROLLER_HOST
+        // Resume listening for SmartStart Prime commands, report to host application
+        LOG("%s: Resume listening for SmartStart Prime commands, report to host application \r\n", __FUNCTION__);
+        gucSessionID = ZWave_SessionID_Update(gucSessionID);
+        ZWave_Send_REQ_CMD_4A_Add_Node_to_Network(ADD_NODE_OPTION_NETWORK_WIDE|ADD_NODE_SMART_START, gucSessionID, NULL);
+        #endif
+
+        // Set state to READY
+        LOG("%s: Transitioning DSK %d from EXCLUSION to READY\r\n", __FUNCTION__, gucProcessingDSK);
+        leSmartStartState                               = SMARTSTART_READY;
+        gtNodeProvisioningList[gucProcessingDSK].status = SMARTSTART_READY;
+        gucProcessingDSK = DSK_UNAVAILABLE;
+      }
+      // ENDIf
     }
 
     //-------------------------------------------------------
@@ -6614,6 +7009,10 @@ void ZWaveTask(void *argument)
   static uint8_t lucOldSecond = 100; // Nonsense initial value guarantees update when RTC first read
   static uint8_t lucOldMinute = 100; // Nonsense initial value guarantees update when RTC first read
   static uint8_t lucOldHour   = 100; // Nonsense initial value guarantees update when RTC first read
+  static uint8_t lucCountdownToRepeatedZWaveCommands_minutes = 30;
+  #define NODE_PL_DISPLAY_INTERVAL_MINUTES (5)
+  static uint8_t lucCountdownToNodeProvisioningListStatus_minutes = NODE_PL_DISPLAY_INTERVAL_MINUTES;
+  static uint32_t lulCountdownToCheckAbandonedNodeID_seconds = 120;
 
   LOG("%s: initializing...\r\n", __FUNCTION__);
 
@@ -6653,8 +7052,9 @@ void ZWaveTask(void *argument)
   gtZWave_CMD_Handler[FUNC_ID_ZW_GET_VERSION]                     = ZWave_RES_CMD_15_ZW_Get_Version;
   gtZWave_CMD_Handler[FUNC_ID_MEMORY_GET_ID]                      = ZWave_RES_CMD_20_Memory_Get_ID;
   gtZWave_CMD_Handler[FUNC_ID_NVR_GET_VALUE]                      = ZWave_RES_CMD_28_NVR_Get_Value;
+  gtZWave_CMD_Handler[FUNC_ID_ZW_REMOVE_NODE_ID_FROM_NETWORK]     = ZWave_REQ_CMD_3F_ZW_Remove_Node_ID_From_Network;
   gtZWave_CMD_Handler[FUNC_ID_ZW_GET_NODE_PROTOCOL_INFO]          = ZWave_RES_CMD_41_ZW_Get_Node_Protocol_Info;
-  //gtZWave_CMD_Handler[FUNC_ID_ZW_SET_DEFAULT]                     = xxxxxxxxxxxxxxxxx;
+  gtZWave_CMD_Handler[FUNC_ID_ZW_SET_DEFAULT]                     = ZWave_REQ_CMD_42_ZW_Set_Default;
   gtZWave_CMD_Handler[FUNC_ID_ZW_ASSIGN_RETURN_ROUTE]             = ZWave_RSQ_CMD_46_ZW_Assign_Return_Route;
   gtZWave_CMD_Handler[FUNC_ID_ZW_DELETE_RETURN_ROUTE]             = ZWave_RSQ_CMD_47_ZW_Delete_Return_Route;
   gtZWave_CMD_Handler[FUNC_ID_ZW_APPLICATION_UPDATE]              = ZWave_REQ_CMD_49_ZW_Application_Update;
@@ -6666,6 +7066,7 @@ void ZWaveTask(void *argument)
   gtZWave_CMD_Handler[FUNC_ID_ZW_DELETE_SUC_RETURN_ROUTE]         = ZWave_RSQ_CMD_55_ZW_Delete_SUC_Return_Route;
   gtZWave_CMD_Handler[FUNC_ID_ZW_GET_SUC_NODE_ID]                 = ZWave_RES_CMD_56_ZW_Get_SUC_Node_ID;
   gtZWave_CMD_Handler[FUNC_ID_ZW_REQUEST_NODE_INFO]               = ZWave_RES_CMD_60_ZW_Request_Node_Info;
+  gtZWave_CMD_Handler[FUNC_ID_ZW_IS_FAILED_NODE_ID]               = ZWave_RES_CMD_62_ZW_Is_Failed_Node;
   gtZWave_CMD_Handler[FUNC_ID_ZW_IS_VIRTUAL_NODE]                 = ZWave_RES_CMD_A6_ZW_Is_Virtual_Node;
   gtZWave_CMD_Handler[FUNC_ID_APPLICATION_COMMAND_HANDLER_BRIDGE] = ZWave_RES_CMD_A8_Application_Command_Handler_Bridge;
   gtZWave_CMD_Handler[FUNC_ID_ZW_SEND_DATA_BRIDGE]                = ZWave_RES_CMD_A9_ZW_Send_Data_Bridge;
@@ -6749,28 +7150,28 @@ void ZWaveTask(void *argument)
     }
     LOG("%s: DSK %d: %s\r\n", __FUNCTION__, i, lucDSKString);
   }
-  // ----- Set up a valid DSK for existing End node
-  LOG("%s: Valid DSKs\r\n", __FUNCTION__);
-  uint8_t lucAvailableDSKIndex;
-  // Zeroize a random DSK
-  lucAvailableDSKIndex = RandomValue() % NODE_PROVISIONING_LIST_COUNT;
-  ZWave_DSK_Zeroize(lucAvailableDSKIndex);
-  // END Zeroize a random DSK
-  lucAvailableDSKIndex = ZWave_DSK_Find_Zeroized();
-  if (lucAvailableDSKIndex != DSK_UNAVAILABLE)
-  {
-    ZWave_DSK_Write_From_String(lucAvailableDSKIndex, "41518-18177-63256-08527-46087-44111-60645-12807");
-    memset(lucDSKString, 0x00, sizeof(lucDSKString));
-    for (int j = 0; j < DSK_LENGTH_BYTES; j += 2)
-    {
-      luiTempDSKInt = 0x100*gtNodeProvisioningList[lucAvailableDSKIndex].dsk[j] + gtNodeProvisioningList[lucAvailableDSKIndex].dsk[j+1];
-      memset(lucIntegerString, 0x00, sizeof(lucIntegerString));
-      sprintf(lucIntegerString, "%05d", luiTempDSKInt);
-      strcat(lucDSKString, lucIntegerString);
-      if (j < DSK_LENGTH_BYTES-2) strcat(lucDSKString, "-");
-    }
-    LOG("%s: DSK %d: %s\r\n", __FUNCTION__, lucAvailableDSKIndex, lucDSKString);
-  }
+//  // ----- Set up a valid DSK for existing End node
+//  LOG("%s: Valid DSKs\r\n", __FUNCTION__);
+//  uint8_t lucAvailableDSKIndex;
+//  // Zeroize a random DSK
+//  lucAvailableDSKIndex = RandomValue() % NODE_PROVISIONING_LIST_COUNT;
+//  ZWave_DSK_Zeroize(lucAvailableDSKIndex);
+//  // END Zeroize a random DSK
+//  lucAvailableDSKIndex = ZWave_DSK_Find_Zeroized();
+//  if (lucAvailableDSKIndex != DSK_UNAVAILABLE)
+//  {
+//    ZWave_DSK_Write_From_String(lucAvailableDSKIndex, "41518-18177-63256-08527-46087-44111-60645-12807");
+//    memset(lucDSKString, 0x00, sizeof(lucDSKString));
+//    for (int j = 0; j < DSK_LENGTH_BYTES; j += 2)
+//    {
+//      luiTempDSKInt = 0x100*gtNodeProvisioningList[lucAvailableDSKIndex].dsk[j] + gtNodeProvisioningList[lucAvailableDSKIndex].dsk[j+1];
+//      memset(lucIntegerString, 0x00, sizeof(lucIntegerString));
+//      sprintf(lucIntegerString, "%05d", luiTempDSKInt);
+//      strcat(lucDSKString, lucIntegerString);
+//      if (j < DSK_LENGTH_BYTES-2) strcat(lucDSKString, "-");
+//    }
+//    LOG("%s: DSK %d: %s\r\n", __FUNCTION__, lucAvailableDSKIndex, lucDSKString);
+//  }
   LOG("%s: --------- END Initializing Node Provisioning list ---------\r\n", __FUNCTION__);
 
   ///////////////////////////////////////////////////////////////////////////////////////////////////////
@@ -6784,6 +7185,39 @@ void ZWaveTask(void *argument)
   //ZWave_DSK_Write_From_String(0, "12w45-12345-12345-12345-12345-12345-12345-12345"); // Fail - non-digit char detected
  ///////////////////////////////////////////////////////////////////////////////////////////////////////
 
+//  ///////////////////////////////////////////////////////////////////////////////////////////////////////
+//  //// TEST MAB 2026.01.07
+//  //// Test LR node byte/bit detection
+//  uint16_t luiNodeID;
+//  memset(gucLRNodes, 0x00, MAX_LR_NODEMASK_LENGTH);
+//  //memset(gucLRNodes, 0xFF, MAX_LR_NODEMASK_LENGTH);
+////  for (luiNodeID = 0x0100; luiNodeID < 0x0200; ++luiNodeID)
+////  {
+////    ZW_NodeMaskSetBit(NULL, luiNodeID);
+////  }
+//  uint16_t luiRandomNodeIDCount = RandomValue() % 0x10;
+//  for (uint16_t i = 0; i < luiRandomNodeIDCount; ++i)
+//  {
+//    luiNodeID = 0x100 + RandomValue()%0x400;
+//    //LOG("%s: randomized NodeID = 0x%04X \r\n", __FUNCTION__, luiNodeID);
+//    ZW_NodeMaskSetBit(gucLRNodes, luiNodeID);
+//    //ZW_NodeMaskClearBit(gucLRNodes, luiNodeID);
+//  }
+//  PrintBytes(gucLRNodes, MAX_LR_NODEMASK_LENGTH, false, 0);
+//  ZW_NodeMaskBitsIn(gucLRNodes, MAX_LR_NODEMASK_LENGTH);
+//
+//  // Detect all active nodes
+//  uint16_t luiActiveNodeIDCount = 0;
+//  luiNodeID = 0;
+//  do
+//  {
+//    luiNodeID = ZW_NodeMaskGetNextNodeIndex(luiNodeID, gucLRNodes);
+//    if (luiNodeID) ++luiActiveNodeIDCount;
+//  }
+//  while (luiNodeID);
+//  LOG("%s: %d active NodeIDs detected \r\n", __FUNCTION__, luiActiveNodeIDCount);
+//  ///////////////////////////////////////////////////////////////////////////////////////////////////////
+
   /* Infinite loop */
   for(;;)
   {
@@ -6793,6 +7227,8 @@ void ZWaveTask(void *argument)
     {
       lucOldSecond = sMainRTCTime.Seconds;
 
+      if (lulCountdownToCheckAbandonedNodeID_seconds) --lulCountdownToCheckAbandonedNodeID_seconds;
+
     } // updates on seconds
     ///////////////////////////////
     // updates on minutes
@@ -6800,199 +7236,8 @@ void ZWaveTask(void *argument)
     {
       lucOldMinute = sMainRTCTime.Minutes;
 
-//      ////////////////////////////////////////////////////////////////////////
-//      //// TEST MAB 2025.11.14
-//      //// Every N minutes, requeue a bunch of commands to send to ZWave controller
-//      static uint8_t lucCountdownToRepeatedZWaveCommands_minutes = 30;
-//      if (--lucCountdownToRepeatedZWaveCommands_minutes == 0)
-//      {
-//        lucCountdownToRepeatedZWaveCommands_minutes = 30;
-//
-//        /// Send Memory Get ID to get the HomeID and NodeID values
-//        ZWave_Send_REQ_CMD_20_Memory_Get_ID();
-//        /// Send Serial API Get Capabilities
-//        ZWave_Send_REQ_CMD_07_Serial_API_Get_Capabilities();
-//        // Send Serial API Get LR Nodes
-//        ZWave_Send_REQ_CMD_DA_Serial_API_Get_LR_Nodes();
-//        // Send Serial API Get Init Data
-//        ZWave_Send_REQ_CMD_02_Serial_API_Get_Init_Data();
-//        // Send Get Controller Capabilities
-//        ZWave_Send_REQ_CMD_05_Get_Controller_Capabilities();
-//        // Send Get SUC Node ID
-//        ZWave_Send_REQ_CMD_56_Get_SUC_Node_ID();
-//
-//        // Set DCDC mode
-//        ZWave_Send_REQ_CMD_DF_Set_DCDC_Config(EDCDCMODE_AUTO);
-//        // Send Get DCDC Config
-//        ZWave_Send_REQ_CMD_DE_Get_DCDC_Config();
-//
-//        // Send Get Radio PTI
-//        ZWave_Send_REQ_CMD_E8_Get_Radio_PTI();
-//
-//        // Set region
-//        //ZWave_Send_REQ_CMD_0B_Serial_API_Setup(SERIAL_API_SETUP_CMD_RF_REGION_SET, REGION_US, IGNORE); // OK
-//        //ZWave_Send_REQ_CMD_0B_Serial_API_Setup(SERIAL_API_SETUP_CMD_RF_REGION_SET, REGION_EU, IGNORE); // OK
-//        ZWave_Send_REQ_CMD_0B_Serial_API_Setup(SERIAL_API_SETUP_CMD_RF_REGION_SET, REGION_US_LR, IGNORE); // OK
-//        //ZWave_Send_REQ_CMD_0B_Serial_API_Setup(SERIAL_API_SETUP_CMD_RF_REGION_SET, REGION_DEPRECATED_48, IGNORE); // FAILS; region unchanged
-//        //ZWave_Send_REQ_CMD_0B_Serial_API_Setup(SERIAL_API_SETUP_CMD_RF_REGION_SET, REGION_JP, IGNORE); // OK
-//        // Set TX power level
-//        //ZWave_Send_REQ_CMD_0B_Serial_API_Setup(SERIAL_API_SETUP_CMD_TX_POWERLEVEL_SET_16_BIT, 200, 0); // OK
-//        //ZWave_Send_REQ_CMD_0B_Serial_API_Setup(SERIAL_API_SETUP_CMD_TX_POWERLEVEL_SET_16_BIT, 205, 0); // FAILS; TX power unchanged
-//        ZWave_Send_REQ_CMD_0B_Serial_API_Setup(SERIAL_API_SETUP_CMD_TX_POWERLEVEL_SET_16_BIT, 200, 5); // OK
-//        // Set LR TX power level
-//        ZWave_Send_REQ_CMD_0B_Serial_API_Setup(SERIAL_API_SETUP_CMD_MAX_LR_TX_PWR_SET, 200, IGNORE); // OK
-//        //ZWave_Send_REQ_CMD_0B_Serial_API_Setup(SERIAL_API_SETUP_CMD_MAX_LR_TX_PWR_SET, 190, IGNORE); // OK
-//        //ZWave_Send_REQ_CMD_0B_Serial_API_Setup(SERIAL_API_SETUP_CMD_MAX_LR_TX_PWR_SET, 205, IGNORE); // FAILS; LR TX power unchanged
-//
-//
-//        // Send other Serial API Setup requests
-//        ZWave_Send_REQ_CMD_0B_Serial_API_Setup(SERIAL_API_SETUP_CMD_SUPPORTED, IGNORE, IGNORE);
-//        ZWave_Send_REQ_CMD_0B_Serial_API_Setup(SERIAL_API_SETUP_CMD_TX_POWERLEVEL_GET_16_BIT, IGNORE, IGNORE);
-//        ZWave_Send_REQ_CMD_0B_Serial_API_Setup(SERIAL_API_SETUP_CMD_MAX_LR_TX_PWR_GET, IGNORE, IGNORE);
-//        ZWave_Send_REQ_CMD_0B_Serial_API_Setup(SERIAL_API_SETUP_CMD_RF_REGION_GET, IGNORE, IGNORE);
-//        ZWave_Send_REQ_CMD_0B_Serial_API_Setup(SERIAL_API_SETUP_CMD_TX_GET_MAX_PAYLOAD_SIZE, IGNORE, IGNORE);
-//        ZWave_Send_REQ_CMD_0B_Serial_API_Setup(SERIAL_API_SETUP_CMD_TX_GET_MAX_LR_PAYLOAD_SIZE, IGNORE, IGNORE);
-//      }
-//      ////////////////////////////////////////////////////////////////////////
-
-      //////////////////////////////////////////////////////////////////////////////
-      //// TEST MAb 2025.12.29
-      //// Every N minutes display the node provisioning list
-      //// TEST MAB 2025.12.30
-      //// Also check for the 1st zeroized DSK, if any
-      uint8_t lucNWIAuthHomeIDBuffer[8];
-      uint32_t lulNWIHomeID;
-      uint32_t lulAuthHomeID;
-      #define NODE_PL_DISPLAY_INTERVAL_MINUTES (5)
-      static uint8_t lucCountdownToNodeProvisioningListStatus_minutes = NODE_PL_DISPLAY_INTERVAL_MINUTES;
-      if (--lucCountdownToNodeProvisioningListStatus_minutes == 0)
-      {
-        lucCountdownToNodeProvisioningListStatus_minutes = NODE_PL_DISPLAY_INTERVAL_MINUTES;
-
-        for (int i = 0; i < NODE_PROVISIONING_LIST_COUNT; ++i)
-        {
-          if (!ZWave_DSK_IsZeroized(i))
-          {
-            // Display DSK
-            memset(lucDSKString,    0x00, sizeof(lucDSKString));
-            memset(lucDSKHexString, 0x00, sizeof(lucDSKHexString));
-            for (int j = 0; j < DSK_LENGTH_BYTES; j+=2)
-            {
-              luiTempDSKInt = 0x100*gtNodeProvisioningList[i].dsk[j] + gtNodeProvisioningList[i].dsk[j+1];
-              memset(lucIntegerString, 0x00, sizeof(lucIntegerString));
-              sprintf(lucIntegerString, "%05d", luiTempDSKInt);
-              strcat(lucDSKString, lucIntegerString);
-              if (j < DSK_LENGTH_BYTES-2) strcat(lucDSKString, "-");
-              memset(lucIntegerString, 0x00, sizeof(lucIntegerString));
-              sprintf(lucIntegerString, "%04X", luiTempDSKInt);
-              strcat(lucDSKHexString, lucIntegerString);
-              if (j < DSK_LENGTH_BYTES-2) strcat(lucDSKHexString, "--");
-            }
-            LOG("%s: DSK %d: %s\r\n", __FUNCTION__, i, lucDSKString);
-            LOG("%s:         %s\r\n", __FUNCTION__,    lucDSKHexString);
-            // END Display DSK
-
-            // Display NWI and Auth HomeIDs
-            if (ZWave_DSK_Extract_NWIAuthHomeID(i, lucNWIAuthHomeIDBuffer))
-            {
-              lulNWIHomeID =  (0x1000000 * lucNWIAuthHomeIDBuffer[0]) +
-                              (  0x10000 * lucNWIAuthHomeIDBuffer[1]) +
-                              (    0x100 * lucNWIAuthHomeIDBuffer[2]) +
-                              (            lucNWIAuthHomeIDBuffer[3]);
-              lulAuthHomeID = (0x1000000 * lucNWIAuthHomeIDBuffer[4]) +
-                              (  0x10000 * lucNWIAuthHomeIDBuffer[5]) +
-                              (    0x100 * lucNWIAuthHomeIDBuffer[6]) +
-                              (            lucNWIAuthHomeIDBuffer[7]);
-              LOG("%s: - NWI  HomeID:                   %08X \r\n",             __FUNCTION__, lulNWIHomeID);
-              LOG("%s: - Auth HomeID:                               %08X \r\n", __FUNCTION__, lulAuthHomeID);
-            }
-            // END Display NWI and Auth HomeIDs
-
-            // Test if zeroized
-            if (ZWave_DSK_IsZeroized(i))
-            {
-              LOG("%s: - Zeroized \r\n", __FUNCTION__);
-            }
-
-            // Display LR-capable or Mesh Only
-            switch (gtNodeProvisioningList[i].lr_capable)
-            {
-            case ZWAVE_NODE_PROVISIONING_LIST_LR_CAPABLE:
-              LOG("%s: - Long Range capable \r\n", __FUNCTION__);
-              break;
-            case ZWAVE_NODE_PROVISIONING_LIST_MESH_ONLY:
-              LOG("%s: - Mesh only\r\n", __FUNCTION__);
-              break;
-            default:
-              LOG("%s: - *** WARNING *** lr_capable value %d is UNKNOWN\r\n", __FUNCTION__, gtNodeProvisioningList[i].lr_capable);
-              break;
-            }
-            // END Display LR-capable or Mesh Only
-
-            // Display boot mode
-            switch (gtNodeProvisioningList[i].boot_mode)
-            {
-            case ZWAVE_NODE_PROVISIONING_LIST_SMARTSTART:
-              LOG("%s: - SmartStart \r\n", __FUNCTION__);
-              break;
-            case ZWAVE_NODE_PROVISIONING_LIST_S2_MANUAL:
-              LOG("%s: - S2 manual \r\n", __FUNCTION__);
-              break;
-            default:
-              LOG("%s: - *** WARNING *** boot_mode value %d is UNKNOWN\r\n", __FUNCTION__, gtNodeProvisioningList[i].boot_mode);
-              break;
-            }
-            // END Display boot mode
-
-            // Display status
-            switch (gtNodeProvisioningList[i].status)
-            {
-            case SMARTSTART_EMPTY:
-              LOG("%s: - DSK not written \r\n", __FUNCTION__);
-              break;
-            case SMARTSTART_READY:
-              LOG("%s: - DSK written to node provisioning list; end node not connected \r\n", __FUNCTION__);
-              break;
-            case SMARTSTART_DETECTED:
-              LOG("%s: - End node with correlated DSK detected \r\n", __FUNCTION__);
-              break;
-            case SMARTSTART_INCLUSION:
-              LOG("%s: - End node joining home network \r\n", __FUNCTION__);
-              break;
-            case SMARTSTART_BOOTSTRAP:
-              LOG("%s: - End node sharing key information \r\n", __FUNCTION__);
-              break;
-            case SMARTSTART_ACTIVE:
-              LOG("%s: - End node fully connected, including security \r\n", __FUNCTION__);
-              break;
-            case SMARTSTART_REMOVED:
-              LOG("%s: - End node being removed from home network; DSK being erased from node provisioning list \r\n", __FUNCTION__);
-              break;
-            default:
-              LOG("%s: - *** WARNING *** status value %d is UNKNOWN\r\n", __FUNCTION__, gtNodeProvisioningList[i].status);
-              break;
-            }
-            // END Display status
-          }
-          // END not zeroized DSK
-        }
-        // END for NODE_PROVISIONING_LIST_COUNT
-
-        // Also check for the first zeroized DSK, if any
-        uint8_t lucFirstZeroizedDSKIndex;
-        lucFirstZeroizedDSKIndex = ZWave_DSK_Find_Zeroized();
-        if (lucFirstZeroizedDSKIndex == DSK_UNAVAILABLE)
-        {
-          LOG("%s: *** WARNING *** no zeroized DSK is available in the node provisioning list \r\n", __FUNCTION__);
-        }
-        else
-        {
-          LOG("%s: DSK %d is zeroized \r\n", __FUNCTION__, lucFirstZeroizedDSKIndex);
-        }
-      }
-      // END display the node provisioning list
-      //////////////////////////////////////////////////////////////////////////////
-
+      if (lucCountdownToRepeatedZWaveCommands_minutes) --lucCountdownToRepeatedZWaveCommands_minutes;
+      if (lucCountdownToNodeProvisioningListStatus_minutes) --lucCountdownToNodeProvisioningListStatus_minutes;
     } // updates on minutes
     ///////////////////////////////
     // updates on hours
@@ -7054,6 +7299,233 @@ void ZWaveTask(void *argument)
     {
       ZWave_SmartStart_StateMachine(SMARTSTART_SM_CMD_RUN);
     }
+
+//    ////////////////////////////////////////////////////////////////////////
+//    //// TEST MAB 2025.11.14
+//    //// Every N minutes, requeue a bunch of commands to send to ZWave controller
+//    if (lucCountdownToRepeatedZWaveCommands_minutes == 0)
+//    {
+//      lucCountdownToRepeatedZWaveCommands_minutes = 30;
+//
+//      /// Send Memory Get ID to get the HomeID and NodeID values
+//      ZWave_Send_REQ_CMD_20_Memory_Get_ID();
+//      /// Send Serial API Get Capabilities
+//      ZWave_Send_REQ_CMD_07_Serial_API_Get_Capabilities();
+//      // Send Serial API Get LR Nodes
+//      ZWave_Send_REQ_CMD_DA_Serial_API_Get_LR_Nodes();
+//      // Send Serial API Get Init Data
+//      ZWave_Send_REQ_CMD_02_Serial_API_Get_Init_Data();
+//      // Send Get Controller Capabilities
+//      ZWave_Send_REQ_CMD_05_Get_Controller_Capabilities();
+//      // Send Get SUC Node ID
+//      ZWave_Send_REQ_CMD_56_Get_SUC_Node_ID();
+//
+//      // Set DCDC mode
+//      ZWave_Send_REQ_CMD_DF_Set_DCDC_Config(EDCDCMODE_AUTO);
+//      // Send Get DCDC Config
+//      ZWave_Send_REQ_CMD_DE_Get_DCDC_Config();
+//
+//      // Send Get Radio PTI
+//      ZWave_Send_REQ_CMD_E8_Get_Radio_PTI();
+//
+//      // Set region
+//      //ZWave_Send_REQ_CMD_0B_Serial_API_Setup(SERIAL_API_SETUP_CMD_RF_REGION_SET, REGION_US, IGNORE); // OK
+//      //ZWave_Send_REQ_CMD_0B_Serial_API_Setup(SERIAL_API_SETUP_CMD_RF_REGION_SET, REGION_EU, IGNORE); // OK
+//      ZWave_Send_REQ_CMD_0B_Serial_API_Setup(SERIAL_API_SETUP_CMD_RF_REGION_SET, REGION_US_LR, IGNORE); // OK
+//      //ZWave_Send_REQ_CMD_0B_Serial_API_Setup(SERIAL_API_SETUP_CMD_RF_REGION_SET, REGION_DEPRECATED_48, IGNORE); // FAILS; region unchanged
+//      //ZWave_Send_REQ_CMD_0B_Serial_API_Setup(SERIAL_API_SETUP_CMD_RF_REGION_SET, REGION_JP, IGNORE); // OK
+//      // Set TX power level
+//      //ZWave_Send_REQ_CMD_0B_Serial_API_Setup(SERIAL_API_SETUP_CMD_TX_POWERLEVEL_SET_16_BIT, 200, 0); // OK
+//      //ZWave_Send_REQ_CMD_0B_Serial_API_Setup(SERIAL_API_SETUP_CMD_TX_POWERLEVEL_SET_16_BIT, 205, 0); // FAILS; TX power unchanged
+//      ZWave_Send_REQ_CMD_0B_Serial_API_Setup(SERIAL_API_SETUP_CMD_TX_POWERLEVEL_SET_16_BIT, 200, 5); // OK
+//      // Set LR TX power level
+//      ZWave_Send_REQ_CMD_0B_Serial_API_Setup(SERIAL_API_SETUP_CMD_MAX_LR_TX_PWR_SET, 200, IGNORE); // OK
+//      //ZWave_Send_REQ_CMD_0B_Serial_API_Setup(SERIAL_API_SETUP_CMD_MAX_LR_TX_PWR_SET, 190, IGNORE); // OK
+//      //ZWave_Send_REQ_CMD_0B_Serial_API_Setup(SERIAL_API_SETUP_CMD_MAX_LR_TX_PWR_SET, 205, IGNORE); // FAILS; LR TX power unchanged
+//
+//
+//      // Send other Serial API Setup requests
+//      ZWave_Send_REQ_CMD_0B_Serial_API_Setup(SERIAL_API_SETUP_CMD_SUPPORTED, IGNORE, IGNORE);
+//      ZWave_Send_REQ_CMD_0B_Serial_API_Setup(SERIAL_API_SETUP_CMD_TX_POWERLEVEL_GET_16_BIT, IGNORE, IGNORE);
+//      ZWave_Send_REQ_CMD_0B_Serial_API_Setup(SERIAL_API_SETUP_CMD_MAX_LR_TX_PWR_GET, IGNORE, IGNORE);
+//      ZWave_Send_REQ_CMD_0B_Serial_API_Setup(SERIAL_API_SETUP_CMD_RF_REGION_GET, IGNORE, IGNORE);
+//      ZWave_Send_REQ_CMD_0B_Serial_API_Setup(SERIAL_API_SETUP_CMD_TX_GET_MAX_PAYLOAD_SIZE, IGNORE, IGNORE);
+//      ZWave_Send_REQ_CMD_0B_Serial_API_Setup(SERIAL_API_SETUP_CMD_TX_GET_MAX_LR_PAYLOAD_SIZE, IGNORE, IGNORE);
+//    }
+//    ////////////////////////////////////////////////////////////////////////
+
+    //////////////////////////////////////////////////////////////////////////////
+    //// TEST MAB 2025.12.29
+    //// Every N minutes display the node provisioning list
+    //// TEST MAB 2025.12.30
+    //// Also check for the 1st zeroized DSK, if any
+    uint8_t lucNWIAuthHomeIDBuffer[8];
+    uint32_t lulNWIHomeID;
+    uint32_t lulAuthHomeID;
+    if (lucCountdownToNodeProvisioningListStatus_minutes == 0)
+    {
+      lucCountdownToNodeProvisioningListStatus_minutes = NODE_PL_DISPLAY_INTERVAL_MINUTES;
+
+      for (int i = 0; i < NODE_PROVISIONING_LIST_COUNT; ++i)
+      {
+        if (!ZWave_DSK_IsZeroized(i))
+        {
+          // Display DSK
+          memset(lucDSKString,    0x00, sizeof(lucDSKString));
+          memset(lucDSKHexString, 0x00, sizeof(lucDSKHexString));
+          for (int j = 0; j < DSK_LENGTH_BYTES; j+=2)
+          {
+            luiTempDSKInt = 0x100*gtNodeProvisioningList[i].dsk[j] + gtNodeProvisioningList[i].dsk[j+1];
+            memset(lucIntegerString, 0x00, sizeof(lucIntegerString));
+            sprintf(lucIntegerString, "%05d", luiTempDSKInt);
+            strcat(lucDSKString, lucIntegerString);
+            if (j < DSK_LENGTH_BYTES-2) strcat(lucDSKString, "-");
+            memset(lucIntegerString, 0x00, sizeof(lucIntegerString));
+            sprintf(lucIntegerString, "%04X", luiTempDSKInt);
+            strcat(lucDSKHexString, lucIntegerString);
+            if (j < DSK_LENGTH_BYTES-2) strcat(lucDSKHexString, "--");
+          }
+          LOG("%s: DSK %d: %s\r\n", __FUNCTION__, i, lucDSKString);
+          LOG("%s:         %s\r\n", __FUNCTION__,    lucDSKHexString);
+          // END Display DSK
+
+          // Display NWI and Auth HomeIDs
+          if (ZWave_DSK_Extract_NWIAuthHomeID(i, lucNWIAuthHomeIDBuffer))
+          {
+            lulNWIHomeID =  (0x1000000 * lucNWIAuthHomeIDBuffer[0]) +
+                            (  0x10000 * lucNWIAuthHomeIDBuffer[1]) +
+                            (    0x100 * lucNWIAuthHomeIDBuffer[2]) +
+                            (            lucNWIAuthHomeIDBuffer[3]);
+            lulAuthHomeID = (0x1000000 * lucNWIAuthHomeIDBuffer[4]) +
+                            (  0x10000 * lucNWIAuthHomeIDBuffer[5]) +
+                            (    0x100 * lucNWIAuthHomeIDBuffer[6]) +
+                            (            lucNWIAuthHomeIDBuffer[7]);
+            LOG("%s: - NWI  HomeID:                   %08X \r\n",             __FUNCTION__, lulNWIHomeID);
+            LOG("%s: - Auth HomeID:                               %08X \r\n", __FUNCTION__, lulAuthHomeID);
+          }
+          // END Display NWI and Auth HomeIDs
+
+          // Test if zeroized
+          if (ZWave_DSK_IsZeroized(i))
+          {
+            LOG("%s: - Zeroized \r\n", __FUNCTION__);
+          }
+
+          // Display LR-capable or Mesh Only
+          switch (gtNodeProvisioningList[i].lr_capable)
+          {
+          case ZWAVE_NODE_PROVISIONING_LIST_LR_CAPABLE:
+            LOG("%s: - Long Range capable \r\n", __FUNCTION__);
+            break;
+          case ZWAVE_NODE_PROVISIONING_LIST_MESH_ONLY:
+            LOG("%s: - Mesh only\r\n", __FUNCTION__);
+            break;
+          default:
+            LOG("%s: - *** WARNING *** lr_capable value %d is UNKNOWN\r\n", __FUNCTION__, gtNodeProvisioningList[i].lr_capable);
+            break;
+          }
+          // END Display LR-capable or Mesh Only
+
+          // Display boot mode
+          switch (gtNodeProvisioningList[i].boot_mode)
+          {
+          case ZWAVE_NODE_PROVISIONING_LIST_SMARTSTART:
+            LOG("%s: - SmartStart \r\n", __FUNCTION__);
+            break;
+          case ZWAVE_NODE_PROVISIONING_LIST_S2_MANUAL:
+            LOG("%s: - S2 manual \r\n", __FUNCTION__);
+            break;
+          default:
+            LOG("%s: - *** WARNING *** boot_mode value %d is UNKNOWN\r\n", __FUNCTION__, gtNodeProvisioningList[i].boot_mode);
+            break;
+          }
+          // END Display boot mode
+
+          // Display status
+          switch (gtNodeProvisioningList[i].status)
+          {
+          case SMARTSTART_EMPTY:
+            LOG("%s: - DSK not written \r\n", __FUNCTION__);
+            break;
+          case SMARTSTART_READY:
+            LOG("%s: - DSK written to node provisioning list; end node not connected \r\n", __FUNCTION__);
+            break;
+          case SMARTSTART_DETECTED:
+            LOG("%s: - End node with correlated DSK detected \r\n", __FUNCTION__);
+            break;
+          case SMARTSTART_INCLUSION:
+            LOG("%s: - End node joining home network \r\n", __FUNCTION__);
+            break;
+          case SMARTSTART_EXCLUSION:
+            LOG("%s: - End node removed from home network \r\n", __FUNCTION__);
+            break;
+          case SMARTSTART_BOOTSTRAP:
+            LOG("%s: - End node sharing key information \r\n", __FUNCTION__);
+            break;
+          case SMARTSTART_ACTIVE:
+            LOG("%s: - End node fully connected, including security \r\n", __FUNCTION__);
+            break;
+          case SMARTSTART_REMOVED:
+            LOG("%s: - End node being removed from home network; DSK being erased from node provisioning list \r\n", __FUNCTION__);
+            break;
+          default:
+            LOG("%s: - *** WARNING *** status value %d is UNKNOWN\r\n", __FUNCTION__, gtNodeProvisioningList[i].status);
+            break;
+          }
+          // END Display status
+
+          // Display NodeID (may be 0x0000)
+          LOG("%s: - NodeID: 0x%04X \r\n", __FUNCTION__, gtNodeProvisioningList[i].NodeID);
+          // END Display NodeID
+        }
+        // END not zeroized DSK
+      }
+      // END for NODE_PROVISIONING_LIST_COUNT
+
+      // Also check for the first zeroized DSK, if any
+      uint8_t lucFirstZeroizedDSKIndex;
+      lucFirstZeroizedDSKIndex = ZWave_DSK_Find_Zeroized();
+      if (lucFirstZeroizedDSKIndex == DSK_UNAVAILABLE)
+      {
+        LOG("%s: *** WARNING *** no zeroized DSK is available in the node provisioning list \r\n", __FUNCTION__);
+      }
+      else
+      {
+        LOG("%s: DSK %d is zeroized \r\n", __FUNCTION__, lucFirstZeroizedDSKIndex);
+      }
+    }
+    // END display the node provisioning list
+    //////////////////////////////////////////////////////////////////////////////
+
+    //////////////////////////////////////////////////////////////////////////////
+    //// TEST MAB 2026.01.07
+    //// Periodically update the local copy of LR node list, then check
+    //// the next active NodeID if it is abandoned and if so, remove the NodeID
+    //// from the network.
+    static uint16_t luiAbandonedNodeID = 0;
+    if (0 == lulCountdownToCheckAbandonedNodeID_seconds)
+    {
+      //lulCountdownToCheckAbandonedNodeID_seconds = 300 + RandomValue()%60; // 5-6 minutes
+      lulCountdownToCheckAbandonedNodeID_seconds = 60 + RandomValue()%60; // 1-2 minutes
+      //lulCountdownToCheckAbandonedNodeID_seconds = 10 + RandomValue()%10; // 10-20 seconds
+
+      // Fetch latest LR node list for next time; we'll use the current LR node list
+      //ZWave_Send_REQ_CMD_DA_Serial_API_Get_LR_Nodes();
+
+      luiAbandonedNodeID = ZW_NodeMaskGetNextNodeIndex(luiAbandonedNodeID, gucLRNodes);
+
+      // Let's delete the NodeID
+      if (luiAbandonedNodeID)
+      {
+//        gucSessionID = ZWave_SessionID_Randomize();
+//        ZWave_Send_REQ_CMD_3F_Remove_Specific_Node_from_Network(REMOVE_NODE_OPTION_NORMAL_POWER|REMOVE_NODE_OPTION_NETWORK_WIDE|REMOVE_NODE_ANY,
+//                                                                gucSessionID,
+//                                                                luiAbandonedNodeID);
+        guiNodeID = luiAbandonedNodeID;
+        ZWave_Send_REQ_CMD_62_Is_Node_Failed(luiAbandonedNodeID);
+      }
+    }
+    //////////////////////////////////////////////////////////////////////////////
 
     //////////////////////////////////////////////
     //
