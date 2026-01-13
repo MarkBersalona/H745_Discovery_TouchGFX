@@ -356,6 +356,7 @@ typedef struct {
 #define DSK_UNAVAILABLE (0xFF)
 #define DSK_UNKNOWN     (0xFE)
 
+#define NODE_ID_UNAVAILABLE (0xFFFF)
 
 /* USER CODE END Private defines */
 
