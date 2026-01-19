@@ -346,10 +346,12 @@ typedef enum
 typedef struct {
     uint8_t  dsk[DSK_LENGTH_BYTES];
     uint8_t  lr_capable;       // 0 = mesh only, 1 = LR capable
-    uint16_t requested_keys;   // bitmask for S2 keys
+    uint8_t  requested_keys;   // bitmask for S2 keys
+    uint8_t  granted_keys;     // bitmask for S2 keys granted by the controller
     uint8_t  boot_mode;        // e.g., SmartStart vs S2 manual
     SmartStartState  status;   // pending, included, ignored, failed
     uint16_t NodeID;           // 2-byte NodeID
+    uint8_t  ECDHPublicKey[32];// ECDH public key; 32 bytes for Curve25519 KEX scheme
     // optional more fields
 } pl_entry_t;
 #define NODE_PROVISIONING_LIST_COUNT (5)
@@ -357,6 +359,36 @@ typedef struct {
 #define DSK_UNKNOWN     (0xFE)
 
 #define NODE_ID_UNAVAILABLE (0xFFFF)
+
+//
+// Bootstrap state machine commands
+//
+typedef enum Bootstrap_state_machine_commands
+{
+  BOOTSTRAP_SM_CMD_INITIALIZE,
+  BOOTSTRAP_SM_CMD_RUN,
+  BOOTSTRAP_SM_CMD_STATE,
+} BootstrapStateMachineCommand;
+
+//
+// Bootstrap states
+//
+typedef enum
+{
+  BOOTSTRAP_IDLE,                   // Bootstrap state is idle; no key exchange yet
+  BOOTSTRAP_KEX,                    // KEX key exchange
+  BOOTSTRAP_PUBLIC_KEY,             // ECDH public keys exchange
+  BOOTSTRAP_TEMP_NONCE_GET,         // waiting for temporary nonce, i.e. temporary SPAN
+  BOOTSTRAP_TEMP_NONCE_SET,         // temporary SPAN being configured
+  BOOTSTRAP_NETWORK_KEY_GET,        // waiting for KEY Get
+  BOOTSTRAP_NETWORK_NONCE_GET,      // waiting for nonce, i.e. SPAN
+  BOOTSTRAP_NETWORK_VERIFY,         // waiting for KEY Verify
+  BOOTSTRAP_NETWORK_VERIFY_SPAN,    // waiting for Nonce Report
+  BOOTSTRAP_XNETWORK_KEY_DONE,      // waiting for Transfer End
+  BOOTSTRAP_COMPLETE,               // S2 Bootstrap completed successfully
+  BOOTSTRAP_ERROR,                  // S2 Boot strap failed or timed out
+} BootstrapState;
+
 
 /* USER CODE END Private defines */
 

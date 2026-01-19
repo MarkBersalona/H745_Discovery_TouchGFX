@@ -368,6 +368,10 @@ uint8_t gucLRNodes[MAX_LR_NODEMASK_LENGTH];
 // general useage NodeID
 uint16_t guiNodeID;
 
+// Flags for KEX Report and S2 support
+uint8_t gucIsKEXReportReceived;
+uint8_t gucIsS2Supported;
+
 
 /* USER CODE END PV */
 
@@ -398,12 +402,15 @@ void ZWaveTask(void *argument);
 
 /* USER CODE BEGIN PFP */
 
+BootstrapState ZWave_Bootstrap_StateMachine(BootstrapStateMachineCommand stateMachineCommand);
 uint8_t ZWave_DSK_Extract_NWIAuthHomeID(uint8_t aucDSKIndex, uint8_t* paucNWIAuthHomeIDBuffer);
 uint8_t ZWave_DSK_Find_Zeroized(void);
 uint8_t ZWave_DSK_IsProcessing(void);
 uint8_t ZWave_DSK_IsZeroized(uint8_t aucDSKIndex);
+uint8_t ZWave_DSK_Validate_String(uint8_t* paucDSKString);
 void ZWave_DSK_Write(uint8_t aucDSKIndex, uint8_t* paucDSKBuffer);
 uint8_t ZWave_DSK_Write_From_String(uint8_t aucDSKIndex, uint8_t* paucDSKString);
+void ZWave_DSK_Write_To_String(uint8_t aucDSKIndex, uint8_t* paucDSKBuffer);
 void ZWave_DSK_Zeroize(uint8_t aucDSKIndex);
 void ZWave_REQ_CMD_0A_Serial_API_Started(void);
 void ZWave_RES_CMD_02_Get_Init_Data(void);
@@ -1731,6 +1738,293 @@ void ZW_NodeMaskSetBit(uint8_t* paucMask, node_id_t auiNodeID)
 /* ***************************************************************************************************************************** */
 
 /** *****************************************************************************************************************************
+  * @brief  Bootstrap state machine
+  * @param  stateMachineCommand - INITIALIZE, RUN or STATE
+  * @retval Present state
+  */
+/***********************************************
+ZWave_Bootstrap_StateMachine
+
+  IF command is INITIALIZE
+    Clear elapsed time
+    Initialize subordinate state machines
+    Set state to IDLE
+
+  ELSE IF command is RUN
+    Update elapsed time
+    IF timeout occurs
+      Set state to ERROR
+    ENDIF
+
+    IF state is IDLE
+      IF node inclusion has completed
+        Reset elapsed time for next state
+        Send S2 command KEX Get
+        Set state to KEX
+      ENDIF
+    ELSE IF state is KEX
+      IF KEX Report is received
+        IF no S2 security levels are supported
+          Set state to ERROR
+        ELSE
+          Reset elapsed time for next state
+          Send S2 command KEX Set
+          Set state to PUBLIC_KEY
+        ENDIF
+      ENDIF
+    ELSE IF state is PUBLIC_KEY
+    ELSE IF state is TEMP_NONCE_GET
+    ELSE IF state is TEMP_NONCE_SET
+    ELSE IF state is NETWORK_KEY_GET
+    ELSE IF state is NETWORK_NONCE_GET
+    ELSE IF state is NETWORK_VERIFY
+    ELSE IF state is NETWORK_VERIFY_SPAN
+    ELSE IF state is NETWORK_KEY_DONE
+    ELSE IF state is COMPLETE
+      Do nothing
+    ELSE IF state is ERROR
+      Do nothing
+    ENDIF
+
+  ELSE IF command is STATE
+    Do nothing (present state will be returned)
+
+  ELSE
+    Flag faulty state machine call
+  ENDIF (command)
+
+  Return present state
+
+END ZWave_Bootstrap_StateMachine
+************************************************/
+BootstrapState ZWave_Bootstrap_StateMachine(BootstrapStateMachineCommand stateMachineCommand)
+{
+  static BootstrapState leBootstrapState = BOOTSTRAP_IDLE;
+  static uint32_t lulElapsedTime_sec = 0;
+  static uint8_t lucOldSecond = 100; // Nonsense initial value guarantees update when RTC first read
+  static uint8_t lucSendDataBuffer[80];
+
+  //////////////////////////////////////////////////////////////////////////
+  // IF command is INITIALIZE
+  if (BOOTSTRAP_SM_CMD_INITIALIZE == stateMachineCommand)
+  {
+    LOG("%s: initializing\r\n", __FUNCTION__);
+    // Clear elapsed time
+    lulElapsedTime_sec = 0;
+
+    // Initialize subordinate state machines
+
+    // Set state to IDLE
+    LOG("%s: Transitioning from initialization to IDLE\r\n", __FUNCTION__);
+    leBootstrapState = BOOTSTRAP_IDLE;
+  }
+
+  //////////////////////////////////////////////////////////////////////////
+  // ELSE IF command is RUN
+  else if (BOOTSTRAP_SM_CMD_RUN == stateMachineCommand)
+  {
+    // Update elapsed time
+    // (update only when the RTC seconds update, i.e. update once per second)
+    if (lucOldSecond != sMainRTCTime.Seconds)
+    {
+      lucOldSecond = sMainRTCTime.Seconds;
+
+      ++lulElapsedTime_sec;
+    }
+
+    // (Generic Bootstrap timeout; individual state timeouts might also occur)
+    // IF timeout occurs
+    if (lulElapsedTime_sec > 5)
+    {
+      lulElapsedTime_sec = 0;
+      // Set state to ERROR
+      LOG("%s: *** WARNING *** Timeout: transitioning DSK %d Bootstrap state to ERROR\r\n", __FUNCTION__, gucProcessingDSK);
+      leBootstrapState = BOOTSTRAP_ERROR;
+    }
+    // ENDIF
+
+
+    //-------------------------------------------------------
+    // IF state is IDLE
+    if (BOOTSTRAP_IDLE == leBootstrapState)
+    {
+      // IF node inclusion has completed
+      if (SMARTSTART_BOOTSTRAP == gtNodeProvisioningList[gucProcessingDSK].status)
+      {
+        // Send S2 command KEX Get
+        gucSessionID = ZWave_SessionID_Randomize();
+        memset(lucSendDataBuffer, 0x00, sizeof(lucSendDataBuffer));
+        lucSendDataBuffer[0] = COMMAND_CLASS_SECURITY_2_V2;
+        lucSendDataBuffer[1] = KEX_GET_V2;
+        #if ENABLE_ZWAVE_CONTROLLER_HOST
+        ZWave_Send_REQ_CMD_13_Send_Data(gtNodeProvisioningList[gucProcessingDSK].NodeID, 2, lucSendDataBuffer, TRANSMIT_OPTION_ACK, gucSessionID);
+        #endif
+
+        // Reset elapsed time for next state
+        lulElapsedTime_sec = 0;
+
+        // Set state to KEX
+        gucIsKEXReportReceived = FALSE;
+        LOG("%s: Transitioning DSK %d Bootstrap state from IDLE to KEX\r\n", __FUNCTION__, gucProcessingDSK);
+        leBootstrapState = BOOTSTRAP_KEX;
+      }
+      // ENDIF
+    }
+
+    //-------------------------------------------------------
+    // ELSE IF state is KEX
+    else if (BOOTSTRAP_KEX == leBootstrapState)
+    {
+      // IF KEX Report is received
+      if (gucIsKEXReportReceived)
+      {
+        // IF no S2 security levels are supported
+        if (!gucIsS2Supported)
+        {
+          // Set state to ERROR
+          LOG("%s: Transitioning DSK %d Bootstrap state from KEX to ERROR\r\n", __FUNCTION__, gucProcessingDSK);
+          leBootstrapState = BOOTSTRAP_ERROR;
+        }
+        // ELSE
+        else
+        {
+          // Reset elapsed time for next state
+          lulElapsedTime_sec = 0;
+
+          // Send S2 command KEX Set
+          gucSessionID = ZWave_SessionID_Randomize();
+          memset(lucSendDataBuffer, 0x00, sizeof(lucSendDataBuffer));
+          lucSendDataBuffer[0] = COMMAND_CLASS_SECURITY_2_V2;
+          lucSendDataBuffer[1] = KEX_SET_V2;
+          lucSendDataBuffer[2] = 0x00; // no client-side authentication; ECHO bit clear
+          lucSendDataBuffer[3] = 0x02; // KEX Scheme 1 supported
+          lucSendDataBuffer[4] = 0x01; // ECDH Profile: Curve25519 supported
+          // Grant highest requested S2 level
+          if (gtNodeProvisioningList[gucProcessingDSK].requested_keys & SECURITY_KEY_S2_ACCESS_BIT)
+          {
+            LOG("%s: S2 Access granted \r\n", __FUNCTION__);
+            lucSendDataBuffer[5] = SECURITY_KEY_S2_ACCESS_BIT;
+          }
+          else if (gtNodeProvisioningList[gucProcessingDSK].requested_keys & SECURITY_KEY_S2_AUTHENTICATED_BIT)
+          {
+            LOG("%s: S2 Authenticated granted \r\n", __FUNCTION__);
+           lucSendDataBuffer[5] = SECURITY_KEY_S2_AUTHENTICATED_BIT;
+          }
+          else if (gtNodeProvisioningList[gucProcessingDSK].requested_keys & SECURITY_KEY_S2_UNAUTHENTICATED_BIT)
+          {
+            LOG("%s: S2 Unauthenticated granted \r\n", __FUNCTION__);
+            lucSendDataBuffer[5] = SECURITY_KEY_S2_UNAUTHENTICATED_BIT;
+          }
+          else
+          {
+            LOG("%s: *** WARNING *** NO S2 security level granted; S2 Bootstrap should fail \r\n", __FUNCTION__);
+            lucSendDataBuffer[5] = 0; // no S2 security
+          }
+          LOG("%s: Saving DSK %d granted key \r\n", __FUNCTION__, gucProcessingDSK);
+          gtNodeProvisioningList[gucProcessingDSK].granted_keys = lucSendDataBuffer[5];
+          #if ENABLE_ZWAVE_CONTROLLER_HOST
+          ZWave_Send_REQ_CMD_13_Send_Data(gtNodeProvisioningList[gucProcessingDSK].NodeID, 6, lucSendDataBuffer, TRANSMIT_OPTION_ACK, gucSessionID);
+          #endif
+
+          // Set state to PUBLIC_KEY
+          LOG("%s: Transitioning DSK %d Bootstrap state from KEX to PUBLIC_KEY\r\n", __FUNCTION__, gucProcessingDSK);
+          leBootstrapState = BOOTSTRAP_PUBLIC_KEY;
+        }
+       // ENDIF
+      }
+      // ENDIF
+    }
+
+    //-------------------------------------------------------
+    // ELSE IF state is PUBLIC_KEY
+    else if (BOOTSTRAP_PUBLIC_KEY == leBootstrapState)
+    {
+    }
+
+    //-------------------------------------------------------
+    // ELSE IF state is TEMP_NONCE_GET
+    else if (BOOTSTRAP_TEMP_NONCE_GET == leBootstrapState)
+    {
+    }
+
+    //-------------------------------------------------------
+    // ELSE IF state is TEMP_NONCE_SET
+    else if (BOOTSTRAP_TEMP_NONCE_SET == leBootstrapState)
+    {
+    }
+
+    //-------------------------------------------------------
+    // ELSE IF state is NETWORK_KEY_GET
+    else if (BOOTSTRAP_NETWORK_KEY_GET == leBootstrapState)
+    {
+    }
+
+    //-------------------------------------------------------
+    // ELSE IF state is NETWORK_NONCE_GET
+    else if (BOOTSTRAP_NETWORK_NONCE_GET == leBootstrapState)
+    {
+    }
+
+    //-------------------------------------------------------
+    // ELSE IF state is NETWORK_VERIFY
+    else if (BOOTSTRAP_NETWORK_VERIFY == leBootstrapState)
+    {
+    }
+
+    //-------------------------------------------------------
+    // ELSE IF state is NETWORK_VERIFY_SPAN
+    else if (BOOTSTRAP_NETWORK_VERIFY_SPAN == leBootstrapState)
+    {
+    }
+
+    //-------------------------------------------------------
+    // ELSE IF state is NETWORK_KEY_DONE
+    else if (BOOTSTRAP_XNETWORK_KEY_DONE == leBootstrapState)
+    {
+    }
+
+    //-------------------------------------------------------
+    // ELSE IF state is COMPLETE
+    else if (BOOTSTRAP_COMPLETE == leBootstrapState)
+    {
+      gucIsBootstrapFinished = TRUE;
+    }
+
+    //-------------------------------------------------------
+    // ELSE IF state is ERROR
+    else if (BOOTSTRAP_ERROR == leBootstrapState)
+    {
+      gucIsBootstrapFailed = TRUE;
+    }
+
+
+  }
+
+  //////////////////////////////////////////////////////////////////////////
+  // ELSE IF command is STATE
+  else if (BOOTSTRAP_SM_CMD_STATE == stateMachineCommand)
+  {
+    // Do nothing (present state will be returned)
+  }
+
+  //////////////////////////////////////////////////////////////////////////
+  // ELSE
+  else
+  {
+    // Flag faulty state machine call
+    LOG("\r\n>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>\r\n");
+    LOG("\r\n%s: Invalid state machine command: stateMachineCommand = %d\r\n", __FUNCTION__, stateMachineCommand);
+    LOG("\r\n>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>\r\n");
+  }
+  // ENDIF (command)
+  //////////////////////////////////////////////////////////////////////////
+
+  // Return present state
+  return leBootstrapState;
+}
+// end ZWave_Bootstrap_StateMachine
+
+/** *****************************************************************************************************************************
   * @brief  Display received frame data (to debug port)
   * @param  None
   * @retval None
@@ -1974,6 +2268,89 @@ uint8_t ZWave_DSK_IsZeroized(uint8_t aucDSKIndex)
 // end ZWave_DSK_IsZeroized
 
 /** *****************************************************************************************************************************
+  * @brief  Validate a string of decimal digits including delimiters is a valid DSK
+  * @param  uint8_t*  paucDSKString - pointer to a string containing the 40-digit DSK (47 chars including delimiters)
+  * @retval TRUE if DSK string is valid; FALSE otherwise
+  */
+uint8_t ZWave_DSK_Validate_String(uint8_t* paucDSKString)
+{
+  uint8_t lucIsDSKOK = TRUE;
+  uint8_t* plucIntegerStart;
+  uint8_t lucDSKInteger[6];
+  uint32_t lulTempDSKInt;
+  uint8_t lucDSKByteIndex;
+
+  // The DSK string should be in the format NNNNN-NNNNN-NNNNN-NNNNN-NNNNN-NNNNN-NNNNN-NNNNN
+  // where N is a decimal digit, and a non-digit delimiter separates each 5-digit number.
+  // Since each 5-digit number is represented by 2 bytes, each 5-digit number must
+  // be in the range [0, 65535].
+
+  LOG("%s: Validating DSK %s\r\n", __FUNCTION__, paucDSKString);
+  if (strlen(paucDSKString) != 47)
+  {
+    LOG("%s: *** WARNING *** DSK string is incorrect length of %d bytes\r\n", __FUNCTION__, strlen(paucDSKString));
+    lucIsDSKOK = FALSE;
+  }
+  for (int i = 0; i < 47; ++i)
+  {
+    if ( i==5 || i==11 || i==17 || i==23 || i==29 || i==35 || i==41)
+    {
+      // Check if delimiters are non-digits
+      if (isdigit(paucDSKString[i]))
+      {
+        LOG("%s: *** WARNING *** DSK string has an invalid delimiter at byte %d\r\n", __FUNCTION__, i);
+        lucIsDSKOK = FALSE;
+      }
+    }
+    else
+    {
+      // Check if digits are indeed digits
+      if (!isdigit(paucDSKString[i]))
+      {
+        LOG("%s: *** WARNING *** DSK string has an invalid digit at byte %d\r\n", __FUNCTION__, i);
+        lucIsDSKOK = FALSE;
+      }
+    }
+  }
+
+  // Parse the numerics
+  plucIntegerStart = paucDSKString;
+  lucDSKByteIndex = 0;
+  while (lucDSKByteIndex < DSK_LENGTH_BYTES)
+  {
+    memset(lucDSKInteger, 0x00, sizeof(lucDSKInteger));
+    memcpy(lucDSKInteger, plucIntegerStart, 5);
+    lulTempDSKInt = atoi(lucDSKInteger);
+    if (lulTempDSKInt > 0xFFFF)
+    {
+      // DSK has an invalid 5-digit number: exceeds 2 bytes
+      LOG("%s: *** WARNING *** DSK number %d is too large \r\n", __FUNCTION__, lulTempDSKInt);
+      lucIsDSKOK = FALSE;
+    }
+    //LOG("%s: lulTempDSKInt = %05d \r\n", __FUNCTION__, lulTempDSKInt);
+
+    // Point to next 5-digit integer
+    plucIntegerStart += 6;
+    lucDSKByteIndex += 2;
+  }
+
+  if (lucIsDSKOK)
+  {
+    LOG("%s: DSK %s looks OK \r\n", __FUNCTION__, paucDSKString);
+  }
+  else
+  {
+    LOG("%s: *** WARNING *** DSK string %s FAILED validation \r\n", __FUNCTION__, paucDSKString);
+  }
+
+
+
+
+  return lucIsDSKOK;
+}
+// end ZWave_DSK_Validate_String
+
+/** *****************************************************************************************************************************
   * @brief  Write a specified DSK to the node provisioning list
   * @param  uint8_t   aucDSKIndex   - index into node provisioning list to write [0, NODE_PROVISIONING_LIST_COUNT-1]
   * @param  uint8_t*  paucDSKBuffer - pointer to a byte buffer containing the 16-byte DSK
@@ -2023,7 +2400,7 @@ uint8_t ZWave_DSK_Write_From_String(uint8_t aucDSKIndex, uint8_t* paucDSKString)
   // Validate the DSK index
   if (aucDSKIndex >= NODE_PROVISIONING_LIST_COUNT)
   {
-    LOG("%s: *** WARNING *** invalid DSK index %d, DSK write aborted \r\n", __FUNCTION__, aucDSKIndex);
+    LOG("%s: *** WARNING *** invalid DSK index %d \r\n", __FUNCTION__, aucDSKIndex);
     lucReturnValue = FALSE;
  }
 
@@ -2033,41 +2410,7 @@ uint8_t ZWave_DSK_Write_From_String(uint8_t aucDSKIndex, uint8_t* paucDSKString)
   // be in the range [0, 65535].
 
   // Validate the string
-  LOG("%s: Validating DSK %s\r\n", __FUNCTION__, paucDSKString);
-  if (strlen(paucDSKString) != 47)
-  {
-    LOG("%s: *** WARNING *** DSK string is incorrect length of %d bytes\r\n", __FUNCTION__, strlen(paucDSKString));
-    lucIsDSKOK = FALSE;
-  }
-  for (int i = 0; i < 47; ++i)
-  {
-    if ( i==5 || i==11 || i==17 || i==23 || i==29 || i==35 || i==41)
-    {
-      // Check if delimiters are non-digits
-      if (isdigit(paucDSKString[i]))
-      {
-        LOG("%s: *** WARNING *** DSK string has an invalid delimiter at byte %d\r\n", __FUNCTION__, i);
-        lucIsDSKOK = FALSE;
-      }
-    }
-    else
-    {
-      // Check if digits are indeed digits
-      if (!isdigit(paucDSKString[i]))
-      {
-        LOG("%s: *** WARNING *** DSK string has an invalid digit at byte %d\r\n", __FUNCTION__, i);
-        lucIsDSKOK = FALSE;
-      }
-    }
-  }
-  if (lucIsDSKOK)
-  {
-    LOG("%s: DSK %s looks OK \r\n", __FUNCTION__, paucDSKString);
-  }
-  else
-  {
-    LOG("%s: *** WARNING *** DSK string %s FAILED validation \r\n", __FUNCTION__, paucDSKString);
-  }
+  lucIsDSKOK = ZWave_DSK_Validate_String(paucDSKString);
 
   // Both the DSK index and the DSK string must validate OK to continue
   if (lucReturnValue)
@@ -2105,8 +2448,6 @@ uint8_t ZWave_DSK_Write_From_String(uint8_t aucDSKIndex, uint8_t* paucDSKString)
   // Is the DSK still OK? If so then write it to the node provisioning list
   if (lucReturnValue && lucIsDSKOK)
   {
-    lucReturnValue = lucIsDSKOK;
-
     // DSK is in a buffer, so now write it to the node provisioning list
     ZWave_DSK_Write(aucDSKIndex, lucDSKBuffer);
   }
@@ -2120,6 +2461,31 @@ uint8_t ZWave_DSK_Write_From_String(uint8_t aucDSKIndex, uint8_t* paucDSKString)
 // end ZWave_DSK_Write_From_String
 
 /** *****************************************************************************************************************************
+  * @brief  Write a specified DSK from the node provisioning list to a string buffer
+  * @param  uint8_t   aucDSKIndex   - index into node provisioning list to read [0, NODE_PROVISIONING_LIST_COUNT-1]
+  * @param  uint8_t*  paucDSKString - pointer to a string to which the 40-digit DSK (47 chars including delimiters) will be written
+  * @retval None
+  */
+void ZWave_DSK_Write_To_String(uint8_t aucDSKIndex, uint8_t* paucDSKBuffer)
+{
+  static char lucIntegerString[10];
+  static char lucDSKString[60];
+  static uint16_t luiTempDSKInt;
+
+  memset(lucDSKString, 0x00, sizeof(lucDSKString));
+  for (int j = 0; j < DSK_LENGTH_BYTES; j += 2)
+  {
+    luiTempDSKInt = 0x100*gtNodeProvisioningList[aucDSKIndex].dsk[j] + gtNodeProvisioningList[aucDSKIndex].dsk[j+1];
+    memset(lucIntegerString, 0x00, sizeof(lucIntegerString));
+    sprintf(lucIntegerString, "%05d", luiTempDSKInt);
+    strcat(lucDSKString, lucIntegerString);
+    if (j < DSK_LENGTH_BYTES-2) strcat(lucDSKString, "-");
+  }
+  memcpy(paucDSKBuffer, lucDSKString, strlen(lucDSKString));
+}
+// end ZWave_DSK_Write_To_String
+
+/** *****************************************************************************************************************************
   * @brief  Zeroize a specified DSK in the node provisioning list
   * @param  uint8_t  aucDSKIndex - index into node provisioning list to zeroize [0, NODE_PROVISIONING_LIST_COUNT-1]
   * @retval None
@@ -2130,13 +2496,13 @@ void ZWave_DSK_Zeroize(uint8_t aucDSKIndex)
   {
     LOG("%s: Zeroizing DSK %d\r\n", __FUNCTION__, aucDSKIndex);
     gtNodeProvisioningList[aucDSKIndex].lr_capable = ZWAVE_NODE_PROVISIONING_LIST_MESH_ONLY;
-    for (int j = 0; j < DSK_LENGTH_BYTES; ++j)
-    {
-      gtNodeProvisioningList[aucDSKIndex].dsk[j] = 0;
-    }
+    memset(gtNodeProvisioningList[aucDSKIndex].dsk, 0x00, DSK_LENGTH_BYTES); // zeroize DSK bytes
+    gtNodeProvisioningList[aucDSKIndex].requested_keys = 0; // initialize requested keys: NO security levels supported
+    gtNodeProvisioningList[aucDSKIndex].granted_keys = 0;   // initialize granted   keys: NO security levels supported
     gtNodeProvisioningList[aucDSKIndex].boot_mode = ZWAVE_NODE_PROVISIONING_LIST_S2_MANUAL; // initialize with zeroized DSK, so assume no SmartStart
     gtNodeProvisioningList[aucDSKIndex].status = SMARTSTART_EMPTY; // initialize with zeroized DSK, so status is EMPTY
-    gtNodeProvisioningList[aucDSKIndex].NodeID = NODE_ID_UNAVAILABLE; // initialize NodeID
+    gtNodeProvisioningList[aucDSKIndex].NodeID = NODE_ID_UNAVAILABLE; // zeroize NodeID
+    memset(gtNodeProvisioningList[aucDSKIndex].ECDHPublicKey, 0x00, 32); // zeroize ECDH public key
   }
   else
   {
@@ -4859,8 +5225,8 @@ void ZWave_RES_CMD_DA_Serial_API_Get_LR_Nodes(void)
   //// TEST MAB 2026.01.07
   //// Save the LR nodes bitmask array
   memcpy(gucLRNodes, &ZWaveSerialFrame->payload[3], MAX_LR_NODEMASK_LENGTH);
-  LOG("%s: Copy of BITMASK_ARRAY: \r\n", __FUNCTION__);
-  PrintBytes(gucLRNodes, MAX_LR_NODEMASK_LENGTH, false, 0);
+  //LOG("%s: Copy of BITMASK_ARRAY: \r\n", __FUNCTION__);
+  //PrintBytes(gucLRNodes, MAX_LR_NODEMASK_LENGTH, false, 0);
   ////////////////////////////////////////////////////////////////////////////////////////
 }
 // end ZWave_RES_CMD_DA_Serial_API_Get_LR_Nodes
@@ -5108,7 +5474,7 @@ void ZWave_Rx_CC_9F_Security_2_V2(void)
     }
     if (lucSPANOutOfSync)
     {
-      LOG("%s: Receiver's Entropy Input... \r\n", __FUNCTION__);
+      LOG("%s: Receiver's Entropy Input (REI) \r\n", __FUNCTION__);
       PrintBytes(&pgucCCBuffer[4], 16, false, 0);
     }
   }
@@ -5198,6 +5564,8 @@ void ZWave_Rx_CC_9F_Security_2_V2(void)
 
   if (KEX_REPORT_V2 == pgucCCBuffer[1])
   {
+    gucIsKEXReportReceived = TRUE;
+
     LOG("%s: KEX options     = 0x%02X \r\n", __FUNCTION__, pgucCCBuffer[2]);
     if (pgucCCBuffer[2] & KEX_REPORT_PROPERTIES1_ECHO_BIT_MASK_V2)
     {
@@ -5233,28 +5601,82 @@ void ZWave_Rx_CC_9F_Security_2_V2(void)
     }
 
     LOG("%s: Requested keys  = 0x%02X \r\n", __FUNCTION__, pgucCCBuffer[5]);
-    if (pgucCCBuffer[5] & 0x04)
+    if (pgucCCBuffer[5] & SECURITY_KEY_S2_ACCESS_BIT)
     {
       LOG("%s: - S2 Access Control Class supported \r\n", __FUNCTION__);
     }
-    if (pgucCCBuffer[5] & 0x02)
+    if (pgucCCBuffer[5] & SECURITY_KEY_S2_AUTHENTICATED_BIT)
     {
       LOG("%s: - S2 Authenticated Class supported \r\n", __FUNCTION__);
     }
-    if (pgucCCBuffer[5] & 0x01)
+    if (pgucCCBuffer[5] & SECURITY_KEY_S2_UNAUTHENTICATED_BIT)
     {
       LOG("%s: - S2 Unauthenticated Class supported \r\n", __FUNCTION__);
     }
-    if (pgucCCBuffer[5] & 0x80)
+    if (pgucCCBuffer[5] & SECURITY_KEY_S0_BIT)
     {
       LOG("%s: - S0 Secure legacy devices supported \r\n", __FUNCTION__);
+    }
+    //////////////////////////////////////////////////////////
+    //// TEST MAB 2026.01.19
+    //// If this is a freshly included node, save requested keys
+    if (gucProcessingDSK <= NODE_PROVISIONING_LIST_COUNT && SMARTSTART_BOOTSTRAP == gtNodeProvisioningList[gucProcessingDSK].status)
+    {
+      LOG("%s: Saving requested keys for DSK %d \r\n", __FUNCTION__, gucProcessingDSK);
+      gtNodeProvisioningList[gucProcessingDSK].requested_keys = pgucCCBuffer[5];
+    }
+    //////////////////////////////////////////////////////////
+    // Put out a warning if no S2 levels are supported
+    gucIsS2Supported = TRUE;
+    if ( 0 == pgucCCBuffer[5] & (SECURITY_KEY_S2_ACCESS_BIT|SECURITY_KEY_S2_AUTHENTICATED_BIT|SECURITY_KEY_S2_UNAUTHENTICATED_BIT) )
+    {
+      gucIsS2Supported = FALSE;
+      LOG("%s: *** WARNING *** no S2 security levels are supported, security bootstrap should fail \r\n", __FUNCTION__);
+    }
+  }
+
+  if (KEX_FAIL_V2 == pgucCCBuffer[1])
+  {
+    LOG("%s: KEX Fail type   = 0x%02X \r\n", __FUNCTION__, pgucCCBuffer[2]);
+    switch (pgucCCBuffer[2])
+    {
+    case KEX_FAIL_KEX_KEY_V2:
+      LOG("%s: - KEX_FAIL_KEX_KEY_V2 \r\n", __FUNCTION__);
+      break;
+    case KEX_FAIL_KEX_SCHEME_V2:
+      LOG("%s: - KEX_FAIL_KEX_SCHEME_V2 \r\n", __FUNCTION__);
+      break;
+    case KEX_FAIL_KEX_CURVES_V2:
+      LOG("%s: - KEX_FAIL_KEX_CURVES_V2 \r\n", __FUNCTION__);
+      break;
+    case KEX_FAIL_DECRYPT_V2:
+      LOG("%s: - KEX_FAIL_DECRYPT_V2 \r\n", __FUNCTION__);
+      break;
+    case KEX_FAIL_CANCEL_V2:
+      LOG("%s: - KEX_FAIL_CANCEL_V2 \r\n", __FUNCTION__);
+      break;
+    case KEX_FAIL_AUTH_V2:
+      LOG("%s: - KEX_FAIL_AUTH_V2 \r\n", __FUNCTION__);
+      break;
+    case KEX_FAIL_KEY_GET_V2:
+      LOG("%s: - KEX_FAIL_KEY_GET_V2 \r\n", __FUNCTION__);
+      break;
+    case KEX_FAIL_KEY_VERIFY_V2:
+      LOG("%s: - KEX_FAIL_KEY_VERIFY_V2 \r\n", __FUNCTION__);
+      break;
+    case KEX_FAIL_KEY_REPORT_V2:
+      LOG("%s: - KEX_FAIL_KEY_REPORT_V2 \r\n", __FUNCTION__);
+      break;
+    default:
+      LOG("%s: - *** WARNING *** unknown KEX Fail type  \r\n", __FUNCTION__ );
+      break;
     }
   }
 
   if (PUBLIC_KEY_REPORT_V2 == pgucCCBuffer[1])
   {
     LOG("%s: Options         = 0x%02X \r\n", __FUNCTION__, pgucCCBuffer[2]);
-    if (pgucCCBuffer[2] & 0x01)
+    if (pgucCCBuffer[2] & PUBLIC_KEY_REPORT_PROPERTIES1_INCLUDING_NODE_BIT_MASK_V2)
     {
       LOG("%s: - Including Node bit set: sent by the including node \r\n", __FUNCTION__);
     }
@@ -5268,9 +5690,9 @@ void ZWave_Rx_CC_9F_Security_2_V2(void)
     ////////////////////////////////////////////////
     //// TEST MAB 2026.01.02
     //// Try to detect DSK in node provisioning list
-    #define INCOMPLETE_DSK_MATCH_ACCEPTABLE (FALSE)
-    #define FULL_DSK_MATCH_REQUIRED (TRUE)
-    ZWave_Scan_ProvisioningList_For_DSK(&pgucCCBuffer[3], INCOMPLETE_DSK_MATCH_ACCEPTABLE);
+    #define SCAN_FOR_DSK_INCOMPLETE_MATCH_ACCEPTABLE (FALSE)
+    #define SCAN_FOR_DSK_FULL_MATCH_REQUIRED (TRUE)
+    ZWave_Scan_ProvisioningList_For_DSK(&pgucCCBuffer[3], SCAN_FOR_DSK_INCOMPLETE_MATCH_ACCEPTABLE);
     ////////////////////////////////////////////////
 
   }
@@ -6305,6 +6727,7 @@ ZWave_SmartStart_StateMachine
       ENDIf
     ELSE IF state is BOOTSTRAP
       Update elapsed bootstrap time
+      Run Bootstrap state machine
       IF S2 bootstrap failed OR timed out
         Set state to INCLUSION
       ELSE IF S2 bootstrap has completed
@@ -6472,6 +6895,7 @@ SmartStartState ZWave_SmartStart_StateMachine(SmartStartStateMachineCommand stat
         lulElapsedTime_Bootstrap_msec = 0;
         gucIsBootstrapFailed   = FALSE;
         gucIsBootstrapFinished = FALSE;
+        ZWave_Bootstrap_StateMachine(BOOTSTRAP_SM_CMD_INITIALIZE);
         LOG("%s: Transitioning DSK %d from INCLUSION to BOOTSTRAP\r\n", __FUNCTION__, gucProcessingDSK);
         leSmartStartState                               = SMARTSTART_BOOTSTRAP;
         gtNodeProvisioningList[gucProcessingDSK].status = SMARTSTART_BOOTSTRAP;
@@ -6511,6 +6935,9 @@ SmartStartState ZWave_SmartStart_StateMachine(SmartStartStateMachineCommand stat
     {
       // Update elapsed bootstrap time
       lulElapsedTime_Bootstrap_msec += ZWAVE_TASK_PERIOD;
+
+      // Run Bootstrap state machine
+      ZWave_Bootstrap_StateMachine(BOOTSTRAP_SM_CMD_RUN);
 
       // IF S2 bootstrap failed OR timed out
       if ( gucIsBootstrapFailed || lulElapsedTime_Bootstrap_msec > BOOTSTRAP_TIMEOUT_MSEC)
@@ -7266,45 +7693,31 @@ void ZWaveTask(void *argument)
   static uint16_t luiTempDSKInt;
   static char lucDSKHexString[60];
   LOG("%s: --------- Initializing Node Provisioning list... ---------\r\n", __FUNCTION__);
-//  // ----- Zeroize DSKs (initialize any valid DSKs later)
-//  LOG("%s: Zeroized DSKs\r\n", __FUNCTION__);
-//  for (int i = 0; i < NODE_PROVISIONING_LIST_COUNT; ++i)
-//  {
-//    ZWave_DSK_Zeroize(i);
-//  }
-//  for (int i = 0; i < NODE_PROVISIONING_LIST_COUNT; ++i)
-//  {
-//    memset(lucDSKString, 0x00, sizeof(lucDSKString));
-//    for (int j = 0; j < DSK_LENGTH_BYTES; j += 2)
-//    {
-//      luiTempDSKInt = 0x100*gtNodeProvisioningList[i].dsk[j] + gtNodeProvisioningList[i].dsk[j+1];
-//      memset(lucIntegerString, 0x00, sizeof(lucIntegerString));
-//      sprintf(lucIntegerString, "%05d", luiTempDSKInt);
-//      strcat(lucDSKString, lucIntegerString);
-//      if (j < DSK_LENGTH_BYTES-2) strcat(lucDSKString, "-");
-//    }
-//    LOG("%s: DSK %d: %s\r\n", __FUNCTION__, i, lucDSKString);
-//  }
+  // ----- Zeroize DSKs (initialize any valid DSKs later)
+  LOG("%s: Zeroized DSKs\r\n", __FUNCTION__);
+  for (int i = 0; i < NODE_PROVISIONING_LIST_COUNT; ++i)
+  {
+    ZWave_DSK_Zeroize(i);
+  }
+  for (int i = 0; i < NODE_PROVISIONING_LIST_COUNT; ++i)
+  {
+    memset(lucDSKString, 0x00, sizeof(lucDSKString));
+    ZWave_DSK_Write_To_String(i, lucDSKString);
+    LOG("%s: DSK %d: %s\r\n", __FUNCTION__, i, lucDSKString);
+  }
   // ----- Initialize with random values for DSKs (initialize any valid DSKs later)
   uint8_t lucDSKBuffer[DSK_LENGTH_BYTES];
   LOG("%s: Randomized DSKs\r\n", __FUNCTION__);
   for (int i = 0; i < NODE_PROVISIONING_LIST_COUNT; ++i)
   {
+    gtNodeProvisioningList[i].NodeID = NODE_ID_UNAVAILABLE; // initialize NodeID
     memset(lucDSKString, 0x00, sizeof(lucDSKString));
     for (int j = 0; j < DSK_LENGTH_BYTES; ++j)
     {
       lucDSKBuffer[j] = (uint8_t)RandomValue();
     }
     ZWave_DSK_Write(i, lucDSKBuffer);
-    gtNodeProvisioningList[i].NodeID = NODE_ID_UNAVAILABLE; // initialize NodeID
-    for (int j = 0; j < DSK_LENGTH_BYTES; j += 2)
-    {
-      luiTempDSKInt = 0x100*gtNodeProvisioningList[i].dsk[j] + gtNodeProvisioningList[i].dsk[j+1];
-      memset(lucIntegerString, 0x00, sizeof(lucIntegerString));
-      sprintf(lucIntegerString, "%05d", luiTempDSKInt);
-      strcat(lucDSKString, lucIntegerString);
-      if (j < DSK_LENGTH_BYTES-2) strcat(lucDSKString, "-");
-    }
+    ZWave_DSK_Write_To_String(i, lucDSKString);
     LOG("%s: DSK %d: %s\r\n", __FUNCTION__, i, lucDSKString);
   }
   // ----- Set up a valid DSK for existing End node
@@ -7317,17 +7730,10 @@ void ZWaveTask(void *argument)
   lucAvailableDSKIndex = ZWave_DSK_Find_Zeroized();
   if (lucAvailableDSKIndex != DSK_UNAVAILABLE)
   {
+    gtNodeProvisioningList[lucAvailableDSKIndex].NodeID = NODE_ID_UNAVAILABLE; // initialize NodeID
     ZWave_DSK_Write_From_String(lucAvailableDSKIndex, "41518-18177-63256-08527-46087-44111-60645-12807");
     memset(lucDSKString, 0x00, sizeof(lucDSKString));
-    for (int j = 0; j < DSK_LENGTH_BYTES; j += 2)
-    {
-      luiTempDSKInt = 0x100*gtNodeProvisioningList[lucAvailableDSKIndex].dsk[j] + gtNodeProvisioningList[lucAvailableDSKIndex].dsk[j+1];
-      memset(lucIntegerString, 0x00, sizeof(lucIntegerString));
-      sprintf(lucIntegerString, "%05d", luiTempDSKInt);
-      strcat(lucDSKString, lucIntegerString);
-      if (j < DSK_LENGTH_BYTES-2) strcat(lucDSKString, "-");
-    }
-    gtNodeProvisioningList[lucAvailableDSKIndex].NodeID = NODE_ID_UNAVAILABLE; // initialize NodeID
+    ZWave_DSK_Write_To_String(lucAvailableDSKIndex, lucDSKString);
     LOG("%s: DSK %d: %s\r\n", __FUNCTION__, lucAvailableDSKIndex, lucDSKString);
   }
   LOG("%s: --------- END Initializing Node Provisioning list ---------\r\n", __FUNCTION__);
@@ -7335,12 +7741,18 @@ void ZWaveTask(void *argument)
   ///////////////////////////////////////////////////////////////////////////////////////////////////////
   //// TEST MAB 2025.12.30
   //// Test DSK string validation
-  //ZWave_DSK_Write_From_String(0, "12345-12345-12345-12345-12345-12345-12345-12345"); // OK
-  //ZWave_DSK_Write_From_String(0, "65536-12345-12345-12345-12345-12345-12345-12345");  // Fail - a number exceeds 65535
-  //ZWave_DSK_Write_From_String(0, "12345-12345-12345-12345-12345-12345-12345-12345-"); // Fail - DSK string isn't 47
-  //ZWave_DSK_Write_From_String(0, "12345-12345-12345-12345-12345-12345-12345-123"); // Fail - DSK string isn't 47
-  //ZWave_DSK_Write_From_String(0, "12345 12345 12345 12345 12345 12345 12345 12345"); // OK
-  //ZWave_DSK_Write_From_String(0, "12w45-12345-12345-12345-12345-12345-12345-12345"); // Fail - non-digit char detected
+//  ZWave_DSK_Write_From_String(0, "12345-12345-12345-12345-12345-12345-12345-12345"); // OK
+//  ZWave_DSK_Write_From_String(0, "65536-12345-12345-12345-12345-12345-12345-12345");  // Fail - a number exceeds 65535
+//  ZWave_DSK_Write_From_String(0, "12345-12345-12345-12345-12345-12345-12345-12345-"); // Fail - DSK string isn't 47
+//  ZWave_DSK_Write_From_String(0, "12345-12345-12345-12345-12345-12345-12345-123"); // Fail - DSK string isn't 47
+//  ZWave_DSK_Write_From_String(0, "12345 12345 12345 12345 12345 12345 12345 12345"); // OK
+//  ZWave_DSK_Write_From_String(0, "12w45-12345-12345-12345-12345-12345-12345-12345"); // Fail - non-digit char detected
+//  ZWave_DSK_Validate_String("12345-12345-12345-12345-12345-12345-12345-12345"); // OK
+//  ZWave_DSK_Validate_String("65536-12345-12345-12345-12345-12345-12345-12345");  // Fail - a number exceeds 65535
+//  ZWave_DSK_Validate_String("12345-12345-12345-12345-12345-12345-12345-12345-"); // Fail - DSK string isn't 47
+//  ZWave_DSK_Validate_String("12345-12345-12345-12345-12345-12345-12345-123"); // Fail - DSK string isn't 47
+//  ZWave_DSK_Validate_String("12345 12345 12345 12345 12345 12345 12345 12345"); // OK
+//  ZWave_DSK_Validate_String("12w45-12345-12345-12345-12345-12345-12345-12345"); // Fail - non-digit char detected
  ///////////////////////////////////////////////////////////////////////////////////////////////////////
 
 //  ///////////////////////////////////////////////////////////////////////////////////////////////////////
@@ -7532,14 +7944,11 @@ void ZWaveTask(void *argument)
         {
           // Display DSK
           memset(lucDSKString,    0x00, sizeof(lucDSKString));
+          ZWave_DSK_Write_To_String(i, lucDSKString);
           memset(lucDSKHexString, 0x00, sizeof(lucDSKHexString));
           for (int j = 0; j < DSK_LENGTH_BYTES; j+=2)
           {
             luiTempDSKInt = 0x100*gtNodeProvisioningList[i].dsk[j] + gtNodeProvisioningList[i].dsk[j+1];
-            memset(lucIntegerString, 0x00, sizeof(lucIntegerString));
-            sprintf(lucIntegerString, "%05d", luiTempDSKInt);
-            strcat(lucDSKString, lucIntegerString);
-            if (j < DSK_LENGTH_BYTES-2) strcat(lucDSKString, "-");
             memset(lucIntegerString, 0x00, sizeof(lucIntegerString));
             sprintf(lucIntegerString, "%04X", luiTempDSKInt);
             strcat(lucDSKHexString, lucIntegerString);
@@ -7605,28 +8014,28 @@ void ZWaveTask(void *argument)
           switch (gtNodeProvisioningList[i].status)
           {
           case SMARTSTART_EMPTY:
-            LOG("%s: - DSK not written \r\n", __FUNCTION__);
+            LOG("%s: - EMPTY - DSK not written \r\n", __FUNCTION__);
             break;
           case SMARTSTART_READY:
-            LOG("%s: - DSK written to node provisioning list; end node not connected \r\n", __FUNCTION__);
+            LOG("%s: - READY - DSK written to node provisioning list; end node not connected \r\n", __FUNCTION__);
             break;
           case SMARTSTART_DETECTED:
-            LOG("%s: - End node with correlated DSK detected \r\n", __FUNCTION__);
+            LOG("%s: - DETECTED - End node with correlated DSK detected \r\n", __FUNCTION__);
             break;
           case SMARTSTART_INCLUSION:
-            LOG("%s: - End node joining home network \r\n", __FUNCTION__);
+            LOG("%s: - INCLUSION - End node joining home network \r\n", __FUNCTION__);
             break;
           case SMARTSTART_EXCLUSION:
-            LOG("%s: - End node removed from home network \r\n", __FUNCTION__);
+            LOG("%s: - EXCLUSION - End node removed from home network \r\n", __FUNCTION__);
             break;
           case SMARTSTART_BOOTSTRAP:
-            LOG("%s: - End node sharing key information \r\n", __FUNCTION__);
+            LOG("%s: - BOOTSTRAP - End node sharing key information \r\n", __FUNCTION__);
             break;
           case SMARTSTART_ACTIVE:
-            LOG("%s: - End node fully connected, including security \r\n", __FUNCTION__);
+            LOG("%s: - ACTIVE - End node fully connected, including security \r\n", __FUNCTION__);
             break;
           case SMARTSTART_REMOVED:
-            LOG("%s: - End node being removed from home network; DSK being erased from node provisioning list \r\n", __FUNCTION__);
+            LOG("%s: - REMOVED - End node being removed from home network; DSK being erased from node provisioning list \r\n", __FUNCTION__);
             break;
           default:
             LOG("%s: - *** WARNING *** status value %d is UNKNOWN\r\n", __FUNCTION__, gtNodeProvisioningList[i].status);
@@ -7679,6 +8088,7 @@ void ZWaveTask(void *argument)
     static uint8_t lucSendDataBuffer[10];
     static uint8_t lucIsAbandonedNodeIDSearchActive;
     if (0 == lulCountdownToCheckAbandonedNodeID_seconds)
+    //if (0 == lulCountdownToCheckAbandonedNodeID_seconds && !ZWave_DSK_IsProcessing())
     {
       //lulCountdownToCheckAbandonedNodeID_seconds = 300 + RandomValue()%60; // 5-6 minutes
       //lulCountdownToCheckAbandonedNodeID_seconds = 60 + RandomValue()%60; // 1-2 minutes
@@ -7708,42 +8118,53 @@ void ZWaveTask(void *argument)
         }
       } // end while lucIsAbandonedNodeIDSearchActive
 
-      // Let's delete the NodeID
+      // Delete the abandoned NodeID
       if (luiAbandonedNodeID)
       {
-        // Check if the specified NodeID is in the controller's failed nodes list
-        guiNodeID = luiAbandonedNodeID;
-        #if ENABLE_ZWAVE_CONTROLLER_HOST
-        ZWave_Send_REQ_CMD_62_Is_Node_Failed(luiAbandonedNodeID);
-        #endif
-
+        // (we've found the next abandoned NodeID in the current LR node list)
         // "Ping" the node
+        // (Attempt to communicate with the failed node: failure -> failed NodeID added to failed node list)
         guiNodeID = luiAbandonedNodeID;
         gucSessionID = ZWave_SessionID_Randomize();
         lucSendDataBuffer[0] = COMMAND_CLASS_SECURITY_2_V2;
         lucSendDataBuffer[1] = SECURITY_2_NONCE_GET_V2;
         lucSendDataBuffer[2] = gucSessionID;
         #if ENABLE_ZWAVE_CONTROLLER_HOST
-        //ZWave_Send_REQ_CMD_12_Send_Node_Information(luiAbandonedNodeID, TRANSMIT_OPTION_ACK, gucSessionID);
         ZWave_Send_REQ_CMD_13_Send_Data(luiAbandonedNodeID, 3, lucSendDataBuffer, TRANSMIT_OPTION_ACK, gucSessionID);
+        #endif
+
+        // Check if the specified NodeID is in the controller's failed nodes list
+        guiNodeID = luiAbandonedNodeID;
+        #if ENABLE_ZWAVE_CONTROLLER_HOST
+        ZWave_Send_REQ_CMD_62_Is_Node_Failed(luiAbandonedNodeID);
         #endif
 
         // Remove the failed node from the network
         gucSessionID = ZWave_SessionID_Randomize();
-        gucSessionID = ZWave_SessionID_Update(gucSessionID);
-        //guiNodeID = luiAbandonedNodeID;
+        //gucSessionID = ZWave_SessionID_Update(gucSessionID);
+        guiNodeID = luiAbandonedNodeID;
         #if ENABLE_ZWAVE_CONTROLLER_HOST
         ZWave_Send_REQ_CMD_61_Remove_Failed_Node(gucSessionID, luiAbandonedNodeID);
         #endif
       }
+      ////////////////////////////////////////
+      // MAB 2026.01.14
+      // During Z-Wave Sentinel development, when abandoned NodeIDs may be plentiful,
+      // will need to update the local copy of the NodeID list more frequently.
+      // In the final deliverable firmware probably don't need this ELSE case,
+      // can rely on the separate periodic update of the local copy of the NodeID list.
       else
       {
+        // (no more NodeIDs to check in the current LR node list)
         // Fetch latest LR node list
         #if ENABLE_ZWAVE_CONTROLLER_HOST
         ZWave_Send_REQ_CMD_DA_Serial_API_Get_LR_Nodes();
         #endif
       }
+      ////////////////////////////////////////
+
     } // endif time to check for abandoned NodeIDs
+
     //////////////////////////////////////////////////////////////////////////////
 
     //////////////////////////////////////////////
