@@ -248,7 +248,8 @@ uint_32          sOldUNIXTime = 0;
 uint32_t gulElapsedTime_Runtime_sec = 0;
 
 // Inclusion completed or failed
-uint8_t gucIsInclusionFinished = FALSE;
+uint8_t gucIsInclusionJoiningNodeFinished = FALSE;
+uint8_t gucIsInclusionIncludingNodeFinished = FALSE;
 uint8_t gucIsInclusionFailed   = FALSE;
 
 // Exclusion completed
@@ -368,10 +369,16 @@ uint8_t gucLRNodes[MAX_LR_NODEMASK_LENGTH];
 // general useage NodeID
 uint16_t guiNodeID;
 
-// Flags for KEX Report and S2 support
+// Flags for Bootstrap
 uint8_t gucIsKEXReportReceived;
 uint8_t gucIsS2Supported;
+uint8_t gucIsPublicKeyReportReceived;
+uint8_t gucIsIncludingNode;
 
+// NVR values
+uint8_t gucNVROffset = NVR_UNUSED_OFFSET;
+uint8_t gucControllerPublicKey[32];
+uint8_t gucControllerPrivateKey[32];
 
 /* USER CODE END PV */
 
@@ -462,6 +469,7 @@ void ZWave_Send_REQ_CMD_0B_Serial_API_Setup(eSerialAPISetupCmd aeSetupCommand, i
 void ZWave_Send_REQ_CMD_12_Send_Node_Information(uint16_t auiNodeID, uint8_t aucTxOption, uint8_t aucSessionID);
 void ZWave_Send_REQ_CMD_13_Send_Data(uint16_t auiNodeID, uint8_t aucLength, uint8_t* paucData, uint8_t aucTxOption, uint8_t aucSessionID);
 void ZWave_Send_REQ_CMD_20_Memory_Get_ID(void);
+void ZWave_Send_REQ_CMD_28_NVR_Get_Value(uint8_t aucOffset, uint8_t aucLength);
 void ZWave_Send_REQ_CMD_3F_Remove_Specific_Node_from_Network(uint8_t aucOptions, uint8_t aucSessionID, uint16_t auiNodeID);
 void ZWave_Send_REQ_CMD_41_Get_Node_Protocol_Info(uint16_t auiNodeID);
 void ZWave_Send_REQ_CMD_42_Set_Default(void);
@@ -1773,6 +1781,15 @@ ZWave_Bootstrap_StateMachine
         ENDIF
       ENDIF
     ELSE IF state is PUBLIC_KEY
+      IF Public Key Report is received
+        IF Including Node bit was set
+          Set state to ERROR
+        ELSE
+          Reset elapsed time for next state
+          Send S2 command Public Key Report (for controller)
+          Set state to TEMP_NONCE_GET
+        ENDIF
+      ENDIF
     ELSE IF state is TEMP_NONCE_GET
     ELSE IF state is TEMP_NONCE_SET
     ELSE IF state is NETWORK_KEY_GET
@@ -1834,7 +1851,7 @@ BootstrapState ZWave_Bootstrap_StateMachine(BootstrapStateMachineCommand stateMa
 
     // (Generic Bootstrap timeout; individual state timeouts might also occur)
     // IF timeout occurs
-    if (lulElapsedTime_sec > 5)
+    if (lulElapsedTime_sec > 60 )
     {
       lulElapsedTime_sec = 0;
       // Set state to ERROR
@@ -1927,6 +1944,8 @@ BootstrapState ZWave_Bootstrap_StateMachine(BootstrapStateMachineCommand stateMa
           #endif
 
           // Set state to PUBLIC_KEY
+          gucIsPublicKeyReportReceived = FALSE;
+          gucIsIncludingNode = FALSE;
           LOG("%s: Transitioning DSK %d Bootstrap state from KEX to PUBLIC_KEY\r\n", __FUNCTION__, gucProcessingDSK);
           leBootstrapState = BOOTSTRAP_PUBLIC_KEY;
         }
@@ -1939,6 +1958,44 @@ BootstrapState ZWave_Bootstrap_StateMachine(BootstrapStateMachineCommand stateMa
     // ELSE IF state is PUBLIC_KEY
     else if (BOOTSTRAP_PUBLIC_KEY == leBootstrapState)
     {
+      // IF Public Key Report is received
+      if (gucIsPublicKeyReportReceived)
+      {
+        // IF Including Node bit was set
+        if (gucIsIncludingNode)
+        {
+          // Set state to ERROR
+          LOG("%s: Transitioning DSK %d Bootstrap state from PUBLIC_KEY to ERROR\r\n", __FUNCTION__, gucProcessingDSK);
+          leBootstrapState = BOOTSTRAP_ERROR;
+        }
+        // ELSE
+        else
+        {
+          // Reset elapsed time for next state
+          lulElapsedTime_sec = 0;
+
+          // Send S2 command Public Key Report (for controller)
+          gucSessionID = ZWave_SessionID_Randomize();
+          memset(lucSendDataBuffer, 0x00, sizeof(lucSendDataBuffer));
+          lucSendDataBuffer[0] = COMMAND_CLASS_SECURITY_2_V2;
+          lucSendDataBuffer[1] = PUBLIC_KEY_REPORT_V2;
+          lucSendDataBuffer[2] = PUBLIC_KEY_REPORT_PROPERTIES1_INCLUDING_NODE_BIT_MASK_V2; // Set Including Node bit
+          //////////////////////////////////////////////////////////////////
+          //// TEST MAB 2026.01.27
+          //// Copy controller's public key into lucSendDataBuffer[3]
+          memcpy(&lucSendDataBuffer[3], gucControllerPublicKey, 32);
+          //////////////////////////////////////////////////////////////////
+          #if ENABLE_ZWAVE_CONTROLLER_HOST
+          ZWave_Send_REQ_CMD_13_Send_Data(gtNodeProvisioningList[gucProcessingDSK].NodeID, 3+32, lucSendDataBuffer, TRANSMIT_OPTION_ACK, gucSessionID);
+          #endif
+
+          // Set state to TEMP_NONCE_GET
+          LOG("%s: Transitioning DSK %d Bootstrap state from PUBLIC_KEY to TEMP_NONCE_GET\r\n", __FUNCTION__, gucProcessingDSK);
+          leBootstrapState = BOOTSTRAP_TEMP_NONCE_GET;
+        }
+        // ENDIF
+      }
+      // ENDIF
     }
 
     //-------------------------------------------------------
@@ -2142,15 +2199,19 @@ uint8_t ZWave_DSK_Extract_NWIAuthHomeID(uint8_t aucDSKIndex, uint8_t* paucNWIAut
   {
     // NWI HomeID derived from DSK bytes 8-11; MSB|0xC0; LSB&0xFE
     paucNWIAuthHomeIDBuffer[0] = gtNodeProvisioningList[aucDSKIndex].dsk[8] | 0xC0;
+    //// TEST MAB 2026.01.22 paucNWIAuthHomeIDBuffer[0] = gtNodeProvisioningList[aucDSKIndex].dsk[8];
     paucNWIAuthHomeIDBuffer[1] = gtNodeProvisioningList[aucDSKIndex].dsk[9];
     paucNWIAuthHomeIDBuffer[2] = gtNodeProvisioningList[aucDSKIndex].dsk[10];
     paucNWIAuthHomeIDBuffer[3] = gtNodeProvisioningList[aucDSKIndex].dsk[11] & 0xFE;
+    //// TEST MAB 2026.01.22 paucNWIAuthHomeIDBuffer[3] = gtNodeProvisioningList[aucDSKIndex].dsk[11];
 
     // Auth HomeID derived from DSK bytes 12-15; MSB|0xC0; LSB&0xFE
     paucNWIAuthHomeIDBuffer[4] = gtNodeProvisioningList[aucDSKIndex].dsk[12] | 0xC0;
+    //// TEST MAB 2026.01.22 paucNWIAuthHomeIDBuffer[4] = gtNodeProvisioningList[aucDSKIndex].dsk[12];
     paucNWIAuthHomeIDBuffer[5] = gtNodeProvisioningList[aucDSKIndex].dsk[13];
     paucNWIAuthHomeIDBuffer[6] = gtNodeProvisioningList[aucDSKIndex].dsk[14];
     paucNWIAuthHomeIDBuffer[7] = gtNodeProvisioningList[aucDSKIndex].dsk[15] & 0xFE;
+    //// TEST MAB 2026.01.22 paucNWIAuthHomeIDBuffer[7] = gtNodeProvisioningList[aucDSKIndex].dsk[15];
   }
   else
   {
@@ -3841,6 +3902,10 @@ uint32_t lulZpalRetentionResetInfo = (0x1000000*ZWaveSerialFrame->payload[7+i]) 
   ZWave_Send_REQ_CMD_0B_Serial_API_Setup(SERIAL_API_SETUP_CMD_RF_REGION_GET, IGNORE, IGNORE);
   ZWave_Send_REQ_CMD_0B_Serial_API_Setup(SERIAL_API_SETUP_CMD_TX_GET_MAX_PAYLOAD_SIZE, IGNORE, IGNORE);
   ZWave_Send_REQ_CMD_0B_Serial_API_Setup(SERIAL_API_SETUP_CMD_TX_GET_MAX_LR_PAYLOAD_SIZE, IGNORE, IGNORE);
+
+  // Get NVR values (public/private keys)
+  ZWave_Send_REQ_CMD_28_NVR_Get_Value(NVR_PUK_OFFSET, 32);
+  ZWave_Send_REQ_CMD_28_NVR_Get_Value(NVR_PRK_OFFSET, 32);
   ///////////////////////////////////////////////////////////////////////////
   #endif // ENABLE_ZWAVE_CONTROLLER_HOST
 
@@ -4244,9 +4309,9 @@ void ZWave_RES_CMD_20_Memory_Get_ID(void)
 
   // Start listening for SmartStart Prime commands, report to host application
   LOG("%s: Start listening for SmartStart Prime commands, report to host application \r\n", __FUNCTION__);
-  //ZWave_Send_REQ_CMD_4A_Add_Node_to_Network(ADD_NODE_OPTION_NETWORK_WIDE|ADD_NODE_SMART_START, 0x4E, NULL);
   gucSessionID = ZWave_SessionID_Randomize(); // range [1, 255]
   ZWave_Send_REQ_CMD_4A_Add_Node_to_Network(ADD_NODE_OPTION_NETWORK_WIDE|ADD_NODE_SMART_START, gucSessionID, NULL);
+  //ZWave_Send_REQ_CMD_4A_Add_Node_to_Network(ADD_NODE_OPTION_NETWORK_WIDE|ADD_NODE_OPTION_LR|ADD_NODE_SMART_START, gucSessionID, NULL);
   ///////////////////////////////////////////////////////////////////////////
   #endif // ENABLE_ZWAVE_CONTROLLER_HOST
 }
@@ -4264,6 +4329,25 @@ void ZWave_RES_CMD_28_NVR_Get_Value(void)
 
   LOG("%s: Retrieved NVR values: \r\n", __FUNCTION__);
   PrintBytes(ZWaveSerialFrame->payload, ZWaveSerialFrame->len - 3, false, 0);
+
+  // Save controller's public or private key if present
+  if ( NVR_PUK_OFFSET==gucNVROffset && 32==(ZWaveSerialFrame->len - 3) )
+  {
+    LOG("%s: ------------------------------ \r\n", __FUNCTION__);
+    LOG("%s: Saving controller's public key \r\n", __FUNCTION__);
+    LOG("%s: ------------------------------ \r\n", __FUNCTION__);
+    memcpy(gucControllerPublicKey, ZWaveSerialFrame->payload, 32);
+  }
+  if ( NVR_PRK_OFFSET==gucNVROffset && 32==(ZWaveSerialFrame->len - 3) )
+  {
+    LOG("%s: ------------------------------- \r\n", __FUNCTION__);
+    LOG("%s: Saving controller's private key \r\n", __FUNCTION__);
+    LOG("%s: ------------------------------- \r\n", __FUNCTION__);
+    memcpy(gucControllerPrivateKey, ZWaveSerialFrame->payload, 32);
+  }
+
+  // Done with NVR value, so clear the offset to avoid confusion
+  gucNVROffset = NVR_UNUSED_OFFSET;
 }
 // end ZWave_RES_CMD_28_NVR_Get_Value
 
@@ -4659,6 +4743,15 @@ void ZWave_REQ_CMD_49_ZW_Application_Update(void)
     PrintBytes(&ZWaveSerialFrame->payload[7], lucCommandClassListLength - 3, false, 0);
     //PrintBytes(&ZWaveSerialFrame->payload[4], lucCommandClassListLength, false, 0);
     LOG("----------------------- Supported Command Class list  END  -----------------------\r\n");
+
+//    //////////////////////////////////////////////////////////////
+//    //// TEST MAB 2026.01.21
+//    //// Trigger end of BOOTSTRAP
+//    if (lucEvent == UPDATE_STATE_NODE_INFO_RECEIVED)
+//    {
+//      gucIsBootstrapFinished = TRUE;
+//    }
+//    //////////////////////////////////////////////////////////////
   }
 
 }
@@ -4690,11 +4783,11 @@ void ZWave_REQ_CMD_4A_ZW_Add_Node_To_Network(void)
     break;
   case ADD_NODE_STATUS_PROTOCOL_DONE:
     LOG("%s: - Inclusion completed (protocol part) \r\n", __FUNCTION__);
-    gucIsInclusionFinished = TRUE;
+    gucIsInclusionJoiningNodeFinished = TRUE;
     break;
   case ADD_NODE_STATUS_DONE:
     LOG("%s: - Inclusion completed \r\n", __FUNCTION__);
-    gucIsInclusionFinished = TRUE;
+    gucIsInclusionIncludingNodeFinished = TRUE;
     break;
   case ADD_NODE_STATUS_FAILED:
     LOG("%s: - Inclusion FAILED \r\n", __FUNCTION__);
@@ -5618,7 +5711,7 @@ void ZWave_Rx_CC_9F_Security_2_V2(void)
       LOG("%s: - S0 Secure legacy devices supported \r\n", __FUNCTION__);
     }
     //////////////////////////////////////////////////////////
-    //// TEST MAB 2026.01.19
+    //// MAB 2026.01.19
     //// If this is a freshly included node, save requested keys
     if (gucProcessingDSK <= NODE_PROVISIONING_LIST_COUNT && SMARTSTART_BOOTSTRAP == gtNodeProvisioningList[gucProcessingDSK].status)
     {
@@ -5631,7 +5724,7 @@ void ZWave_Rx_CC_9F_Security_2_V2(void)
     if ( 0 == pgucCCBuffer[5] & (SECURITY_KEY_S2_ACCESS_BIT|SECURITY_KEY_S2_AUTHENTICATED_BIT|SECURITY_KEY_S2_UNAUTHENTICATED_BIT) )
     {
       gucIsS2Supported = FALSE;
-      LOG("%s: *** WARNING *** no S2 security levels are supported, security bootstrap should fail \r\n", __FUNCTION__);
+      LOG("%s: *** WARNING *** no S2 security levels are supported, security bootstrap will fail \r\n", __FUNCTION__);
     }
   }
 
@@ -5675,10 +5768,13 @@ void ZWave_Rx_CC_9F_Security_2_V2(void)
 
   if (PUBLIC_KEY_REPORT_V2 == pgucCCBuffer[1])
   {
+    gucIsPublicKeyReportReceived = TRUE;
+
     LOG("%s: Options         = 0x%02X \r\n", __FUNCTION__, pgucCCBuffer[2]);
     if (pgucCCBuffer[2] & PUBLIC_KEY_REPORT_PROPERTIES1_INCLUDING_NODE_BIT_MASK_V2)
     {
-      LOG("%s: - Including Node bit set: sent by the including node \r\n", __FUNCTION__);
+      LOG("%s: - *** WARNING *** Including Node bit set: sent by the including node; security bootstrap will fail \r\n", __FUNCTION__);
+      gucIsIncludingNode = TRUE;
     }
     else
     {
@@ -5687,12 +5783,22 @@ void ZWave_Rx_CC_9F_Security_2_V2(void)
 
     LOG("%s: ECDH Public key (1st 16 bytes: DSK with some bytes possibly obfuscated with 0x00)... \r\n", __FUNCTION__);
     PrintBytes(&pgucCCBuffer[3], 32, false, 0);
+
     ////////////////////////////////////////////////
-    //// TEST MAB 2026.01.02
+    //// MAB 2026.01.02
     //// Try to detect DSK in node provisioning list
+    uint8_t lucDetectedDSKIndex;
     #define SCAN_FOR_DSK_INCOMPLETE_MATCH_ACCEPTABLE (FALSE)
     #define SCAN_FOR_DSK_FULL_MATCH_REQUIRED (TRUE)
-    ZWave_Scan_ProvisioningList_For_DSK(&pgucCCBuffer[3], SCAN_FOR_DSK_INCOMPLETE_MATCH_ACCEPTABLE);
+    lucDetectedDSKIndex = ZWave_Scan_ProvisioningList_For_DSK(&pgucCCBuffer[3], SCAN_FOR_DSK_INCOMPLETE_MATCH_ACCEPTABLE);
+    if (lucDetectedDSKIndex < NODE_PROVISIONING_LIST_COUNT)
+    {
+      // Copy the ECDH Public Key into the appropriate DSK
+      LOG("%s: Copying ECDH Public Key for DSK %d \r\n", __FUNCTION__, lucDetectedDSKIndex);
+      memcpy(&gtNodeProvisioningList[lucDetectedDSKIndex].ECDHPublicKey[ 0], gtNodeProvisioningList[lucDetectedDSKIndex].dsk, DSK_LENGTH_BYTES);
+      memcpy(&gtNodeProvisioningList[lucDetectedDSKIndex].ECDHPublicKey[16], &pgucCCBuffer[3+DSK_LENGTH_BYTES],               DSK_LENGTH_BYTES);
+      //PrintBytes(gtNodeProvisioningList[lucDetectedDSKIndex].ECDHPublicKey, 32, false, 0);
+    }
     ////////////////////////////////////////////////
 
   }
@@ -6052,6 +6158,22 @@ void ZWave_Send_REQ_CMD_20_Memory_Get_ID(void)
   LOG("%s: Sending FUNC_ID_MEMORY_GET_ID\r\n", __FUNCTION__);
 }
 // end ZWave_Send_REQ_CMD_20_Memory_Get_ID
+
+/** *****************************************************************************************************************************
+  * @brief  Prepare and send REQ CMD 28 NVR Get Value
+  * @param  uint8_t  aucOffset - memory offset [0x00, 0xEF]
+  * @param  uint8_t  aucLength - data length [1, 255]
+  * @retval None
+  */
+void ZWave_Send_REQ_CMD_28_NVR_Get_Value(uint8_t aucOffset, uint8_t aucLength)
+{
+  gucZWaveWorkbuf[0] = aucOffset;
+  gucZWaveWorkbuf[1] = aucLength;
+
+  ZWave_Enqueue_Request(FUNC_ID_NVR_GET_VALUE, gucZWaveWorkbuf, 2);
+  LOG("%s: Sending FUNC_ID_NVR_GET_VALUE\r\n", __FUNCTION__);
+}
+// end ZWave_Send_REQ_CMD_28_NVR_Get_Value
 
 /** *****************************************************************************************************************************
   * @brief  Prepare and send REQ CMD 3F Remove Specific Node from Network
@@ -6731,6 +6853,7 @@ ZWave_SmartStart_StateMachine
       IF S2 bootstrap failed OR timed out
         Set state to INCLUSION
       ELSE IF S2 bootstrap has completed
+        Resume listening for SmartStart Prime commands, report to host application
         Set state to ACTIVE
       ENDIF
     ELSE IF state is ACTIVE
@@ -6763,7 +6886,7 @@ SmartStartState ZWave_SmartStart_StateMachine(SmartStartStateMachineCommand stat
   static uint32_t lulElapsedTime_Bootstrap_msec;
   #define INCLUSION_TIMEOUT_MSEC (30000)
   #define EXCLUSION_TIMEOUT_MSEC (30000)
-  #define BOOTSTRAP_TIMEOUT_MSEC (10000)
+  #define BOOTSTRAP_TIMEOUT_MSEC (120000)
   static uint8_t lucNWIAuthHomeIDBuffer[8];
 
   //////////////////////////////////////////////////////////////////////////
@@ -6833,13 +6956,13 @@ SmartStartState ZWave_SmartStart_StateMachine(SmartStartStateMachineCommand stat
       ZWave_DSK_Extract_NWIAuthHomeID(gucProcessingDSK, lucNWIAuthHomeIDBuffer);
       gucSessionID = ZWave_SessionID_Update(gucSessionID);
       ZWave_Send_REQ_CMD_4A_Add_Node_to_Network(ADD_NODE_OPTION_NETWORK_WIDE|ADD_NODE_OPTION_LR|ADD_NODE_HOME_ID, gucSessionID, lucNWIAuthHomeIDBuffer);
-      //ZWave_Send_REQ_CMD_4A_Add_Node_to_Network(ADD_NODE_OPTION_NETWORK_WIDE|ADD_NODE_HOME_ID, gucSessionID, lucNWIAuthHomeIDBuffer);
       #endif // ENABLE_ZWAVE_CONTROLLER_HOST
 
       // Set state to INCLUSION
       lulElapsedTime_Inclusion_msec = 0;
-      gucIsInclusionFailed   = FALSE;
-      gucIsInclusionFinished = FALSE;
+      gucIsInclusionFailed                = FALSE;
+      gucIsInclusionJoiningNodeFinished   = FALSE;
+      gucIsInclusionIncludingNodeFinished = FALSE;
       LOG("%s: Transitioning DSK %d from DETECTED to INCLUSION\r\n", __FUNCTION__, gucProcessingDSK);
       leSmartStartState                               = SMARTSTART_INCLUSION;
       gtNodeProvisioningList[gucProcessingDSK].status = SMARTSTART_INCLUSION;
@@ -6880,15 +7003,37 @@ SmartStartState ZWave_SmartStart_StateMachine(SmartStartStateMachineCommand stat
         leSmartStartState                               = SMARTSTART_EXCLUSION;
         gtNodeProvisioningList[gucProcessingDSK].status = SMARTSTART_EXCLUSION;
       }
-      // ELSE IF node inclusion has completed
-      else if (gucIsInclusionFinished)
+      // ELSE IF joining node inclusion has completed
+      else if (gucIsInclusionJoiningNodeFinished)
       {
-        LOG("%s: Inclusion for DSK %d completed in %d msec \r\n", __FUNCTION__, gucProcessingDSK, lulElapsedTime_Inclusion_msec);
+        LOG("%s: Joining node inclusion for DSK %d completed in %d msec \r\n", __FUNCTION__, gucProcessingDSK, lulElapsedTime_Inclusion_msec);
+        gucIsInclusionJoiningNodeFinished = FALSE;
+        lulElapsedTime_Inclusion_msec = 0;
+
+        #if ENABLE_ZWAVE_CONTROLLER_HOST
+        // Stop joining node inclusion
+        //////////////////////////////////////
+        /// TEST MAB 2026.01.23
+        //osDelay(5000);
+        //////////////////////////////////////
+        LOG("%s: Stopping joining node inclusion \r\n", __FUNCTION__);
+        ZWave_Send_REQ_CMD_4A_Add_Node_to_Network(ADD_NODE_STOP, gucSessionID, NULL);
+        #endif
+      }
+      // ELSE IF including node inclusion has completed
+      else if (gucIsInclusionIncludingNodeFinished)
+      {
+        LOG("%s: Including node inclusion for DSK %d completed in %d msec \r\n", __FUNCTION__, gucProcessingDSK, lulElapsedTime_Inclusion_msec);
 
         #if ENABLE_ZWAVE_CONTROLLER_HOST
         // Stop node inclusion
+        //////////////////////////////////////
+        /// TEST MAB 2026.01.22
+        //osDelay(5000);
+        //////////////////////////////////////
         LOG("%s: Stopping node inclusion \r\n", __FUNCTION__);
-        ZWave_Send_REQ_CMD_4A_Add_Node_to_Network(ADD_NODE_STOP, gucSessionID, NULL);
+        //ZWave_Send_REQ_CMD_4A_Add_Node_to_Network(ADD_NODE_STOP, gucSessionID, NULL);
+        ZWave_Send_REQ_CMD_4A_Add_Node_to_Network(ADD_NODE_STOP, 0, NULL);
         #endif
 
         // Set state to BOOTSTRAP
@@ -6918,6 +7063,7 @@ SmartStartState ZWave_SmartStart_StateMachine(SmartStartStateMachineCommand stat
         LOG("%s: Resume listening for SmartStart Prime commands, report to host application \r\n", __FUNCTION__);
         gucSessionID = ZWave_SessionID_Update(gucSessionID);
         ZWave_Send_REQ_CMD_4A_Add_Node_to_Network(ADD_NODE_OPTION_NETWORK_WIDE|ADD_NODE_SMART_START, gucSessionID, NULL);
+        //ZWave_Send_REQ_CMD_4A_Add_Node_to_Network(ADD_NODE_OPTION_NETWORK_WIDE|ADD_NODE_OPTION_LR|ADD_NODE_SMART_START, gucSessionID, NULL);
         #endif
 
         // Set state to READY
@@ -6953,16 +7099,55 @@ SmartStartState ZWave_SmartStart_StateMachine(SmartStartStateMachineCommand stat
 
         // Set state to INCLUSION
         lulElapsedTime_Inclusion_msec = 0;
-        gucIsInclusionFailed   = FALSE;
-        gucIsInclusionFinished = FALSE;
+        gucIsInclusionFailed                = FALSE;
+        gucIsInclusionJoiningNodeFinished   = FALSE;
+        gucIsInclusionIncludingNodeFinished = FALSE;
         LOG("%s: Transitioning DSK %d from BOOTSTRAP to INCLUSION\r\n", __FUNCTION__, gucProcessingDSK);
         leSmartStartState                               = SMARTSTART_INCLUSION;
         gtNodeProvisioningList[gucProcessingDSK].status = SMARTSTART_INCLUSION;
+//        ///////////////////////////////////////////////////////////////////////////////////////////////////
+//        //// TEST MAB 2026.01.22
+////        #if ENABLE_ZWAVE_CONTROLLER_HOST
+////        // Stop node inclusion
+////        LOG("%s: Stopping node inclusion \r\n", __FUNCTION__);
+////        ZWave_Send_REQ_CMD_4A_Add_Node_to_Network(ADD_NODE_STOP, gucSessionID, NULL);
+////        #endif
+//
+//        #if ENABLE_ZWAVE_CONTROLLER_HOST
+//        // Resume listening for SmartStart Prime commands, report to host application
+//        LOG("%s: Resume listening for SmartStart Prime commands, report to host application \r\n", __FUNCTION__);
+//        gucSessionID = ZWave_SessionID_Update(gucSessionID);
+//        ZWave_Send_REQ_CMD_4A_Add_Node_to_Network(ADD_NODE_OPTION_NETWORK_WIDE|ADD_NODE_SMART_START, gucSessionID, NULL);
+//        //ZWave_Send_REQ_CMD_4A_Add_Node_to_Network(ADD_NODE_OPTION_NETWORK_WIDE|ADD_NODE_OPTION_LR|ADD_NODE_SMART_START, gucSessionID, NULL);
+//        #endif
+//
+//        // Set state to ACTIVE
+//        LOG("%s: Transitioning DSK %d from BOOTSTRAP to ACTIVE\r\n", __FUNCTION__, gucProcessingDSK);
+//        leSmartStartState                               = SMARTSTART_ACTIVE;
+//        gtNodeProvisioningList[gucProcessingDSK].status = SMARTSTART_ACTIVE;
+//        ///////////////////////////////////////////////////////////////////////////////////////////////////
       }
       // ELSE IF S2 bootstrap has completed
       else if (gucIsBootstrapFinished)
       {
+//        #if ENABLE_ZWAVE_CONTROLLER_HOST
+//        // Stop node inclusion
+//        LOG("%s: Stopping node inclusion \r\n", __FUNCTION__);
+//        ZWave_Send_REQ_CMD_4A_Add_Node_to_Network(ADD_NODE_STOP, gucSessionID, NULL);
+//        #endif
+
+        #if ENABLE_ZWAVE_CONTROLLER_HOST
+        // Resume listening for SmartStart Prime commands, report to host application
+        LOG("%s: Resume listening for SmartStart Prime commands, report to host application \r\n", __FUNCTION__);
+        gucSessionID = ZWave_SessionID_Update(gucSessionID);
+        ZWave_Send_REQ_CMD_4A_Add_Node_to_Network(ADD_NODE_OPTION_NETWORK_WIDE|ADD_NODE_SMART_START, gucSessionID, NULL);
+        //ZWave_Send_REQ_CMD_4A_Add_Node_to_Network(ADD_NODE_OPTION_NETWORK_WIDE|ADD_NODE_OPTION_LR|ADD_NODE_SMART_START, gucSessionID, NULL);
+        #endif
+
         // Set state to ACTIVE
+        LOG("%s: Transitioning DSK %d from BOOTSTRAP to ACTIVE\r\n", __FUNCTION__, gucProcessingDSK);
+        leSmartStartState                               = SMARTSTART_ACTIVE;
+        gtNodeProvisioningList[gucProcessingDSK].status = SMARTSTART_ACTIVE;
       }
       // ENDIF
     }
@@ -7082,6 +7267,17 @@ void ZWave_Transmit_Frame(uint8_t aucCMD, uint8_t aucType, const uint8_t* paucPa
   // Start the ACK and buffer check timers
   gtZWaveRxInterface.ack_timeout_ms = 1; // start the timer
 
+  //////////////////////////////////////////////////////////////////////////////////////////////
+  //// MAB 2026.01.27
+  //// Perform any command-specific housekeeping on frame transmit
+  if (FUNC_ID_NVR_GET_VALUE==aucCMD)
+  {
+    // Save NVR offset
+    //LOG("%s: aucLength = 0x%02X \r\n", __FUNCTION__, aucLength);
+    //LOG("%s: Saving NVR offset 0x%02X \r\n", __FUNCTION__, paucPayload[0]);
+    gucNVROffset = paucPayload[0];
+  }
+  //////////////////////////////////////////////////////////////////////////////////////////////
 }
 // end ZWave_Transmit_Frame
 
@@ -7731,7 +7927,7 @@ void ZWaveTask(void *argument)
   if (lucAvailableDSKIndex != DSK_UNAVAILABLE)
   {
     gtNodeProvisioningList[lucAvailableDSKIndex].NodeID = NODE_ID_UNAVAILABLE; // initialize NodeID
-    ZWave_DSK_Write_From_String(lucAvailableDSKIndex, "41518-18177-63256-08527-46087-44111-60645-12807");
+    ZWave_DSK_Write_From_String(lucAvailableDSKIndex, "15522-62065-59566-53879-58322-31565-50017-40262");
     memset(lucDSKString, 0x00, sizeof(lucDSKString));
     ZWave_DSK_Write_To_String(lucAvailableDSKIndex, lucDSKString);
     LOG("%s: DSK %d: %s\r\n", __FUNCTION__, lucAvailableDSKIndex, lucDSKString);

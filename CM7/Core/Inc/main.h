@@ -390,6 +390,14 @@ typedef enum
 } BootstrapState;
 
 
+// NVR offsets
+#define NVR_UNUSED_OFFSET 0xFF
+#define NVR_PUK_OFFSET  0x23
+#define NVR_PRK_OFFSET  0x43
+#define NVR_HW_VER_OFFSET 0x70
+#define NVR_HW_VER_SIZE   1
+
+
 /* USER CODE END Private defines */
 
 #ifdef __cplusplus
