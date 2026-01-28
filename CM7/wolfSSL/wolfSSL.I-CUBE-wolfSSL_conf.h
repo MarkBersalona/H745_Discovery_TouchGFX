@@ -26,12 +26,12 @@
 /* Includes ------------------------------------------------------------------*/
 
 /**
-    MiddleWare name : wolfSSL.I-CUBE-wolfSSL.5.8.2
-    MiddleWare fileName : wolfSSL.I-CUBE-wolfSSL_conf.h
+    MiddleWare name : wolfSSL.I-CUBE-wolfSSL.5.8.4
+    MiddleWare fileName : ./wolfSSL.I-CUBE-wolfSSL_conf.h
     MiddleWare version :
 */
 /*---------- WOLF_CONF_DEBUG -----------*/
-#define WOLF_CONF_DEBUG      0
+#define WOLF_CONF_DEBUG      1
 
 /*---------- WOLF_CONF_WOLFCRYPT_ONLY -----------*/
 #define WOLF_CONF_WOLFCRYPT_ONLY      0
@@ -91,7 +91,7 @@
 #define WOLF_CONF_SHA2_384      0
 
 /*---------- WOLF_CONF_SHA2_512 -----------*/
-#define WOLF_CONF_SHA2_512      0
+#define WOLF_CONF_SHA2_512      1
 
 /*---------- WOLF_CONF_SHA3 -----------*/
 #define WOLF_CONF_SHA3      0
@@ -213,7 +213,7 @@
     #ifndef HAL_CONSOLE_UART
     #define HAL_CONSOLE_UART huart3
     #endif
-#elif defined(STM32H723xx) || defined(STM32H725xx) || defined(STM32H743xx)
+#elif defined(STM32H723xx) || defined(STM32H725xx) || defined(STM32H743xx) || defined(STM32H745xx)
     #define WOLFSSL_STM32H7
     #ifndef HAL_CONSOLE_UART
     #define HAL_CONSOLE_UART huart3
@@ -292,6 +292,7 @@
     #define WOLFSSL_STM32H5
     #define STM32_HAL_V2
     #undef  NO_STM32_HASH
+    #define WOLFSSL_STM32_PKA
     #ifndef HAL_CONSOLE_UART
     #define HAL_CONSOLE_UART huart3
     #endif
@@ -368,6 +369,7 @@
 /* ------------------------------------------------------------------------- */
 #if defined(WOLF_CONF_RTOS) && WOLF_CONF_RTOS == 2
     #define FREERTOS
+    #define WOLFSSL_NO_REALLOC
 #else
     #define SINGLE_THREADED
 #endif
@@ -850,11 +852,6 @@
 
 /* Base16 / Base64 encoding */
 //#define NO_CODING
-
-/* bypass certificate date checking, due to lack of properly configured RTC source */
-#ifndef HAL_RTC_MODULE_ENABLED
-    #define NO_ASN_TIME
-#endif
 
 #ifdef __cplusplus
 }

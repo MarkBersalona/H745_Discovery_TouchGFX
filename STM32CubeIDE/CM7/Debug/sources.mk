@@ -54,5 +54,8 @@ Drivers/CMSIS \
 Drivers/STM32H7xx_HAL_Driver \
 Middlewares/FatFs \
 Middlewares/FreeRTOS \
+Middlewares/wolfSSL/wolfSSL/wolfCrypt/Core \
+Middlewares/wolfSSL/wolfSSL/wolfCrypt/Test \
+Middlewares/wolfSSL/wolfSSL/wolfSSL/Core \
 Utilities \
 

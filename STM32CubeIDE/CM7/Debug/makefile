@@ -10,6 +10,9 @@ RM := rm -rf
 # All of the sources participating in the build are defined here
 -include sources.mk
 -include Utilities/subdir.mk
+-include Middlewares/wolfSSL/wolfSSL/wolfSSL/Core/subdir.mk
+-include Middlewares/wolfSSL/wolfSSL/wolfCrypt/Test/subdir.mk
+-include Middlewares/wolfSSL/wolfSSL/wolfCrypt/Core/subdir.mk
 -include Middlewares/FreeRTOS/subdir.mk
 -include Middlewares/FatFs/subdir.mk
 -include Drivers/STM32H7xx_HAL_Driver/subdir.mk

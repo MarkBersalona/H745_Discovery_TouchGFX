@@ -41,6 +41,16 @@
 #include "ZW_controller_api.h"
 #include "zpal_radio.h"
 
+//#ifndef WOLFSSL_USER_SETTINGS
+//    #include <wolfssl/options.h>
+//#endif
+#include <wolfssl/wolfcrypt/settings.h>
+#include <wolfssl/ssl.h>
+//#include <wolfssl/wolfcrypt/error-crypt.h>
+//#include <wolfcrypt/test/test.h>
+//#include <wolfcrypt/benchmark/benchmark.h>
+#include <wolfssl/wolfcrypt/random.h>
+
 /* USER CODE END Includes */
 
 /* Private typedef -----------------------------------------------------------*/
@@ -61,7 +71,7 @@ typedef StaticSemaphore_t osStaticMutexDef_t;
 // Enable host control of Z-Wave controller
 // 0 = disable host control of Z-Wave controller (let PC Controller take control)
 // 1 = enable  host control of Z-Wave controller
-#define ENABLE_ZWAVE_CONTROLLER_HOST 1
+#define ENABLE_ZWAVE_CONTROLLER_HOST 0
 
 /* USER CODE END PD */
 
@@ -379,6 +389,9 @@ uint8_t gucIsIncludingNode;
 uint8_t gucNVROffset = NVR_UNUSED_OFFSET;
 uint8_t gucControllerPublicKey[32];
 uint8_t gucControllerPrivateKey[32];
+
+// wolfSSL stuff
+WC_RNG gtWolfSSLRng;
 
 /* USER CODE END PV */
 
@@ -7365,32 +7378,57 @@ void MainTask(void *argument)
     //LOG("%s: HAL_UART_Receive_IT(&huart1) (for Diagnostic) returned HAL_OK\r\n", __FUNCTION__);
   }
 
+  /////////////////////////////////////////////////////////
+  // Initialize wolfSSL
+  /////////////////////////////////////////////////////////
+  // For SSL/TLS projects
+  //wolfSSL_Init();
+  // For wolfCrypt-only projects
+  wolfCrypt_Init();
+  LOG("%s: wolfSSL initialized \r\n", __FUNCTION__);
+
 //  /////////////////////////////////////////////////////////
 //  // TEST MAB 2025.12.26
 //  // Test the random number generator
+//  // TEST MAB 2026.01.28
+//  // Test the wolfSSL random number generator
 //
 //  uint16_t luiRandomValue;
 //  uint16_t luiRandomBinCount[16];
 //  uint8_t lucRandomBinIndex;
+//  uint8_t lucRandomValues[256];
 //
 //  LOG("%s: Testing random number generator...\r\n", __FUNCTION__);
+//
+//  // Initialize wolfSSL random number generator
+//  wc_InitRng(&gtWolfSSLRng);
+//
 //  // Initialize random bin counters
-//  for (int i = 0; i < 16; ++i)
-//  {
-//    luiRandomBinCount[i] = 0;
-//  }
+//  memset(luiRandomBinCount, 0x00, sizeof(luiRandomBinCount));
+//
 //  // Generate N random numbers
-//  for (int i = 0; i < 20; ++i)
+////  for (int i = 0; i < 20; ++i)
+////  {
+////    for (int j = 0; j < 10; ++j)
+////    {
+////      luiRandomValue = RandomValue() % 0xFFFF;
+////      LOG("0x%04X \t", luiRandomValue);
+////      lucRandomBinIndex = luiRandomValue / 0x1000;
+////      ++luiRandomBinCount[lucRandomBinIndex];
+////    }
+////    LOG("\r\n");
+////  }
+//  wc_RNG_GenerateBlock(&gtWolfSSLRng, lucRandomValues, sizeof(lucRandomValues));
+//  wc_FreeRng(&gtWolfSSLRng);
+//  PrintBytes(lucRandomValues, sizeof(lucRandomValues), FALSE, 0);
+//
+//  // Determine bin counts
+//  for (uint16_t i = 0; i < sizeof(lucRandomValues); ++i)
 //  {
-//    for (int j = 0; j < 10; ++j)
-//    {
-//      luiRandomValue = RandomValue() % 0xFFFF;
-//      LOG("0x%04X \t", luiRandomValue);
-//      lucRandomBinIndex = luiRandomValue / 0x1000;
-//      ++luiRandomBinCount[lucRandomBinIndex];
-//    }
-//    LOG("\r\n");
+//    lucRandomBinIndex = lucRandomValues[i] / 0x10;
+//    ++luiRandomBinCount[lucRandomBinIndex];
 //  }
+//
 //  // Display bin counts
 //  LOG("%s: Random bin counts...\r\n", __FUNCTION__);
 //  for (int i = 0; i < 16; ++i)
