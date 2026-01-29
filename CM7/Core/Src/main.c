@@ -71,7 +71,7 @@ typedef StaticSemaphore_t osStaticMutexDef_t;
 // Enable host control of Z-Wave controller
 // 0 = disable host control of Z-Wave controller (let PC Controller take control)
 // 1 = enable  host control of Z-Wave controller
-#define ENABLE_ZWAVE_CONTROLLER_HOST 0
+#define ENABLE_ZWAVE_CONTROLLER_HOST 1
 
 /* USER CODE END PD */
 
@@ -384,6 +384,7 @@ uint8_t gucIsKEXReportReceived;
 uint8_t gucIsS2Supported;
 uint8_t gucIsPublicKeyReportReceived;
 uint8_t gucIsIncludingNode;
+uint8_t gucIsNonceGetReceived;
 
 // NVR values
 uint8_t gucNVROffset = NVR_UNUSED_OFFSET;
@@ -1804,6 +1805,11 @@ ZWave_Bootstrap_StateMachine
         ENDIF
       ENDIF
     ELSE IF state is TEMP_NONCE_GET
+      IF Nonce Get is received
+        Reset elapsed time for next state
+        Send Nonce Report
+        Set state to TEMP_NONCE_SET
+      ENDIF
     ELSE IF state is TEMP_NONCE_SET
     ELSE IF state is NETWORK_KEY_GET
     ELSE IF state is NETWORK_NONCE_GET
@@ -1993,16 +1999,14 @@ BootstrapState ZWave_Bootstrap_StateMachine(BootstrapStateMachineCommand stateMa
           lucSendDataBuffer[0] = COMMAND_CLASS_SECURITY_2_V2;
           lucSendDataBuffer[1] = PUBLIC_KEY_REPORT_V2;
           lucSendDataBuffer[2] = PUBLIC_KEY_REPORT_PROPERTIES1_INCLUDING_NODE_BIT_MASK_V2; // Set Including Node bit
-          //////////////////////////////////////////////////////////////////
-          //// TEST MAB 2026.01.27
-          //// Copy controller's public key into lucSendDataBuffer[3]
+          // (Copy controller's public key into lucSendDataBuffer[3])
           memcpy(&lucSendDataBuffer[3], gucControllerPublicKey, 32);
-          //////////////////////////////////////////////////////////////////
           #if ENABLE_ZWAVE_CONTROLLER_HOST
           ZWave_Send_REQ_CMD_13_Send_Data(gtNodeProvisioningList[gucProcessingDSK].NodeID, 3+32, lucSendDataBuffer, TRANSMIT_OPTION_ACK, gucSessionID);
           #endif
 
           // Set state to TEMP_NONCE_GET
+          gucIsNonceGetReceived = FALSE;
           LOG("%s: Transitioning DSK %d Bootstrap state from PUBLIC_KEY to TEMP_NONCE_GET\r\n", __FUNCTION__, gucProcessingDSK);
           leBootstrapState = BOOTSTRAP_TEMP_NONCE_GET;
         }
@@ -2015,6 +2019,39 @@ BootstrapState ZWave_Bootstrap_StateMachine(BootstrapStateMachineCommand stateMa
     // ELSE IF state is TEMP_NONCE_GET
     else if (BOOTSTRAP_TEMP_NONCE_GET == leBootstrapState)
     {
+      // IF Nonce Get is received
+      if (gucIsNonceGetReceived)
+      {
+        // Reset elapsed time for next state
+        lulElapsedTime_sec = 0;
+
+        // Send Nonce Report
+        gucSessionID = ZWave_SessionID_Randomize();
+        memset(lucSendDataBuffer, 0x00, sizeof(lucSendDataBuffer));
+        lucSendDataBuffer[0] = COMMAND_CLASS_SECURITY_2_V2;
+        lucSendDataBuffer[1] = SECURITY_2_NONCE_REPORT_V2;
+        lucSendDataBuffer[2] = gucSessionID;
+        lucSendDataBuffer[3] = SECURITY_2_NONCE_REPORT_PROPERTIES1_SOS_BIT_MASK_V2; // set SOS bit, so must include REI bytes
+        // (Generate 16 bytes of random data as Receiver's Entropy Input (REI); save it)
+        //   wc_InitRng() is a blocking operation, so use it sparingly
+        //   see https://www.wolfssl.com/documentation/manuals/wolfssl/group__Random.html#function-wc_initrng
+        int liWolfSSLRngReturn = wc_InitRng(&gtWolfSSLRng);
+        if (liWolfSSLRngReturn) LOG("%s: *** WARNING *** wc_InitRng() return value was %d \r\n", __FUNCTION__, liWolfSSLRngReturn);
+        liWolfSSLRngReturn = wc_RNG_GenerateBlock(&gtWolfSSLRng, &lucSendDataBuffer[4], 16);
+        if (liWolfSSLRngReturn) LOG("%s: *** WARNING *** wc_RNG_GenerateBlock() return value was %d \r\n", __FUNCTION__, liWolfSSLRngReturn);
+        liWolfSSLRngReturn = wc_FreeRng(&gtWolfSSLRng);
+        if (liWolfSSLRngReturn) LOG("%s: *** WARNING *** wc_FreeRng() return value was %d \r\n", __FUNCTION__, liWolfSSLRngReturn);
+        //LOG("%s: TEMP_NONCE_GET randomized Receiver's Entropy Input (REI) \r\n", __FUNCTION__);
+        //PrintBytes(&lucSendDataBuffer[4], 16, FALSE, 0);
+        #if ENABLE_ZWAVE_CONTROLLER_HOST
+        ZWave_Send_REQ_CMD_13_Send_Data(gtNodeProvisioningList[gucProcessingDSK].NodeID, 4+16, lucSendDataBuffer, TRANSMIT_OPTION_ACK, gucSessionID);
+        #endif
+
+        // Set state to TEMP_NONCE_SET
+        LOG("%s: Transitioning DSK %d Bootstrap state from TEMP_NONCE_GET to TEMP_NONCE_SET\r\n", __FUNCTION__, gucProcessingDSK);
+        leBootstrapState = BOOTSTRAP_TEMP_NONCE_SET;
+      }
+      // ENDIF
     }
 
     //-------------------------------------------------------
@@ -5551,6 +5588,7 @@ void ZWave_Rx_CC_9F_Security_2_V2(void)
 
   if (SECURITY_2_NONCE_GET_V2             == pgucCCBuffer[1])
   {
+    gucIsNonceGetReceived = TRUE;
     LOG("%s: Sequence number = 0x%02X \r\n", __FUNCTION__, pgucCCBuffer[2]);
   }
 

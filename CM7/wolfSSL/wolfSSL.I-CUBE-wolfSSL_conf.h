@@ -27,11 +27,11 @@
 
 /**
     MiddleWare name : wolfSSL.I-CUBE-wolfSSL.5.8.4
-    MiddleWare fileName : ./wolfSSL.I-CUBE-wolfSSL_conf.h
+    MiddleWare fileName : wolfSSL.I-CUBE-wolfSSL_conf.h
     MiddleWare version :
 */
 /*---------- WOLF_CONF_DEBUG -----------*/
-#define WOLF_CONF_DEBUG      1
+#define WOLF_CONF_DEBUG      0
 
 /*---------- WOLF_CONF_WOLFCRYPT_ONLY -----------*/
 #define WOLF_CONF_WOLFCRYPT_ONLY      0
@@ -46,7 +46,7 @@
 #define WOLF_CONF_DTLS      0
 
 /*---------- WOLF_CONF_MATH -----------*/
-#define WOLF_CONF_MATH      6
+#define WOLF_CONF_MATH      4
 
 /*---------- WOLF_CONF_RTOS -----------*/
 #define WOLF_CONF_RTOS      1
@@ -213,7 +213,7 @@
     #ifndef HAL_CONSOLE_UART
     #define HAL_CONSOLE_UART huart3
     #endif
-#elif defined(STM32H723xx) || defined(STM32H725xx) || defined(STM32H743xx) || defined(STM32H745xx)
+#elif defined(STM32H723xx) || defined(STM32H725xx) || defined(STM32H743xx)
     #define WOLFSSL_STM32H7
     #ifndef HAL_CONSOLE_UART
     #define HAL_CONSOLE_UART huart3
@@ -316,14 +316,14 @@
     #define HAL_CONSOLE_UART huart1
     #endif
 #else
-    #warning Please define a hardware platform!
+    //#warning Please define a hardware platform!
     /* This means there is not a pre-defined platform for your board/CPU */
     /* You need to define a CPU type, HW crypto and debug UART */
     /* CPU Type: WOLFSSL_STM32F1, WOLFSSL_STM32F2, WOLFSSL_STM32F4,
         WOLFSSL_STM32F7, WOLFSSL_STM32H7, WOLFSSL_STM32L4, WOLFSSL_STM32L5,
         WOLFSSL_STM32G0, WOLFSSL_STM32G4, WOLFSSL_STM32WB, WOLFSSL_STM32U5 and
         WOLFSSL_STM32MP13 */
-    #define WOLFSSL_STM32F4
+    #define WOLFSSL_STM32H7
 
     /* Debug UART used for printf */
     /* The UART interface number varies for each board/CPU */
