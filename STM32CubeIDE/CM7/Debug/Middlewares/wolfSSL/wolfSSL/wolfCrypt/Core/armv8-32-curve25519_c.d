@@ -2,6 +2,7 @@ Middlewares/wolfSSL/wolfSSL/wolfCrypt/Core/armv8-32-curve25519_c.o: \
  F:/400_Cellular/Projects/H745_Discovery_TouchGFX/Middlewares/Third_Party/wolfSSL_wolfSSL_wolfSSL/wolfssl/wolfcrypt/src/port/arm/armv8-32-curve25519_c.c \
  ../../../Middlewares/Third_Party/wolfSSL_wolfSSL_wolfSSL/wolfssl/wolfssl/wolfcrypt/libwolfssl_sources_asm.h \
  ../../../Middlewares/Third_Party/wolfSSL_wolfSSL_wolfSSL/wolfssl/wolfssl/wolfcrypt/settings.h \
+ ../../../CM7/Core/Inc/user_settings.h \
  ../../../CM7/wolfssl/wolfSSL.I-CUBE-wolfSSL_conf.h \
  ../../../Middlewares/Third_Party/wolfSSL_wolfSSL_wolfSSL/wolfssl/wolfssl/wolfcrypt/visibility.h \
  ../../../Drivers/STM32H7xx_HAL_Driver/Inc/stm32h7xx_hal.h \
@@ -59,6 +60,7 @@ Middlewares/wolfSSL/wolfSSL/wolfCrypt/Core/armv8-32-curve25519_c.o: \
  ../../../Middlewares/Third_Party/wolfSSL_wolfSSL_wolfSSL/wolfssl/wolfssl/wolfcrypt/memory.h
 ../../../Middlewares/Third_Party/wolfSSL_wolfSSL_wolfSSL/wolfssl/wolfssl/wolfcrypt/libwolfssl_sources_asm.h:
 ../../../Middlewares/Third_Party/wolfSSL_wolfSSL_wolfSSL/wolfssl/wolfssl/wolfcrypt/settings.h:
+../../../CM7/Core/Inc/user_settings.h:
 ../../../CM7/wolfssl/wolfSSL.I-CUBE-wolfSSL_conf.h:
 ../../../Middlewares/Third_Party/wolfSSL_wolfSSL_wolfSSL/wolfssl/wolfssl/wolfcrypt/visibility.h:
 ../../../Drivers/STM32H7xx_HAL_Driver/Inc/stm32h7xx_hal.h:

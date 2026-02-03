@@ -84,6 +84,7 @@ Application/User/Core/main.o: \
  ../../../CM7/Core/Inc/ZAF_types.h ../../../CM7/Core/Inc/NodeMask.h \
  ../../../CM7/Core/Inc/ZW_controller_api.h \
  ../../../Middlewares/Third_Party/wolfSSL_wolfSSL_wolfSSL/wolfssl/wolfssl/wolfcrypt/settings.h \
+ ../../../CM7/Core/Inc/user_settings.h \
  ../../../CM7/wolfssl/wolfSSL.I-CUBE-wolfSSL_conf.h \
  ../../../Middlewares/Third_Party/wolfSSL_wolfSSL_wolfSSL/wolfssl/wolfssl/wolfcrypt/visibility.h \
  ../../../Middlewares/Third_Party/wolfSSL_wolfSSL_wolfSSL/wolfssl/wolfssl/ssl.h \
@@ -100,7 +101,11 @@ Application/User/Core/main.o: \
  ../../../Middlewares/Third_Party/wolfSSL_wolfSSL_wolfSSL/wolfssl/wolfssl/wolfcrypt/logging.h \
  ../../../Middlewares/Third_Party/wolfSSL_wolfSSL_wolfSSL/wolfssl/wolfssl/wolfcrypt/pkcs12.h \
  ../../../Middlewares/Third_Party/wolfSSL_wolfSSL_wolfSSL/wolfssl/wolfssl/callbacks.h \
- ../../../Middlewares/Third_Party/wolfSSL_wolfSSL_wolfSSL/wolfssl/wolfssl/wolfio.h
+ ../../../Middlewares/Third_Party/wolfSSL_wolfSSL_wolfSSL/wolfssl/wolfssl/wolfio.h \
+ ../../../Middlewares/Third_Party/wolfSSL_wolfSSL_wolfSSL/wolfssl/wolfssl/wolfcrypt/curve25519.h \
+ ../../../Middlewares/Third_Party/wolfSSL_wolfSSL_wolfSSL/wolfssl/wolfssl/wolfcrypt/fe_operations.h \
+ ../../../Middlewares/Third_Party/wolfSSL_wolfSSL_wolfSSL/wolfssl/wolfssl/wolfcrypt/cmac.h \
+ ../../../Middlewares/Third_Party/wolfSSL_wolfSSL_wolfSSL/wolfssl/wolfssl/wolfcrypt/aes.h
 ../../../CM7/Core/Inc/main.h:
 ../../../Drivers/STM32H7xx_HAL_Driver/Inc/stm32h7xx_hal.h:
 ../../../CM7/Core/Inc/stm32h7xx_hal_conf.h:
@@ -191,6 +196,7 @@ Application/User/Core/main.o: \
 ../../../CM7/Core/Inc/NodeMask.h:
 ../../../CM7/Core/Inc/ZW_controller_api.h:
 ../../../Middlewares/Third_Party/wolfSSL_wolfSSL_wolfSSL/wolfssl/wolfssl/wolfcrypt/settings.h:
+../../../CM7/Core/Inc/user_settings.h:
 ../../../CM7/wolfssl/wolfSSL.I-CUBE-wolfSSL_conf.h:
 ../../../Middlewares/Third_Party/wolfSSL_wolfSSL_wolfSSL/wolfssl/wolfssl/wolfcrypt/visibility.h:
 ../../../Middlewares/Third_Party/wolfSSL_wolfSSL_wolfSSL/wolfssl/wolfssl/ssl.h:
@@ -208,3 +214,7 @@ Application/User/Core/main.o: \
 ../../../Middlewares/Third_Party/wolfSSL_wolfSSL_wolfSSL/wolfssl/wolfssl/wolfcrypt/pkcs12.h:
 ../../../Middlewares/Third_Party/wolfSSL_wolfSSL_wolfSSL/wolfssl/wolfssl/callbacks.h:
 ../../../Middlewares/Third_Party/wolfSSL_wolfSSL_wolfSSL/wolfssl/wolfssl/wolfio.h:
+../../../Middlewares/Third_Party/wolfSSL_wolfSSL_wolfSSL/wolfssl/wolfssl/wolfcrypt/curve25519.h:
+../../../Middlewares/Third_Party/wolfSSL_wolfSSL_wolfSSL/wolfssl/wolfssl/wolfcrypt/fe_operations.h:
+../../../Middlewares/Third_Party/wolfSSL_wolfSSL_wolfSSL/wolfssl/wolfssl/wolfcrypt/cmac.h:
+../../../Middlewares/Third_Party/wolfSSL_wolfSSL_wolfSSL/wolfssl/wolfssl/wolfcrypt/aes.h:

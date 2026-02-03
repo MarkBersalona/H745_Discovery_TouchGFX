@@ -3,6 +3,7 @@ Middlewares/wolfSSL/wolfSSL/wolfCrypt/Core/sp_armthumb.o: \
  ../../../Middlewares/Third_Party/wolfSSL_wolfSSL_wolfSSL/wolfssl/wolfssl/wolfcrypt/libwolfssl_sources.h \
  ../../../Middlewares/Third_Party/wolfSSL_wolfSSL_wolfSSL/wolfssl/wolfssl/wolfcrypt/types.h \
  ../../../Middlewares/Third_Party/wolfSSL_wolfSSL_wolfSSL/wolfssl/wolfssl/wolfcrypt/settings.h \
+ ../../../CM7/Core/Inc/user_settings.h \
  ../../../CM7/wolfssl/wolfSSL.I-CUBE-wolfSSL_conf.h \
  ../../../Middlewares/Third_Party/wolfSSL_wolfSSL_wolfSSL/wolfssl/wolfssl/wolfcrypt/visibility.h \
  ../../../Drivers/STM32H7xx_HAL_Driver/Inc/stm32h7xx_hal.h \
@@ -72,6 +73,7 @@ Middlewares/wolfSSL/wolfSSL/wolfCrypt/Core/sp_armthumb.o: \
 ../../../Middlewares/Third_Party/wolfSSL_wolfSSL_wolfSSL/wolfssl/wolfssl/wolfcrypt/libwolfssl_sources.h:
 ../../../Middlewares/Third_Party/wolfSSL_wolfSSL_wolfSSL/wolfssl/wolfssl/wolfcrypt/types.h:
 ../../../Middlewares/Third_Party/wolfSSL_wolfSSL_wolfSSL/wolfssl/wolfssl/wolfcrypt/settings.h:
+../../../CM7/Core/Inc/user_settings.h:
 ../../../CM7/wolfssl/wolfSSL.I-CUBE-wolfSSL_conf.h:
 ../../../Middlewares/Third_Party/wolfSSL_wolfSSL_wolfSSL/wolfssl/wolfssl/wolfcrypt/visibility.h:
 ../../../Drivers/STM32H7xx_HAL_Driver/Inc/stm32h7xx_hal.h:

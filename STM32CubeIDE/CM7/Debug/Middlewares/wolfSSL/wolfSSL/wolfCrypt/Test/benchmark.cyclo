@@ -17,7 +17,7 @@ F:/400_Cellular/Projects/H745_Discovery_TouchGFX/Middlewares/Third_Party/wolfSSL
 F:/400_Cellular/Projects/H745_Discovery_TouchGFX/Middlewares/Third_Party/wolfSSL_wolfSSL_wolfSSL/wolfssl/wolfcrypt/benchmark/benchmark.c:3183:13:bench_stats_asym_finish_ex	6
 F:/400_Cellular/Projects/H745_Discovery_TouchGFX/Middlewares/Third_Party/wolfSSL_wolfSSL_wolfSSL/wolfssl/wolfcrypt/benchmark/benchmark.c:3575:13:bench_stats_asym_finish	1
 F:/400_Cellular/Projects/H745_Discovery_TouchGFX/Middlewares/Third_Party/wolfSSL_wolfSSL_wolfSSL/wolfssl/wolfcrypt/benchmark/benchmark.c:3584:23:bench_stats_free	1
-F:/400_Cellular/Projects/H745_Discovery_TouchGFX/Middlewares/Third_Party/wolfSSL_wolfSSL_wolfSSL/wolfssl/wolfcrypt/benchmark/benchmark.c:3603:14:benchmarks_do	59
+F:/400_Cellular/Projects/H745_Discovery_TouchGFX/Middlewares/Third_Party/wolfSSL_wolfSSL_wolfSSL/wolfssl/wolfcrypt/benchmark/benchmark.c:3603:14:benchmarks_do	61
 F:/400_Cellular/Projects/H745_Discovery_TouchGFX/Middlewares/Third_Party/wolfSSL_wolfSSL_wolfSSL/wolfssl/wolfcrypt/benchmark/benchmark.c:4595:13:print_clock_freq	1
 F:/400_Cellular/Projects/H745_Discovery_TouchGFX/Middlewares/Third_Party/wolfSSL_wolfSSL_wolfSSL/wolfssl/wolfcrypt/benchmark/benchmark.c:4615:5:benchmark_init	3
 F:/400_Cellular/Projects/H745_Discovery_TouchGFX/Middlewares/Third_Party/wolfSSL_wolfSSL_wolfSSL/wolfssl/wolfcrypt/benchmark/benchmark.c:4685:5:benchmark_free	2
@@ -33,6 +33,8 @@ F:/400_Cellular/Projects/H745_Discovery_TouchGFX/Middlewares/Third_Party/wolfSSL
 F:/400_Cellular/Projects/H745_Discovery_TouchGFX/Middlewares/Third_Party/wolfSSL_wolfSSL_wolfSSL/wolfssl/wolfcrypt/benchmark/benchmark.c:7573:6:bench_sha512	41
 F:/400_Cellular/Projects/H745_Discovery_TouchGFX/Middlewares/Third_Party/wolfSSL_wolfSSL_wolfSSL/wolfssl/wolfcrypt/benchmark/benchmark.c:7685:6:bench_sha512_224	41
 F:/400_Cellular/Projects/H745_Discovery_TouchGFX/Middlewares/Third_Party/wolfSSL_wolfSSL_wolfSSL/wolfssl/wolfcrypt/benchmark/benchmark.c:7798:6:bench_sha512_256	41
+F:/400_Cellular/Projects/H745_Discovery_TouchGFX/Middlewares/Third_Party/wolfSSL_wolfSSL_wolfSSL/wolfssl/wolfcrypt/benchmark/benchmark.c:8993:13:bench_cmac_helper	7
+F:/400_Cellular/Projects/H745_Discovery_TouchGFX/Middlewares/Third_Party/wolfSSL_wolfSSL_wolfSSL/wolfssl/wolfcrypt/benchmark/benchmark.c:9069:6:bench_cmac	1
 F:/400_Cellular/Projects/H745_Discovery_TouchGFX/Middlewares/Third_Party/wolfSSL_wolfSSL_wolfSSL/wolfssl/wolfcrypt/benchmark/benchmark.c:9122:13:bench_hmac	35
 F:/400_Cellular/Projects/H745_Discovery_TouchGFX/Middlewares/Third_Party/wolfSSL_wolfSSL_wolfSSL/wolfssl/wolfcrypt/benchmark/benchmark.c:9312:6:bench_hmac_sha256	1
 F:/400_Cellular/Projects/H745_Discovery_TouchGFX/Middlewares/Third_Party/wolfSSL_wolfSSL_wolfSSL/wolfssl/wolfcrypt/benchmark/benchmark.c:9346:6:bench_hmac_sha512	1

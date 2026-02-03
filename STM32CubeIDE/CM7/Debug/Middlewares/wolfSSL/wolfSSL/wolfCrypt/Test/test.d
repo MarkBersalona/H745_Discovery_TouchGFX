@@ -1,7 +1,7 @@
 Middlewares/wolfSSL/wolfSSL/wolfCrypt/Test/test.o: \
  F:/400_Cellular/Projects/H745_Discovery_TouchGFX/Middlewares/Third_Party/wolfSSL_wolfSSL_wolfSSL/wolfssl/wolfcrypt/test/test.c \
- ../../../Middlewares/Third_Party/wolfSSL_wolfSSL_wolfSSL/wolfssl/wolfssl/options.h \
  ../../../Middlewares/Third_Party/wolfSSL_wolfSSL_wolfSSL/wolfssl/wolfssl/wolfcrypt/settings.h \
+ ../../../CM7/Core/Inc/user_settings.h \
  ../../../CM7/wolfssl/wolfSSL.I-CUBE-wolfSSL_conf.h \
  ../../../Middlewares/Third_Party/wolfSSL_wolfSSL_wolfSSL/wolfssl/wolfssl/wolfcrypt/visibility.h \
  ../../../Drivers/STM32H7xx_HAL_Driver/Inc/stm32h7xx_hal.h \
@@ -102,8 +102,8 @@ Middlewares/wolfSSL/wolfSSL/wolfCrypt/Test/test.o: \
  ../../../Middlewares/Third_Party/wolfSSL_wolfSSL_wolfSSL/wolfssl/wolfssl/wolfcrypt/fe_operations.h \
  ../../../Middlewares/Third_Party/wolfSSL_wolfSSL_wolfSSL/wolfssl/wolfssl/wolfcrypt/pkcs12.h \
  ../../../Middlewares/Third_Party/wolfSSL_wolfSSL_wolfSSL/wolfssl/wolfssl/certs_test.h
-../../../Middlewares/Third_Party/wolfSSL_wolfSSL_wolfSSL/wolfssl/wolfssl/options.h:
 ../../../Middlewares/Third_Party/wolfSSL_wolfSSL_wolfSSL/wolfssl/wolfssl/wolfcrypt/settings.h:
+../../../CM7/Core/Inc/user_settings.h:
 ../../../CM7/wolfssl/wolfSSL.I-CUBE-wolfSSL_conf.h:
 ../../../Middlewares/Third_Party/wolfSSL_wolfSSL_wolfSSL/wolfssl/wolfssl/wolfcrypt/visibility.h:
 ../../../Drivers/STM32H7xx_HAL_Driver/Inc/stm32h7xx_hal.h:

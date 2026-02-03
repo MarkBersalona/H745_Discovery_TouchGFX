@@ -10,10 +10,17 @@
 F:/400_Cellular/Projects/H745_Discovery_TouchGFX/Middlewares/Third_Party/wolfSSL_wolfSSL_wolfSSL/wolfssl/wolfcrypt/src/aes.c:1829:44:PreFetchTe	3
 F:/400_Cellular/Projects/H745_Discovery_TouchGFX/Middlewares/Third_Party/wolfSSL_wolfSSL_wolfSSL/wolfssl/wolfcrypt/src/aes.c:2091:13:AesEncrypt_C	3
 F:/400_Cellular/Projects/H745_Discovery_TouchGFX/Middlewares/Third_Party/wolfSSL_wolfSSL_wolfSSL/wolfssl/wolfcrypt/src/aes.c:2949:31:wc_AesEncrypt	3
+F:/400_Cellular/Projects/H745_Discovery_TouchGFX/Middlewares/Third_Party/wolfSSL_wolfSSL_wolfSSL/wolfssl/wolfcrypt/src/aes.c:3108:44:PreFetchTd	3
+F:/400_Cellular/Projects/H745_Discovery_TouchGFX/Middlewares/Third_Party/wolfSSL_wolfSSL_wolfSSL/wolfssl/wolfcrypt/src/aes.c:3124:44:PreFetchTd4	2
+F:/400_Cellular/Projects/H745_Discovery_TouchGFX/Middlewares/Third_Party/wolfSSL_wolfSSL_wolfSSL/wolfssl/wolfcrypt/src/aes.c:3147:13:AesDecrypt_C	3
+F:/400_Cellular/Projects/H745_Discovery_TouchGFX/Middlewares/Third_Party/wolfSSL_wolfSSL_wolfSSL/wolfssl/wolfcrypt/src/aes.c:3744:31:wc_AesDecrypt	3
 F:/400_Cellular/Projects/H745_Discovery_TouchGFX/Middlewares/Third_Party/wolfSSL_wolfSSL_wolfSSL/wolfssl/wolfcrypt/src/aes.c:4429:13:AesSetKey_C	11
 F:/400_Cellular/Projects/H745_Discovery_TouchGFX/Middlewares/Third_Party/wolfSSL_wolfSSL_wolfSSL/wolfssl/wolfcrypt/src/aes.c:4667:35:wc_AesSetKeyLocal	6
 F:/400_Cellular/Projects/H745_Discovery_TouchGFX/Middlewares/Third_Party/wolfSSL_wolfSSL_wolfSSL/wolfssl/wolfcrypt/src/aes.c:5006:9:wc_AesSetKey	3
+F:/400_Cellular/Projects/H745_Discovery_TouchGFX/Middlewares/Third_Party/wolfSSL_wolfSSL_wolfSSL/wolfssl/wolfcrypt/src/aes.c:5044:9:wc_AesSetKeyDirect	3
 F:/400_Cellular/Projects/H745_Discovery_TouchGFX/Middlewares/Third_Party/wolfSSL_wolfSSL_wolfSSL/wolfssl/wolfcrypt/src/aes.c:5061:5:wc_AesSetIV	3
+F:/400_Cellular/Projects/H745_Discovery_TouchGFX/Middlewares/Third_Party/wolfSSL_wolfSSL_wolfSSL/wolfssl/wolfcrypt/src/aes.c:5160:13:wc_AesEncryptDirect	2
+F:/400_Cellular/Projects/H745_Discovery_TouchGFX/Middlewares/Third_Party/wolfSSL_wolfSSL_wolfSSL/wolfssl/wolfcrypt/src/aes.c:5180:13:wc_AesDecryptDirect	2
 F:/400_Cellular/Projects/H745_Discovery_TouchGFX/Middlewares/Third_Party/wolfSSL_wolfSSL_wolfSSL/wolfssl/wolfcrypt/src/aes.c:6944:23:IncCtr	3
 F:/400_Cellular/Projects/H745_Discovery_TouchGFX/Middlewares/Third_Party/wolfSSL_wolfSSL_wolfSSL/wolfssl/wolfcrypt/src/aes.c:6992:23:IncrementGcmCounter	3
 F:/400_Cellular/Projects/H745_Discovery_TouchGFX/Middlewares/Third_Party/wolfSSL_wolfSSL_wolfSSL/wolfssl/wolfcrypt/src/aes.c:7008:23:FlattenSzInBits	1
