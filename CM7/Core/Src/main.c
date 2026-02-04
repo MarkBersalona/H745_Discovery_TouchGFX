@@ -381,6 +381,9 @@ uint8_t gucLRNodes[MAX_LR_NODEMASK_LENGTH];
 // general useage NodeID
 uint16_t guiNodeID;
 
+// Bootstrap state machine state
+BootstrapState geBootstrapState;
+
 // Flags for Bootstrap
 uint8_t gucIsKEXReportReceived;
 uint8_t gucIsS2Supported;
@@ -406,10 +409,21 @@ static const uint8_t CKDF_TEMP_EXTRACT_KEY_C[16] = {
 static const uint8_t CKDF_TEMP_EXPAND_C[15] = {
     /* 15 bytes of 0x88 per CKDF-TempExpand */
     /* a.k.a. ConstantTE */
+    /* ALSO a.k.a. ConstEntropyInput of CKDF-MEI-Expand */
     0x88,0x88,0x88,0x88,0x88,0x88,0x88,0x88,
     0x88,0x88,0x88,0x88,0x88,0x88,0x88
 };
 uint8_t gucTemporarySymmetricKey[16];
+uint8_t gucTemporaryREI[16];
+uint8_t gucTemporarySEI[16];
+
+// For Nonce generation
+static const uint8_t CKDF_MEI_EXTRACT_C[15] = {
+    /* 16 bytes of 0x26 per CKDF-MEI-Extract */
+    /* a.k.a. ConstNonce */
+    0x26,0x26,0x26,0x26,0x26,0x26,0x26,0x26,
+    0x26,0x26,0x26,0x26,0x26,0x26,0x26,0x26
+};
 
 
 
@@ -450,7 +464,6 @@ uint8_t ZWave_DSK_IsZeroized(uint8_t aucDSKIndex);
 uint8_t ZWave_DSK_Validate_String(uint8_t* paucDSKString);
 void ZWave_DSK_Write(uint8_t aucDSKIndex, uint8_t* paucDSKBuffer);
 uint8_t ZWave_DSK_Write_From_String(uint8_t aucDSKIndex, uint8_t* paucDSKString);
-int ZWave_Generate_Temporary_Key(void);
 void ZWave_DSK_Write_To_String(uint8_t aucDSKIndex, uint8_t* paucDSKBuffer);
 void ZWave_DSK_Zeroize(uint8_t aucDSKIndex);
 void ZWave_REQ_CMD_0A_Serial_API_Started(void);
@@ -518,6 +531,7 @@ void ZWave_Send_REQ_CMD_E8_Get_Radio_PTI(void);
 #endif // ENABLE_ZWAVE_CONTROLLER_HOST
 uint8_t ZWave_SessionID_Randomize(void);
 uint8_t ZWave_SessionID_Update(uint8_t aucSessionID);
+int ZWave_Temporary_Key_Generate(void);
 void ZWave_Transmit_Frame(uint8_t aucCMD, uint8_t aucType, const uint8_t* paucPayload, uint8_t aucLength);
 uint8_t ZWave_XOR_Checksum(uint8_t aucInitialValue, const uint8_t *paucDataBuffer, uint8_t aucLength);
 
@@ -2045,7 +2059,7 @@ BootstrapState ZWave_Bootstrap_StateMachine(BootstrapStateMachineCommand stateMa
           ////   gucControllerPrivateKey
           //// If successful, Temporary Symmetric Key will be saved in
           //// gucTemporarySymmetricKey[]
-          int liTemporaryKeyResult = ZWave_Generate_Temporary_Key();
+          int liTemporaryKeyResult = ZWave_Temporary_Key_Generate();
           if (0 != liTemporaryKeyResult)
           {
             LOG("%s: *** WARNING *** failed to generate Temporary Symmetric Key \r\n", __FUNCTION__);
@@ -2076,17 +2090,24 @@ BootstrapState ZWave_Bootstrap_StateMachine(BootstrapStateMachineCommand stateMa
         lucSendDataBuffer[1] = SECURITY_2_NONCE_REPORT_V2;
         lucSendDataBuffer[2] = gucSessionID;
         lucSendDataBuffer[3] = SECURITY_2_NONCE_REPORT_PROPERTIES1_SOS_BIT_MASK_V2; // set SOS bit, so must include REI bytes
+
         // (Generate 16 bytes of random data as Receiver's Entropy Input (REI); save it)
         //   wc_InitRng() is a blocking operation, so use it sparingly
         //   see https://www.wolfssl.com/documentation/manuals/wolfssl/group__Random.html#function-wc_initrng
         int liWolfSSLRngReturn = wc_InitRng(&gtWolfSSLRng);
         if (liWolfSSLRngReturn) LOG("%s: *** WARNING *** wc_InitRng() return value was %d \r\n", __FUNCTION__, liWolfSSLRngReturn);
-        liWolfSSLRngReturn = wc_RNG_GenerateBlock(&gtWolfSSLRng, &lucSendDataBuffer[4], 16);
+        //liWolfSSLRngReturn = wc_RNG_GenerateBlock(&gtWolfSSLRng, gtNodeProvisioningList[gucProcessingDSK].REI, 16);
+        liWolfSSLRngReturn = wc_RNG_GenerateBlock(&gtWolfSSLRng, gucTemporaryREI, 16);
         if (liWolfSSLRngReturn) LOG("%s: *** WARNING *** wc_RNG_GenerateBlock() return value was %d \r\n", __FUNCTION__, liWolfSSLRngReturn);
+        //LOG("%s: - saving Receiver's Entropy Input (REI) for DSK %d \r\n", __FUNCTION__, gucProcessingDSK);
+        //memcpy(&lucSendDataBuffer[4], gtNodeProvisioningList[gucProcessingDSK].REI, 16);
+        LOG("%s: - saving Receiver's Entropy Input (REI) for TEMPORARY KEY \r\n", __FUNCTION__);
+        memcpy(&lucSendDataBuffer[4], gucTemporaryREI, 16);
         liWolfSSLRngReturn = wc_FreeRng(&gtWolfSSLRng);
         if (liWolfSSLRngReturn) LOG("%s: *** WARNING *** wc_FreeRng() return value was %d \r\n", __FUNCTION__, liWolfSSLRngReturn);
-        //LOG("%s: TEMP_NONCE_GET randomized Receiver's Entropy Input (REI) \r\n", __FUNCTION__);
-        //PrintBytes(&lucSendDataBuffer[4], 16, FALSE, 0);
+        LOG("%s: TEMP_NONCE_GET randomized Receiver's Entropy Input (REI) \r\n", __FUNCTION__);
+        PrintBytes(gucTemporaryREI, 16, FALSE, 0);
+
         #if ENABLE_ZWAVE_CONTROLLER_HOST
         ZWave_Send_REQ_CMD_13_Send_Data(gtNodeProvisioningList[gucProcessingDSK].NodeID, 4+16, lucSendDataBuffer, TRANSMIT_OPTION_ACK, gucSessionID);
         #endif
@@ -2171,6 +2192,7 @@ BootstrapState ZWave_Bootstrap_StateMachine(BootstrapStateMachineCommand stateMa
   //////////////////////////////////////////////////////////////////////////
 
   // Return present state
+  geBootstrapState = leBootstrapState;
   return leBootstrapState;
 }
 // end ZWave_Bootstrap_StateMachine
@@ -2771,99 +2793,6 @@ uint8_t ZWave_Enqueue_Request_Unsolicited(uint8_t aucCMD, uint8_t* paucData, uin
   return lucReturnValue;
 }
 // end ZWave_Enqueue_Request_Unsolicited
-
-/** *****************************************************************************************************************************
-  * @brief  Generate temporary symmetric key from ECDH Shared Secret
-  * @param  None; relies on global arrays containing public/private keys; output to gucTemporarySymmetricKey[]
-  * @retval 0 if all OK; nonzero otherwise
-  */
-int ZWave_Generate_Temporary_Key(void)
-{
-  #define TEMP_KEY_LEN 16
-  #define PRK_LEN      32   // SHA-256 output size
-  #define SS_LEN       32   // X25519 shared secret size
-  static int liReturnValue;
-  static curve25519_key ltControllerPrivateKey, ltRemotePublicKey;
-  static uint8_t lucECDHSharedSecret[SS_LEN];
-  static unsigned int luiSharedLen;
-  static uint8_t lucMsgExtract[32+32+32];
-  static uint8_t lucPRK[16];
-  static uint8_t lucMsgExpand[16];
-  static unsigned int luiSize;
-
-  ///////////////////////////////////////
-  // Generate G, the ECDH Shared Secret
-  ///////////////////////////////////////
-  LOG("%s: Generating ECDH Shared Secret \r\n", __FUNCTION__);
-  wc_curve25519_init(&ltControllerPrivateKey);
-  wc_curve25519_init(&ltRemotePublicKey);
-  LOG("%s: - importing controller private key \r\n", __FUNCTION__);
-  liReturnValue = wc_curve25519_import_private_ex(gucControllerPrivateKey,
-                                                      32,
-                                                      &ltControllerPrivateKey,
-                                                      EC25519_LITTLE_ENDIAN);
-  if (liReturnValue != 0) goto exit;
-  LOG("%s: - importing remote public key \r\n", __FUNCTION__);
-  liReturnValue = wc_curve25519_import_public_ex(gtNodeProvisioningList[gucProcessingDSK].ECDHPublicKey,
-                                                     32,
-                                                     &ltRemotePublicKey,
-                                                     EC25519_LITTLE_ENDIAN);
-  if (liReturnValue != 0) goto exit;
-  LOG("%s: - generating ECDH Shared Secret \r\n", __FUNCTION__);
-  luiSharedLen = SS_LEN;
-  liReturnValue = wc_curve25519_shared_secret_ex(&ltControllerPrivateKey,
-                                                     &ltRemotePublicKey,
-                                                     lucECDHSharedSecret,
-                                                     &luiSharedLen,
-                                                     EC25519_LITTLE_ENDIAN);
-  if (liReturnValue != 0 || luiSharedLen != SS_LEN) goto exit;
-  // If no errors, lucECDHSharedSecret[] has the ECDH Shared Secret
-  //PrintBytes(lucECDHSharedSecret, sizeof(lucECDHSharedSecret), false, 0);
-
-
-  /////////////////////////////////////////////////
-  // TempExtract: PRK = CMAC(c33, G||PubA||PubB)
-  /////////////////////////////////////////////////
-  LOG("%s: Generating PRK \r\n", __FUNCTION__);
-  memcpy(lucMsgExtract,    lucECDHSharedSecret,                                    32);
-  memcpy(lucMsgExtract+32, gucControllerPublicKey,                                 32);
-  memcpy(lucMsgExtract+64, gtNodeProvisioningList[gucProcessingDSK].ECDHPublicKey, 32);
-  luiSize = sizeof(lucPRK);
-  liReturnValue = wc_AesCmacGenerate(lucPRK, &luiSize,
-                                     lucMsgExtract, sizeof(lucMsgExtract),
-                                     CKDF_TEMP_EXTRACT_KEY_C, sizeof(CKDF_TEMP_EXTRACT_KEY_C));
-  if (liReturnValue != 0 || luiSize != 16)
-  {
-    // Make sure return value is *something* other than 0
-    if (0==liReturnValue) liReturnValue = -1;
-    goto exit;
-  }
-  // If no errors, lucPRK[] has the PRK
-  //PrintBytes(lucPRK, sizeof(lucPRK), false, 0);
-
-
-  /////////////////////////////////////////////////
-  // TempExpand: TempKeyCCM = CMAC(PRK, c88||0x01)
-  /////////////////////////////////////////////////
-  LOG("%s: Generating Temporary Symmetric Key \r\n", __FUNCTION__);
-  memcpy(lucMsgExpand, CKDF_TEMP_EXPAND_C, 15);
-  lucMsgExpand[15] = 0x01;
-  luiSize = 16;
-  liReturnValue = wc_AesCmacGenerate(gucTemporarySymmetricKey, &luiSize,
-                                       lucMsgExpand, sizeof(lucMsgExpand),
-                                       lucPRK, sizeof(lucPRK));
-  // gucTemporarySymmetricKey[] has the Temporary Symmetric Key
-  //PrintBytes(gucTemporarySymmetricKey, sizeof(gucTemporarySymmetricKey), false, 0);
-
-
-exit:
-  wc_curve25519_free(&ltRemotePublicKey);
-  wc_curve25519_free(&ltControllerPrivateKey);
-
-  if (liReturnValue != 0) LOG("%s: *** WARNING *** return value = %d \r\n", __FUNCTION__, liReturnValue);
-  return liReturnValue;
-}
-// end ZWave_Generate_Temporary_Key
 
 /** *****************************************************************************************************************************
   * @brief  Parse received byte from Z-Wave controller when ZWave Rx state is CHECKSUM
@@ -5803,6 +5732,7 @@ void ZWave_Rx_CC_9F_Security_2_V2(void)
         ++lucExtensionCount;
 
         LOG("%s: Extension %d length      = 0x%02X \r\n", __FUNCTION__, lucExtensionCount, pgucCCBuffer[4+lucExtensionOffset]);
+        LOG("%s: - this includes the length byte itself and the options byte following \r\n", __FUNCTION__);
         LOG("%s: Extension %d options     = 0x%02X \r\n", __FUNCTION__, lucExtensionCount, pgucCCBuffer[5+lucExtensionOffset]);
         switch (pgucCCBuffer[5+lucExtensionOffset] & 0x3F)
         {
@@ -5834,6 +5764,25 @@ void ZWave_Rx_CC_9F_Security_2_V2(void)
         }
         LOG("%s: Extension %d... \r\n", __FUNCTION__, lucExtensionCount);
         PrintBytes(&pgucCCBuffer[6+lucExtensionOffset], pgucCCBuffer[4+lucExtensionOffset] - 2, false, 0);
+        ////////////////////////////////////////////////////////////////////////
+        //// TEST MAB 2026.02.03
+        //// This is the Sender's Entropy Input; save it (if 16 bytes)
+        //// NOTE: this is either for the Temporary Key or for the Network Key,
+        ////       so save appropriately
+        if ( 16 == (pgucCCBuffer[4+lucExtensionOffset] - 2) )
+        {
+          if (BOOTSTRAP_TEMP_NONCE_SET == geBootstrapState)
+          {
+            LOG("%s: - saving Sender's Entropy Input (SEI) for TEMPORARY KEY \r\n", __FUNCTION__);
+            memcpy(gucTemporarySEI, &pgucCCBuffer[6+lucExtensionOffset], 16);
+          }
+          if (BOOTSTRAP_NETWORK_VERIFY == geBootstrapState)
+          {
+            LOG("%s: - saving Sender's Entropy Input (SEI) for DSK %d \r\n", __FUNCTION__, gucProcessingDSK);
+            memcpy(gtNodeProvisioningList[gucProcessingDSK].SEI, &pgucCCBuffer[6+lucExtensionOffset], 16);
+          }
+        }
+        ////////////////////////////////////////////////////////////////////////
 
         // Offset to next extension (or to CCM Ciphertext object if no more extensions)
         lucExtensionOffset += pgucCCBuffer[4+lucExtensionOffset];
@@ -7382,6 +7331,99 @@ SmartStartState ZWave_SmartStart_StateMachine(SmartStartStateMachineCommand stat
   return leSmartStartState;
 }
 // end ZWave_SmartStart_StateMachine
+
+/** *****************************************************************************************************************************
+  * @brief  Generate temporary symmetric key from ECDH Shared Secret
+  * @param  None; relies on global arrays containing public/private keys; output to gucTemporarySymmetricKey[]
+  * @retval 0 if all OK; nonzero otherwise
+  */
+int ZWave_Temporary_Key_Generate(void)
+{
+  #define TEMP_KEY_LEN 16
+  #define PRK_LEN      32   // SHA-256 output size
+  #define SS_LEN       32   // X25519 shared secret size
+  static int liReturnValue;
+  static curve25519_key ltControllerPrivateKey, ltRemotePublicKey;
+  static uint8_t lucECDHSharedSecret[SS_LEN];
+  static unsigned int luiSharedLen;
+  static uint8_t lucMsgExtract[32+32+32];
+  static uint8_t lucPRK[16];
+  static uint8_t lucMsgExpand[16];
+  static unsigned int luiSize;
+
+  ///////////////////////////////////////
+  // Generate G, the ECDH Shared Secret
+  ///////////////////////////////////////
+  LOG("%s: Generating ECDH Shared Secret \r\n", __FUNCTION__);
+  wc_curve25519_init(&ltControllerPrivateKey);
+  wc_curve25519_init(&ltRemotePublicKey);
+  LOG("%s: - importing controller private key \r\n", __FUNCTION__);
+  liReturnValue = wc_curve25519_import_private_ex(gucControllerPrivateKey,
+                                                      32,
+                                                      &ltControllerPrivateKey,
+                                                      EC25519_LITTLE_ENDIAN);
+  if (liReturnValue != 0) goto exit;
+  LOG("%s: - importing remote public key \r\n", __FUNCTION__);
+  liReturnValue = wc_curve25519_import_public_ex(gtNodeProvisioningList[gucProcessingDSK].ECDHPublicKey,
+                                                     32,
+                                                     &ltRemotePublicKey,
+                                                     EC25519_LITTLE_ENDIAN);
+  if (liReturnValue != 0) goto exit;
+  LOG("%s: - generating ECDH Shared Secret \r\n", __FUNCTION__);
+  luiSharedLen = SS_LEN;
+  liReturnValue = wc_curve25519_shared_secret_ex(&ltControllerPrivateKey,
+                                                     &ltRemotePublicKey,
+                                                     lucECDHSharedSecret,
+                                                     &luiSharedLen,
+                                                     EC25519_LITTLE_ENDIAN);
+  if (liReturnValue != 0 || luiSharedLen != SS_LEN) goto exit;
+  // If no errors, lucECDHSharedSecret[] has the ECDH Shared Secret
+  //PrintBytes(lucECDHSharedSecret, sizeof(lucECDHSharedSecret), false, 0);
+
+
+  /////////////////////////////////////////////////
+  // TempExtract: PRK = CMAC(c33, G||PubA||PubB)
+  /////////////////////////////////////////////////
+  LOG("%s: Generating PRK \r\n", __FUNCTION__);
+  memcpy(lucMsgExtract,    lucECDHSharedSecret,                                    32);
+  memcpy(lucMsgExtract+32, gucControllerPublicKey,                                 32);
+  memcpy(lucMsgExtract+64, gtNodeProvisioningList[gucProcessingDSK].ECDHPublicKey, 32);
+  luiSize = sizeof(lucPRK);
+  liReturnValue = wc_AesCmacGenerate(lucPRK, &luiSize,
+                                     lucMsgExtract, sizeof(lucMsgExtract),
+                                     CKDF_TEMP_EXTRACT_KEY_C, sizeof(CKDF_TEMP_EXTRACT_KEY_C));
+  if (liReturnValue != 0 || luiSize != 16)
+  {
+    // Make sure return value is *something* other than 0
+    if (0==liReturnValue) liReturnValue = -1;
+    goto exit;
+  }
+  // If no errors, lucPRK[] has the PRK
+  //PrintBytes(lucPRK, sizeof(lucPRK), false, 0);
+
+
+  /////////////////////////////////////////////////
+  // TempExpand: TempKeyCCM = CMAC(PRK, c88||0x01)
+  /////////////////////////////////////////////////
+  LOG("%s: Generating Temporary Symmetric Key \r\n", __FUNCTION__);
+  memcpy(lucMsgExpand, CKDF_TEMP_EXPAND_C, 15);
+  lucMsgExpand[15] = 0x01;
+  luiSize = 16;
+  liReturnValue = wc_AesCmacGenerate(gucTemporarySymmetricKey, &luiSize,
+                                       lucMsgExpand, sizeof(lucMsgExpand),
+                                       lucPRK, sizeof(lucPRK));
+  // gucTemporarySymmetricKey[] has the Temporary Symmetric Key
+  //PrintBytes(gucTemporarySymmetricKey, sizeof(gucTemporarySymmetricKey), false, 0);
+
+
+exit:
+  wc_curve25519_free(&ltRemotePublicKey);
+  wc_curve25519_free(&ltControllerPrivateKey);
+
+  if (liReturnValue != 0) LOG("%s: *** WARNING *** return value = %d \r\n", __FUNCTION__, liReturnValue);
+  return liReturnValue;
+}
+// end ZWave_Temporary_Key_Generate
 
 /** *****************************************************************************************************************************
   * @brief  Transit a Z-Wave frame

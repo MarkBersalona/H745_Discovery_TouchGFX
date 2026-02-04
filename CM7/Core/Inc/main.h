@@ -352,6 +352,8 @@ typedef struct {
     SmartStartState  status;   // pending, included, ignored, failed
     uint16_t NodeID;           // 2-byte NodeID
     uint8_t  ECDHPublicKey[32];// ECDH public key; 32 bytes for Curve25519 KEX scheme
+    uint8_t  REI[16];          // Receiver's Entropy Input
+    uint8_t  SEI[16];          // Sender's Entropy Input
     // optional more fields
 } pl_entry_t;
 #define NODE_PROVISIONING_LIST_COUNT (5)
