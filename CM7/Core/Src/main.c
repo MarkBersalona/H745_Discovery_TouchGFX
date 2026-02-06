@@ -241,6 +241,13 @@ const osMutexAttr_t DiagnosticMutex_attributes = {
   .cb_size = sizeof(DiagnosticMutexControlBlock),
 };
 /* USER CODE BEGIN PV */
+/* ***************************************************************************************************************************** */
+/* ***************************************************************************************************************************** */
+/* ***************************************************************************************************************************** */
+/* ***************************************************************************************************************************** */
+/* ***************************************************************************************************************************** */
+/* ***************************************************************************************************************************** */
+/* ***************************************************************************************************************************** */
 
 // Output buffer for diagnostic output
 char gucDiagnosticOutput[2048];
@@ -390,6 +397,7 @@ uint8_t gucIsS2Supported;
 uint8_t gucIsPublicKeyReportReceived;
 uint8_t gucIsIncludingNode;
 uint8_t gucIsNonceGetReceived;
+uint8_t gucIsTemporarySEIReceived;
 
 // NVR values
 uint8_t gucNVROffset = NVR_UNUSED_OFFSET;
@@ -414,18 +422,30 @@ static const uint8_t CKDF_TEMP_EXPAND_C[15] = {
     0x88,0x88,0x88,0x88,0x88,0x88,0x88
 };
 uint8_t gucTemporarySymmetricKey[16];
+uint8_t gucTempPersonalizationString[32];
 uint8_t gucTemporaryREI[16];
 uint8_t gucTemporarySEI[16];
 
 // For Nonce generation
-static const uint8_t CKDF_MEI_EXTRACT_C[15] = {
+static const uint8_t CKDF_MEI_EXTRACT_C[16] = {
     /* 16 bytes of 0x26 per CKDF-MEI-Extract */
     /* a.k.a. ConstNonce */
     0x26,0x26,0x26,0x26,0x26,0x26,0x26,0x26,
     0x26,0x26,0x26,0x26,0x26,0x26,0x26,0x26
 };
 
+// For temporary Nonce
+uint8_t gucTemporarySPAN_Key[32];
+uint8_t gucTemporarySPAN_V[16];
 
+
+/* ***************************************************************************************************************************** */
+/* ***************************************************************************************************************************** */
+/* ***************************************************************************************************************************** */
+/* ***************************************************************************************************************************** */
+/* ***************************************************************************************************************************** */
+/* ***************************************************************************************************************************** */
+/* ***************************************************************************************************************************** */
 
 /* USER CODE END PV */
 
@@ -455,6 +475,13 @@ void NetworkTask(void *argument);
 void ZWaveTask(void *argument);
 
 /* USER CODE BEGIN PFP */
+/* ***************************************************************************************************************************** */
+/* ***************************************************************************************************************************** */
+/* ***************************************************************************************************************************** */
+/* ***************************************************************************************************************************** */
+/* ***************************************************************************************************************************** */
+/* ***************************************************************************************************************************** */
+/* ***************************************************************************************************************************** */
 
 BootstrapState ZWave_Bootstrap_StateMachine(BootstrapStateMachineCommand stateMachineCommand);
 uint8_t ZWave_DSK_Extract_NWIAuthHomeID(uint8_t aucDSKIndex, uint8_t* paucNWIAuthHomeIDBuffer);
@@ -532,8 +559,17 @@ void ZWave_Send_REQ_CMD_E8_Get_Radio_PTI(void);
 uint8_t ZWave_SessionID_Randomize(void);
 uint8_t ZWave_SessionID_Update(uint8_t aucSessionID);
 int ZWave_Temporary_Key_Generate(void);
+int ZWave_Temporary_SPAN_Establish(void);
 void ZWave_Transmit_Frame(uint8_t aucCMD, uint8_t aucType, const uint8_t* paucPayload, uint8_t aucLength);
 uint8_t ZWave_XOR_Checksum(uint8_t aucInitialValue, const uint8_t *paucDataBuffer, uint8_t aucLength);
+
+/* ***************************************************************************************************************************** */
+/* ***************************************************************************************************************************** */
+/* ***************************************************************************************************************************** */
+/* ***************************************************************************************************************************** */
+/* ***************************************************************************************************************************** */
+/* ***************************************************************************************************************************** */
+/* ***************************************************************************************************************************** */
 
 /* USER CODE END PFP */
 
@@ -1516,6 +1552,26 @@ void HAL_UART_RxCpltCallback(UART_HandleTypeDef *huart)
 // end HAL_UART_RxCpltCallback
 
 /** *****************************************************************************************************************************
+  * @brief  Increment CTR_DRBG V counter (big-endian)
+  * @param  *paucCtrDrbgV - pointer to buffer (16 bytes) of a CTR_DRBG V counter
+  * @retval None
+  */
+void Increment_CTR_DRBG_V( uint8_t* paucCtrDrbgV)
+{
+  // Could be used to increment any 16-byte buffer, but here we're
+  // using it to increment the V of any SPAN, temporary or end node
+
+  // CTR_DRBG V is 128 bits (16 bytes)
+  for (int i = 15; i >= 0; i--) {
+      if (++paucCtrDrbgV[i] != 0) {
+          break; // No carry, we are done
+      }
+      // Carry occurred, continue to next byte
+  }
+}
+// end Increment_CTR_DRBG_V
+
+/** *****************************************************************************************************************************
   * @brief  Print buffer contents in hex and ASCII
   * @param  *buffer - pointer to buffer of received bytes
   * @param  len - count of received bytes
@@ -1582,10 +1638,11 @@ void PrintBytes( uint8_t* buffer, uint16_t len, sboolean printOffset, uint32_t o
         LOG(".");
       }
     }
+    LOG("\r\n");
   }
   ///////////////////////////////////////////
 
-  LOG("\r\n");
+  //LOG("\r\n");
 
 }
 // end PrintBytes
@@ -1845,6 +1902,13 @@ ZWave_Bootstrap_StateMachine
         Set state to TEMP_NONCE_SET
       ENDIF
     ELSE IF state is TEMP_NONCE_SET
+      IF Temporary SEI received
+        Reset elapsed time for next state
+        Establish Temporary SPAN
+        Decrypt received KEX Report
+        Send encrypted identical KEX Report
+        Set state to NETWORK_KEY_GET
+      ENDIF
     ELSE IF state is NETWORK_KEY_GET
     ELSE IF state is NETWORK_NONCE_GET
     ELSE IF state is NETWORK_VERIFY
@@ -2113,6 +2177,7 @@ BootstrapState ZWave_Bootstrap_StateMachine(BootstrapStateMachineCommand stateMa
         #endif
 
         // Set state to TEMP_NONCE_SET
+        gucIsTemporarySEIReceived = FALSE;
         LOG("%s: Transitioning DSK %d Bootstrap state from TEMP_NONCE_GET to TEMP_NONCE_SET\r\n", __FUNCTION__, gucProcessingDSK);
         leBootstrapState = BOOTSTRAP_TEMP_NONCE_SET;
       }
@@ -2123,6 +2188,35 @@ BootstrapState ZWave_Bootstrap_StateMachine(BootstrapStateMachineCommand stateMa
     // ELSE IF state is TEMP_NONCE_SET
     else if (BOOTSTRAP_TEMP_NONCE_SET == leBootstrapState)
     {
+      // IF Temporary SEI received
+      if (gucIsTemporarySEIReceived)
+      {
+        // Reset elapsed time for next state
+        lulElapsedTime_sec = 0;
+
+        // Establish Temporary SPAN
+        int liTemporarySPANResult = ZWave_Temporary_SPAN_Establish();
+
+        // Decrypt received KEX Report
+
+        // Send encrypted identical KEX Report
+
+        // Set state to NETWORK_KEY_GET
+        LOG("%s: Transitioning DSK %d Bootstrap state from TEMP_NONCE_SET to NETWORK_KEY_GET\r\n", __FUNCTION__, gucProcessingDSK);
+        leBootstrapState = BOOTSTRAP_NETWORK_KEY_GET;
+
+        ////////////////////////////////////////////////////////////////////////
+        //// MAB 2026.02.06
+        //// If any errors occurred, transition to ERROR
+        if (0 != liTemporarySPANResult)
+        {
+          LOG("%s: *** WARNING *** error occurred establishing temporary SPAN");
+          LOG("%s: Transitioning DSK %d Bootstrap state from TEMP_NONCE_SET to ERROR\r\n", __FUNCTION__, gucProcessingDSK);
+          leBootstrapState = BOOTSTRAP_ERROR;
+       }
+        ////////////////////////////////////////////////////////////////////////
+      }
+      // ENDIF
     }
 
     //-------------------------------------------------------
@@ -5775,6 +5869,10 @@ void ZWave_Rx_CC_9F_Security_2_V2(void)
           {
             LOG("%s: - saving Sender's Entropy Input (SEI) for TEMPORARY KEY \r\n", __FUNCTION__);
             memcpy(gucTemporarySEI, &pgucCCBuffer[6+lucExtensionOffset], 16);
+            gucIsTemporarySEIReceived = TRUE;
+
+            // The SPAN extension with the SEI has been received,
+            // may proceed to establish the temporary SPAN
           }
           if (BOOTSTRAP_NETWORK_VERIFY == geBootstrapState)
           {
@@ -7349,6 +7447,9 @@ int ZWave_Temporary_Key_Generate(void)
   static uint8_t lucMsgExtract[32+32+32];
   static uint8_t lucPRK[16];
   static uint8_t lucMsgExpand[16];
+  static uint8_t lucMsgExpand2[16+16];
+  static uint8_t lucT2[16];
+  static uint8_t lucT3[16];
   static unsigned int luiSize;
 
   ///////////////////////////////////////
@@ -7412,8 +7513,59 @@ int ZWave_Temporary_Key_Generate(void)
   liReturnValue = wc_AesCmacGenerate(gucTemporarySymmetricKey, &luiSize,
                                        lucMsgExpand, sizeof(lucMsgExpand),
                                        lucPRK, sizeof(lucPRK));
-  // gucTemporarySymmetricKey[] has the Temporary Symmetric Key
-  //PrintBytes(gucTemporarySymmetricKey, sizeof(gucTemporarySymmetricKey), false, 0);
+  if (liReturnValue != 0 || luiSize != 16)
+  {
+    // Make sure return value is *something* other than 0
+    if (0==liReturnValue) liReturnValue = -1;
+    goto exit;
+  }
+  // If no errors, gucTemporarySymmetricKey[] has the Temporary Symmetric Key
+  PrintBytes(gucTemporarySymmetricKey, sizeof(gucTemporarySymmetricKey), false, 0);
+
+  /////////////////////////////////////////////////
+  // TempExpand:
+  //   T2 = CMAC(PRK, TempKeyCCM||c88||02)
+  //   T3 = CMAC(PRK, T2        ||c88||03)
+  //   TempPersonalizationString = T2||T3
+  /////////////////////////////////////////////////
+  LOG("%s: Generating TempPersonalizationString \r\n", __FUNCTION__);
+  LOG("%s: - generating T2 \r\n", __FUNCTION__);
+  memcpy(lucMsgExpand2,    gucTemporarySymmetricKey, sizeof(gucTemporarySymmetricKey));
+  memcpy(lucMsgExpand2+16, CKDF_TEMP_EXPAND_C,       sizeof(CKDF_TEMP_EXPAND_C));
+  lucMsgExpand2[31] = 0x02;
+  luiSize = 16;
+  liReturnValue = wc_AesCmacGenerate(lucT2, &luiSize,
+                                       lucMsgExpand2, sizeof(lucMsgExpand2),
+                                       lucPRK, sizeof(lucPRK));
+  if (liReturnValue != 0 || luiSize != 16)
+  {
+    // Make sure return value is *something* other than 0
+    if (0==liReturnValue) liReturnValue = -1;
+    goto exit;
+  }
+  PrintBytes(lucT2, sizeof(lucT2), false, 0);
+
+  LOG("%s: - generating T3 \r\n", __FUNCTION__);
+  memcpy(lucMsgExpand2,    lucT2,              sizeof(lucT2));
+  memcpy(lucMsgExpand2+16, CKDF_TEMP_EXPAND_C, sizeof(CKDF_TEMP_EXPAND_C));
+  lucMsgExpand2[31] = 0x03;
+  luiSize = 16;
+  liReturnValue = wc_AesCmacGenerate(lucT3, &luiSize,
+                                       lucMsgExpand2, sizeof(lucMsgExpand2),
+                                       lucPRK, sizeof(lucPRK));
+  if (liReturnValue != 0 || luiSize != 16)
+  {
+    // Make sure return value is *something* other than 0
+    if (0==liReturnValue) liReturnValue = -1;
+    goto exit;
+  }
+  PrintBytes(lucT3, sizeof(lucT3), false, 0);
+
+  LOG("%s: - generating TempPersonalizationString \r\n", __FUNCTION__);
+  memcpy(gucTempPersonalizationString,    lucT2, sizeof(lucT2));
+  memcpy(gucTempPersonalizationString+16, lucT3, sizeof(lucT3));
+  // If no errors, gucTempPersonalizationString[] has the Temporary Personalization String
+  PrintBytes(gucTempPersonalizationString, sizeof(gucTempPersonalizationString), false, 0);
 
 
 exit:
@@ -7424,6 +7576,112 @@ exit:
   return liReturnValue;
 }
 // end ZWave_Temporary_Key_Generate
+
+/** *****************************************************************************************************************************
+  * @brief  Establish temporary SPAN
+  * @param  None; relies on global arrays
+  * @retval 0 if all OK; nonzero otherwise
+  */
+int ZWave_Temporary_SPAN_Establish(void)
+{
+  static int liReturnValue;
+  static unsigned int luiSize;
+  static uint8_t lucMEIExtract[16+16];
+  static uint8_t lucNoncePRK[16];
+  static uint8_t lucMEIExpandBuffer[16+16];
+  static uint8_t lucMEIExpandT0[16];
+  static uint8_t lucMEIExpandT1[16];
+  static uint8_t lucMEIExpandT2[16];
+  static uint8_t lucMEI[16+16];
+
+  ///////////////////////////////////////////////////////////
+  // CKDF-MEI-Extract: with SEI and REI, generate NoncePRK
+  ///////////////////////////////////////////////////////////
+  LOG("%s: CKDF-MEI-Extract: with SEI and REI, generate NoncePRK \r\n", __FUNCTION__);
+  memcpy(lucMEIExtract   , gucTemporarySEI, 16);
+  memcpy(lucMEIExtract+16, gucTemporaryREI, 16);
+  luiSize = 16;
+  liReturnValue = wc_AesCmacGenerate(lucNoncePRK, &luiSize,
+                                       lucMEIExtract, sizeof(lucMEIExtract),
+                                       CKDF_MEI_EXTRACT_C, sizeof(CKDF_MEI_EXTRACT_C));
+  PrintBytes(lucNoncePRK, sizeof(lucNoncePRK), false, 0);
+  if (liReturnValue != 0 || luiSize != 16)
+  {
+    // Make sure return value is *something* other than 0
+    if (0==liReturnValue) liReturnValue = -1;
+    goto exit;
+  }
+  // If no errors, lucNoncePRK[] has NoncePRK
+
+
+  ///////////////////////////////////////////////////////////
+  // CKDF-MEI-Expand: with NoncePRK, generate MEI
+  ///////////////////////////////////////////////////////////
+  LOG("%s: CKDF-MEI-Expand: with NoncePRK, generate MEI \r\n", __FUNCTION__);
+
+  // T0 = ConstEntropyInput | 0x00
+  // NOTE: ConstEntropyInput exactly the same as CKDF_TEMP_EXPAND_C: 0x88 repeated 15 times
+  LOG("%s: - generating T0 \r\n", __FUNCTION__);
+  memcpy(lucMEIExpandT0, CKDF_TEMP_EXPAND_C, sizeof(CKDF_TEMP_EXPAND_C));
+  lucMEIExpandT0[15] = 0x00;
+
+  // T1 = CMAC(NoncePRK, T0 | ConstEntropyInput | 0x01)
+  LOG("%s: - generating T1 \r\n", __FUNCTION__);
+  memcpy(lucMEIExpandBuffer,    lucMEIExpandT0,     sizeof(lucMEIExpandT0));
+  memcpy(lucMEIExpandBuffer+16, CKDF_TEMP_EXPAND_C, sizeof(CKDF_TEMP_EXPAND_C));
+  lucMEIExpandBuffer[31] = 0x01;
+  luiSize = sizeof(lucMEIExpandT1);
+  liReturnValue = wc_AesCmacGenerate(lucMEIExpandT1, &luiSize,
+                                       lucMEIExpandBuffer, sizeof(lucMEIExpandBuffer),
+                                       lucNoncePRK, sizeof(lucNoncePRK));
+  PrintBytes(lucMEIExpandT1, sizeof(lucMEIExpandT1), false, 0);
+  if (liReturnValue != 0 || luiSize != 16)
+  {
+    // Make sure return value is *something* other than 0
+    if (0==liReturnValue) liReturnValue = -1;
+    goto exit;
+  }
+
+  // T2 = CMAC(NoncePRK, T1 | ConstEntropyInput | 0x02)
+  LOG("%s: - generating T2 \r\n", __FUNCTION__);
+  memcpy(lucMEIExpandBuffer,    lucMEIExpandT1,     sizeof(lucMEIExpandT1));
+  memcpy(lucMEIExpandBuffer+16, CKDF_TEMP_EXPAND_C, sizeof(CKDF_TEMP_EXPAND_C));
+  lucMEIExpandBuffer[31] = 0x02;
+  luiSize = sizeof(lucMEIExpandT2);
+  liReturnValue = wc_AesCmacGenerate(lucMEIExpandT2, &luiSize,
+                                       lucMEIExpandBuffer, sizeof(lucMEIExpandBuffer),
+                                       lucNoncePRK, sizeof(lucNoncePRK));
+  PrintBytes(lucMEIExpandT2, sizeof(lucMEIExpandT2), false, 0);
+  if (liReturnValue != 0 || luiSize != 16)
+  {
+    // Make sure return value is *something* other than 0
+    if (0==liReturnValue) liReturnValue = -1;
+    goto exit;
+  }
+
+  // MEI = T1 | T2
+  LOG("%s: - generating MEI \r\n", __FUNCTION__);
+  memcpy(lucMEI,    lucMEIExpandT1, sizeof(lucMEIExpandT1));
+  memcpy(lucMEI+16, lucMEIExpandT2, sizeof(lucMEIExpandT2));
+  // If no errors, lucMEI[] has MEI
+  PrintBytes(lucMEI, sizeof(lucMEI), false, 0);
+
+
+  /////////////////////////////////////////////////////////////////////////////////////////////////////
+  // CTR_DRBG instantiated with MEI and Personalization_String; inner state InnerSPAN instantiated
+  // - gucTempPersonalizationString[] was established in ZWave_Temporary_Key_Generate()
+  // - InnerSPAN = Key || V
+  //   - for temporary SPAN, InnerSPAN is gucTemporarySPAN_Key[] || gucTemporarySPAN_V[]
+  /////////////////////////////////////////////////////////////////////////////////////////////////////
+  LOG("%s: Instantiating temporary SPAN \r\n", __FUNCTION__);
+  memset(gucTemporarySPAN_Key, 0x00, sizeof(gucTemporarySPAN_Key));
+  memset(gucTemporarySPAN_V,   0x00, sizeof(gucTemporarySPAN_V));
+
+exit:
+if (liReturnValue != 0) LOG("%s: *** WARNING *** return value = %d \r\n", __FUNCTION__, liReturnValue);
+ return liReturnValue;
+}
+// end ZWave_Temporary_SPAN_Establish
 
 /** *****************************************************************************************************************************
   * @brief  Transit a Z-Wave frame
@@ -7660,6 +7918,24 @@ void MainTask(void *argument)
 //  }
 //  LOG("\r\n");
 //  /////////////////////////////////////////////////////////
+
+//  /////////////////////////////////////////////////////////////////////////////////
+//  //// TEST MAB 2026.02.06
+//  //// Test the 16-byte buffer incrementer
+//  uint8_t lucTestBuffer[16];
+//  // Randomize the test buffer
+//  for (int i = 0; i < 16; ++i)
+//  {
+//    lucTestBuffer[i] = RandomValue() % 0xFF;
+//  }
+//  // Increment the test buffer N times
+//  LOG("%s: Test the 16-byte buffer incrementer \r\n", __FUNCTION__);
+//  for (int i = 0; i < 2000; ++i)
+//  {
+//    Increment_CTR_DRBG_V(lucTestBuffer);
+//    PrintBytes(lucTestBuffer, sizeof(lucTestBuffer), FALSE, 0);
+//  }
+//  /////////////////////////////////////////////////////////////////////////////////
 
   /* ************************************************** Infinite loop ************************************************** */
   for(;;)

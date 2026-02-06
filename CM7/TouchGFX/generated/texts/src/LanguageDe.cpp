@@ -133,7 +133,7 @@ KEEP extern const uint32_t indicesDe[] TEXT_LOCATION_FLASH_ATTRIBUTE = {
     1296, // T_TEXTID_BUTTONSETTINGS: "Einstellungen"
     1055, // T_TEXTID_BUTTONGOZONE: "neuer Bildschirm"
     1188, // T_TEXTID_BUTTONRETURNHOME: "Startbildschirm"
-    1072, // T___SINGLEUSE_SU1R: "2026.02.04 0950"
+    1072, // T___SINGLEUSE_SU1R: "2026.02.06 0920"
     669,  // T___SINGLEUSE_DZIZ: "Sensaphone Z-Wave Sentinel"
     1683, // T___SINGLEUSE_RQ58: "000"
     1344  // T_TEXTID_NUMBERTEXTAREA: "<>"
