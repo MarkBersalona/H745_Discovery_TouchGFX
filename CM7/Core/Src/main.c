@@ -52,6 +52,7 @@
 #include <wolfssl/wolfcrypt/random.h>
 #include <wolfssl/wolfcrypt/curve25519.h>
 #include <wolfssl/wolfcrypt/cmac.h>
+#include <wolfssl/wolfcrypt/aes.h>
 
 /* USER CODE END Includes */
 
@@ -435,8 +436,14 @@ static const uint8_t CKDF_MEI_EXTRACT_C[16] = {
 };
 
 // For temporary Nonce
-uint8_t gucTemporarySPAN_Key[32];
-uint8_t gucTemporarySPAN_V[16];
+inner_span_t gtTemporarySPAN;
+
+// Buffer for any received ciphertext
+uint8_t gucReceivedCiphertext[256];
+uint8_t gucReceivedCiphertextLength;
+#define AUTH_TAG_LENGTH (8)
+uint8_t gucReceivedAuthTag[AUTH_TAG_LENGTH];
+uint8_t gucReceivedAuthTagLength;
 
 
 /* ***************************************************************************************************************************** */
@@ -483,6 +490,13 @@ void ZWaveTask(void *argument);
 /* ***************************************************************************************************************************** */
 /* ***************************************************************************************************************************** */
 
+int AES_ECB_Encrypt_Block(uint8_t* paucKey, uint8_t* paucInput, uint8_t* paucOutput);
+int CTR_DRBG_Generate_16_Random_Bytes(inner_span_t* patSPAN, uint8_t* paucOutputBuffer);
+void CTR_DRBG_Increment_V( uint8_t* paucCtrDrbgV);
+int CTR_DRBG_Instantiate_SPAN(inner_span_t* patSPAN, uint8_t* paucMEI, uint8_t* paucPersonalization);
+int CTR_DRBG_Update_SPAN(inner_span_t* patSPAN, uint8_t* paucProvidedData);
+void PrintBytes( uint8_t* buffer, uint16_t len, sboolean printOffset, uint32_t offset);
+void XOR_bytes(uint8_t* paucOutputBuffer, uint8_t* paucBufferA, uint8_t* paucBufferB, uint16_t auiLength);
 BootstrapState ZWave_Bootstrap_StateMachine(BootstrapStateMachineCommand stateMachineCommand);
 uint8_t ZWave_DSK_Extract_NWIAuthHomeID(uint8_t aucDSKIndex, uint8_t* paucNWIAuthHomeIDBuffer);
 uint8_t ZWave_DSK_Find_Zeroized(void);
@@ -1411,6 +1425,34 @@ static void MX_GPIO_Init(void)
 /* ***************************************************************************************************************************** */
 
 /** *****************************************************************************************************************************
+  * @brief  AES-ECB encrypt a single 16-byte block
+  * @param  uint8_t* paucKey    - pointer to Key
+  * @param  uint8_t* paucInput  - pointer to input buffer
+  * @param  uint8_t* paucOutput - pointer to output buffer
+  * @retval 0 if no errors
+  */
+int AES_ECB_Encrypt_Block(uint8_t* paucKey, uint8_t* paucInput, uint8_t* paucOutput)
+{
+  static int liReturnValue=0;
+  static Aes aes;
+
+  liReturnValue = wc_AesInit(&aes, NULL, INVALID_DEVID);
+  if (0!=liReturnValue) goto exit;
+
+  liReturnValue = wc_AesSetKey(&aes, paucKey, 16, NULL, AES_ENCRYPTION);
+  if (0!=liReturnValue) goto exit;
+
+  /* wolfCrypt exposes AES ECB encrypt as wc_AesEcbEncrypt */
+  liReturnValue = wc_AesEcbEncrypt(&aes, paucOutput, paucInput, WC_AES_BLOCK_SIZE);
+
+exit:
+  wc_AesFree(&aes);
+  if (0!=liReturnValue) LOG("%s: *** WARNING *** return value = %d \r\n", __FUNCTION__, liReturnValue);
+  return liReturnValue;
+}
+// end AES_ECB_Encrypt_Block
+
+/** *****************************************************************************************************************************
   * @brief  Convert date and time values to UNIX timestamp (epoch 1970-01-01 00:00:00)
   * @param  acYear   [00,99]
   * @param  acMonth  [01,12]
@@ -1436,6 +1478,144 @@ uint_32 ConvertTimeToUNIX(uint_8 acYear, uint_8 acMonth, uint_8 acDate, uint_8 a
   return (uint_32)lUNIXTime;
 }
 // end ConvertTimeToUNIX
+
+/** *****************************************************************************************************************************
+  * @brief  Generate 16 bytes of random data via given SPAN
+  * @param  inner_span_t* patSPAN - pointer to SPAN struct
+  * @param  uint8_t* paucOutputBuffer - pointer to output buffer
+  * @retval 0 if no errors
+  */
+int CTR_DRBG_Generate_16_Random_Bytes(inner_span_t* patSPAN, uint8_t* paucOutputBuffer)
+{
+  ////////////////////////////////////////////////////////////
+  // NOTE: Will also update the SPAN (assuming no errors)
+  //       so no need to update a 2nd time
+  ////////////////////////////////////////////////////////////
+  static int liReturnValue=0;
+  static uint8_t lucZeros[16];
+
+  // Increment SPAN V
+  CTR_DRBG_Increment_V(patSPAN->V);
+
+  // AES-128 encrypt (Key || V); the 16 bytes are the output
+  liReturnValue = AES_ECB_Encrypt_Block(patSPAN->Key, patSPAN->V, paucOutputBuffer);
+  if (0!=liReturnValue) goto exit;
+
+  // Update SPAN, with all 0x00 as provided_data
+  memset(lucZeros, 0x00, sizeof(lucZeros));
+  liReturnValue = CTR_DRBG_Update_SPAN(patSPAN, lucZeros);
+
+exit:
+  if (0!=liReturnValue) LOG("%s: *** WARNING *** return value = %d \r\n", __FUNCTION__, liReturnValue);
+  return liReturnValue;
+}
+// end CTR_DRBG_Generate_16_Random_Bytes
+
+/** *****************************************************************************************************************************
+  * @brief  Increment CTR_DRBG V counter (big-endian, i.e. MSB comes first, LSB is last byte highest in memory)
+  * @param  uint8_t* paucCtrDrbgV - pointer to buffer (16 bytes) of a CTR_DRBG V counter
+  * @retval None
+  */
+void CTR_DRBG_Increment_V(uint8_t* paucCtrDrbgV)
+{
+  // Could be used to increment any 16-byte buffer, but here we're
+  // using it to increment the V of any SPAN, temporary or end node
+
+  // CTR_DRBG V is 128 bits (16 bytes)
+  for (int i = 15; i >= 0; i--)
+  {
+    if (++paucCtrDrbgV[i] != 0)
+    {
+      break; // No carry, we are done
+    }
+    // Carry occurred, continue to next byte
+  }
+}
+// end CTR_DRBG_Increment_V
+
+/** *****************************************************************************************************************************
+  * @brief  Instantiate CTR_DRBG SPAN
+  * @param  inner_span_t* patSPAN - pointer to SPAN struct
+  * @param  uint8_t* paucMEI - pointer to entropy input buffer, i.e. MEI (32 bytes)
+  * @param  uint8_t* paucPersonalization - pointer to personalization_string buffer (32 bytes)
+  * @retval 0 if no errors
+  */
+int CTR_DRBG_Instantiate_SPAN(inner_span_t* patSPAN, uint8_t* paucMEI, uint8_t* paucPersonalization)
+{
+  static int liReturnValue=0;
+  static uint8_t lucSeed[32];
+
+  // Zeroize Key and V
+  memset(patSPAN->Key, 0x00, sizeof(patSPAN->Key));
+  memset(patSPAN->V,   0x00, sizeof(patSPAN->V));
+
+  // Seed material = MEI XOR personalization_string
+  XOR_bytes(lucSeed, paucMEI, paucPersonalization, 32);
+  LOG("%s: paucMEI \r\n", __FUNCTION__);
+  PrintBytes(paucMEI, 32, false, 0);
+  LOG("%s: paucPersonalization \r\n", __FUNCTION__);
+  PrintBytes(paucPersonalization, 32, false, 0);
+  LOG("%s: lucSeed \r\n", __FUNCTION__);
+  PrintBytes(lucSeed, 32, false, 0);
+
+  // Call CTR_DRBG_Update routine for given SPAN with seed material as provided_data
+  liReturnValue = CTR_DRBG_Update_SPAN(patSPAN, lucSeed);
+
+
+exit:
+  if (0!=liReturnValue) LOG("%s: *** WARNING *** return value = %d \r\n", __FUNCTION__, liReturnValue);
+  return liReturnValue;
+}
+// end CTR_DRBG_Instantiate_SPAN
+
+/** *****************************************************************************************************************************
+  * @brief  Update CTR_DRBG SPAN
+  * @param  inner_span_t* patSPAN - pointer to SPAN struct
+  * @param  uint8_t* paucProvidedData - pointer to provided_data buffer (32 bytes)
+  * @retval 0 if no errors
+  */
+int CTR_DRBG_Update_SPAN(inner_span_t* patSPAN, uint8_t* paucProvidedData)
+{
+  static int liReturnValue=0;
+  static uint8_t lucTemp[32];
+  static uint8_t lucBlock[16];
+
+  LOG("%s: Updating SPAN \r\n", __FUNCTION__);
+
+  // temp = AES(Key, V+1) || AES(Key, V+2) -> 32 bytes total
+  // :V+1
+  CTR_DRBG_Increment_V(patSPAN->V);
+  liReturnValue = AES_ECB_Encrypt_Block(patSPAN->Key, patSPAN->V, lucBlock);
+  if (0!=liReturnValue) goto exit;
+  memcpy(lucTemp, lucBlock, sizeof(lucBlock));
+  // :V+2
+  CTR_DRBG_Increment_V(patSPAN->V);
+  liReturnValue = AES_ECB_Encrypt_Block(patSPAN->Key, patSPAN->V, lucBlock);
+  if (0!=liReturnValue) goto exit;
+  memcpy(lucTemp+16, lucBlock, sizeof(lucBlock));
+
+  // temp = temp XOR provided_data
+  for (int i = 0; i < sizeof(lucTemp); ++i)
+  {
+    lucTemp[i] ^= paucProvidedData[i];
+  }
+  LOG("%s: - lucTemp \r\n");
+  PrintBytes(lucTemp, sizeof(lucTemp), false, 0);
+
+  // Key = leftmost 16, V = rightmost 16 -> 16 bytes each
+  memcpy(patSPAN->Key, &lucTemp[0],  16);
+  memcpy(patSPAN->V,   &lucTemp[16], 16);
+  LOG("%s: - Key \r\n", __FUNCTION__);
+  PrintBytes(patSPAN->Key, 16, false, 0);
+  LOG("%s: - V \r\n", __FUNCTION__);
+  PrintBytes(patSPAN->V, 16, false, 0);
+
+
+exit:
+  if (0!=liReturnValue) LOG("%s: *** WARNING *** return value = %d \r\n", __FUNCTION__, liReturnValue);
+  return liReturnValue;
+}
+// end CTR_DRBG_Update_SPAN
 
 /** *****************************************************************************************************************************
   * @brief  Read received FIFO bytes from Diagnostic port
@@ -1552,26 +1732,6 @@ void HAL_UART_RxCpltCallback(UART_HandleTypeDef *huart)
 // end HAL_UART_RxCpltCallback
 
 /** *****************************************************************************************************************************
-  * @brief  Increment CTR_DRBG V counter (big-endian)
-  * @param  *paucCtrDrbgV - pointer to buffer (16 bytes) of a CTR_DRBG V counter
-  * @retval None
-  */
-void Increment_CTR_DRBG_V( uint8_t* paucCtrDrbgV)
-{
-  // Could be used to increment any 16-byte buffer, but here we're
-  // using it to increment the V of any SPAN, temporary or end node
-
-  // CTR_DRBG V is 128 bits (16 bytes)
-  for (int i = 15; i >= 0; i--) {
-      if (++paucCtrDrbgV[i] != 0) {
-          break; // No carry, we are done
-      }
-      // Carry occurred, continue to next byte
-  }
-}
-// end Increment_CTR_DRBG_V
-
-/** *****************************************************************************************************************************
   * @brief  Print buffer contents in hex and ASCII
   * @param  *buffer - pointer to buffer of received bytes
   * @param  len - count of received bytes
@@ -1684,6 +1844,23 @@ uint32_t RandomValue(void)
   return lulReturnValue;
 }
 // end RandomValue
+
+/** *****************************************************************************************************************************
+  * @brief  XOR bytes of 2 same-sized buffers, to an output buffer
+  * @param  uint8_t* paucOutputBuffer - pointer to output buffer
+  * @param  uint8_t* paucBufferA - pointer to input buffer A
+  * @param  uint8_t* paucBufferB - pointer to input buffer B
+  * @param  uint16_t auiLength - number of bytes to XOR in buffers A and B, result in output buffer
+  * @retval None
+  */
+void XOR_bytes(uint8_t* paucOutputBuffer, uint8_t* paucBufferA, uint8_t* paucBufferB, uint16_t auiLength)
+{
+  for (uint16_t i = 0; i < auiLength; ++i)
+  {
+    paucOutputBuffer[i] = paucBufferA[i] ^ paucBufferB[i];
+  }
+}
+// end XOR_bytes
 
 /** *****************************************************************************************************************************
   * @brief  Check and count number of bit that is set in a nodemask
@@ -5890,8 +6067,20 @@ void ZWave_Rx_CC_9F_Security_2_V2(void)
     // TODO parse encrypted extensions (if present - and if necessary: the encrypted extensions might follow seamlessly with the unencrypted extensions)
 
     uint8_t lucCCMOffset = 4 + lucExtensionOffset;
-    LOG("%s: CCM Ciphertext object... \r\n", __FUNCTION__);
-    PrintBytes(&pgucCCBuffer[lucCCMOffset], gucCCBufferLength - lucCCMOffset, false, 0);
+    LOG("%s: CCM Ciphertext... \r\n", __FUNCTION__);
+    gucReceivedCiphertextLength = gucCCBufferLength - lucCCMOffset - AUTH_TAG_LENGTH;
+    memset(gucReceivedCiphertext, 0x00, sizeof(gucReceivedCiphertext));
+    memcpy(gucReceivedCiphertext, &pgucCCBuffer[lucCCMOffset], gucReceivedCiphertextLength);
+    PrintBytes(gucReceivedCiphertext, gucReceivedCiphertextLength, false, 0);
+    LOG("%s: - saving ciphertext, length %d bytes \r\n", __FUNCTION__, gucReceivedCiphertextLength);
+
+    lucCCMOffset += gucReceivedCiphertextLength;
+    LOG("%s: CCM Auth Tag... \r\n", __FUNCTION__);
+    gucReceivedAuthTagLength = AUTH_TAG_LENGTH;
+    memset(gucReceivedAuthTag, 0x00, sizeof(gucReceivedAuthTag));
+    memcpy(gucReceivedAuthTag, &pgucCCBuffer[lucCCMOffset], gucReceivedAuthTagLength);
+    PrintBytes(gucReceivedAuthTag, gucReceivedAuthTagLength, false, 0);
+    LOG("%s: - saving Auth Tag, length %d bytes \r\n", __FUNCTION__, gucReceivedAuthTagLength);
 
   } // end if (SECURITY_2_MESSAGE_ENCAPSULATION_V2 == pgucCCBuffer[1])
 
@@ -7670,12 +7859,10 @@ int ZWave_Temporary_SPAN_Establish(void)
   /////////////////////////////////////////////////////////////////////////////////////////////////////
   // CTR_DRBG instantiated with MEI and Personalization_String; inner state InnerSPAN instantiated
   // - gucTempPersonalizationString[] was established in ZWave_Temporary_Key_Generate()
-  // - InnerSPAN = Key || V
-  //   - for temporary SPAN, InnerSPAN is gucTemporarySPAN_Key[] || gucTemporarySPAN_V[]
+  // - provided_data = lucMEI || gucTempPersonalizationString
   /////////////////////////////////////////////////////////////////////////////////////////////////////
   LOG("%s: Instantiating temporary SPAN \r\n", __FUNCTION__);
-  memset(gucTemporarySPAN_Key, 0x00, sizeof(gucTemporarySPAN_Key));
-  memset(gucTemporarySPAN_V,   0x00, sizeof(gucTemporarySPAN_V));
+  CTR_DRBG_Instantiate_SPAN(&gtTemporarySPAN, lucMEI, gucTempPersonalizationString);
 
 exit:
 if (liReturnValue != 0) LOG("%s: *** WARNING *** return value = %d \r\n", __FUNCTION__, liReturnValue);
@@ -7932,7 +8119,7 @@ void MainTask(void *argument)
 //  LOG("%s: Test the 16-byte buffer incrementer \r\n", __FUNCTION__);
 //  for (int i = 0; i < 2000; ++i)
 //  {
-//    Increment_CTR_DRBG_V(lucTestBuffer);
+//    CTR_DRBG_Increment_V(lucTestBuffer);
 //    PrintBytes(lucTestBuffer, sizeof(lucTestBuffer), FALSE, 0);
 //  }
 //  /////////////////////////////////////////////////////////////////////////////////

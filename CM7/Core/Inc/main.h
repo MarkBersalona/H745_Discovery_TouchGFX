@@ -400,6 +400,14 @@ typedef enum
 #define NVR_HW_VER_SIZE   1
 
 
+// Struct for Inner SPANs
+typedef struct {
+    uint8_t  Key[16];
+    uint8_t  V[16];
+} inner_span_t;
+
+
+
 /* USER CODE END Private defines */
 
 #ifdef __cplusplus
