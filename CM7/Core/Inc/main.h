@@ -406,6 +406,17 @@ typedef struct {
     uint8_t  V[16];
 } inner_span_t;
 
+// Struct for Additional Authenticated Data (AAD)
+typedef struct
+{
+  uint16_t SenderNodeID;
+  uint16_t DestinationNodeID;
+  uint32_t HomeID;
+  uint16_t MessageLength;
+  uint8_t  SequenceNumber;
+  uint8_t  ExtensionOptions;
+  uint8_t  ExtensionData[20];
+} aad_t;
 
 
 /* USER CODE END Private defines */

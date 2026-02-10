@@ -386,8 +386,10 @@ uint8_t gucSessionID;
 //
 uint8_t gucLRNodes[MAX_LR_NODEMASK_LENGTH];
 
-// general useage NodeID
+// general usage NodeIDs
 uint16_t guiNodeID;
+uint16_t guiSourceNodeID;
+uint16_t guiDestinationNodeID;
 
 // Bootstrap state machine state
 BootstrapState geBootstrapState;
@@ -445,6 +447,12 @@ uint8_t gucReceivedCiphertextLength;
 uint8_t gucReceivedAuthTag[AUTH_TAG_LENGTH];
 uint8_t gucReceivedAuthTagLength;
 
+// Additional Authenticated Data (AAD) for temporary (S2 bootstrap) encryption/decryption
+aad_t gtTemporaryAAD;
+uint8_t gucTemporaryAADLength;
+
+
+
 
 /* ***************************************************************************************************************************** */
 /* ***************************************************************************************************************************** */
@@ -496,7 +504,9 @@ void CTR_DRBG_Increment_V( uint8_t* paucCtrDrbgV);
 int CTR_DRBG_Instantiate_SPAN(inner_span_t* patSPAN, uint8_t* paucMEI, uint8_t* paucPersonalization);
 int CTR_DRBG_Update_SPAN(inner_span_t* patSPAN, uint8_t* paucProvidedData);
 void PrintBytes( uint8_t* buffer, uint16_t len, sboolean printOffset, uint32_t offset);
-void XOR_bytes(uint8_t* paucOutputBuffer, uint8_t* paucBufferA, uint8_t* paucBufferB, uint16_t auiLength);
+uint32_t Swap_Bytes_uint16(uint16_t auiInputValue);
+uint32_t Swap_Bytes_uint32(uint32_t aulInputValue);
+void XOR_Bytes(uint8_t* paucOutputBuffer, uint8_t* paucBufferA, uint8_t* paucBufferB, uint16_t auiLength);
 BootstrapState ZWave_Bootstrap_StateMachine(BootstrapStateMachineCommand stateMachineCommand);
 uint8_t ZWave_DSK_Extract_NWIAuthHomeID(uint8_t aucDSKIndex, uint8_t* paucNWIAuthHomeIDBuffer);
 uint8_t ZWave_DSK_Find_Zeroized(void);
@@ -1452,6 +1462,7 @@ exit:
 }
 // end AES_ECB_Encrypt_Block
 
+
 /** *****************************************************************************************************************************
   * @brief  Convert date and time values to UNIX timestamp (epoch 1970-01-01 00:00:00)
   * @param  acYear   [00,99]
@@ -1550,7 +1561,7 @@ int CTR_DRBG_Instantiate_SPAN(inner_span_t* patSPAN, uint8_t* paucMEI, uint8_t* 
   memset(patSPAN->V,   0x00, sizeof(patSPAN->V));
 
   // Seed material = MEI XOR personalization_string
-  XOR_bytes(lucSeed, paucMEI, paucPersonalization, 32);
+  XOR_Bytes(lucSeed, paucMEI, paucPersonalization, 32);
   LOG("%s: paucMEI \r\n", __FUNCTION__);
   PrintBytes(paucMEI, 32, false, 0);
   LOG("%s: paucPersonalization \r\n", __FUNCTION__);
@@ -1599,7 +1610,7 @@ int CTR_DRBG_Update_SPAN(inner_span_t* patSPAN, uint8_t* paucProvidedData)
   {
     lucTemp[i] ^= paucProvidedData[i];
   }
-  LOG("%s: - lucTemp \r\n");
+  LOG("%s: - lucTemp (should contain Key and V) \r\n", __FUNCTION__);
   PrintBytes(lucTemp, sizeof(lucTemp), false, 0);
 
   // Key = leftmost 16, V = rightmost 16 -> 16 bytes each
@@ -1830,6 +1841,31 @@ void PrintStartupBanner(void)
 // end PrintStartupBanner
 
 /** *****************************************************************************************************************************
+  * @brief  Swap the byte order of a 16-bit unsigned integer
+  * @param  uint16_t auiInputValue - 16-bit unsigned integer
+  * @retval 16-bit unsigned integer
+  */
+uint32_t Swap_Bytes_uint16(uint16_t auiInputValue)
+{
+  return (auiInputValue << 8) | (auiInputValue >> 8);
+}
+// end Swap_Bytes_uint16
+
+/** *****************************************************************************************************************************
+  * @brief  Swap the byte order of a 32-bit unsigned long
+  * @param  uint32_t aulInputValue - 32-bit unsigned long
+  * @retval 32-bit unsigned value
+  */
+uint32_t Swap_Bytes_uint32(uint32_t aulInputValue)
+{
+  return ((aulInputValue >> 24) & 0x000000FF) |
+         ((aulInputValue >> 8)  & 0x0000FF00) |
+         ((aulInputValue << 8)  & 0x00FF0000) |
+         ((aulInputValue << 24) & 0xFF000000);
+}
+// end Swap_Bytes_uint32
+
+/** *****************************************************************************************************************************
   * @brief  Return 32-bit very pseudorandom number
   * @param  None
   * @retval 32-bit unsigned value
@@ -1853,14 +1889,14 @@ uint32_t RandomValue(void)
   * @param  uint16_t auiLength - number of bytes to XOR in buffers A and B, result in output buffer
   * @retval None
   */
-void XOR_bytes(uint8_t* paucOutputBuffer, uint8_t* paucBufferA, uint8_t* paucBufferB, uint16_t auiLength)
+void XOR_Bytes(uint8_t* paucOutputBuffer, uint8_t* paucBufferA, uint8_t* paucBufferB, uint16_t auiLength)
 {
   for (uint16_t i = 0; i < auiLength; ++i)
   {
     paucOutputBuffer[i] = paucBufferA[i] ^ paucBufferB[i];
   }
 }
-// end XOR_bytes
+// end XOR_Bytes
 
 /** *****************************************************************************************************************************
   * @brief  Check and count number of bit that is set in a nodemask
@@ -5609,9 +5645,11 @@ void ZWave_RES_CMD_A8_Application_Command_Handler_Bridge(void)
   /* ZW->HOST: REQ | 0xA8 | rxStatus | destNode | sourceNode | cmdLength
    *          | pCmd[] | multiDestsOffset_NodeMaskLen | multiDestsNodeMask[] | rssiVal
    *          | securityKey | bSourceTxPower | bSourceNoiseFloor */
+  guiDestinationNodeID = (0x100*ZWaveSerialFrame->payload[1]) + ZWaveSerialFrame->payload[2];
+  guiSourceNodeID      = (0x100*ZWaveSerialFrame->payload[3]) + ZWaveSerialFrame->payload[4];
   LOG("%s: RX status                              = 0x%02X\r\n", __FUNCTION__, ZWaveSerialFrame->payload[0]);
-  LOG("%s: Destination node ID                    = 0x%04X\r\n", __FUNCTION__, (0x100*ZWaveSerialFrame->payload[1]) + ZWaveSerialFrame->payload[2]);
-  LOG("%s: Source node ID                         = 0x%04X\r\n", __FUNCTION__, (0x100*ZWaveSerialFrame->payload[3]) + ZWaveSerialFrame->payload[4]);
+  LOG("%s: Destination node ID                    = 0x%04X\r\n", __FUNCTION__, guiDestinationNodeID);
+  LOG("%s: Source node ID                         = 0x%04X\r\n", __FUNCTION__, guiSourceNodeID);
   LOG("%s: Payload length                         = 0x%02X\r\n", __FUNCTION__, ZWaveSerialFrame->payload[5]);
   int i = ZWaveSerialFrame->payload[5]; // Payload length
   if (i)
@@ -6081,6 +6119,26 @@ void ZWave_Rx_CC_9F_Security_2_V2(void)
     memcpy(gucReceivedAuthTag, &pgucCCBuffer[lucCCMOffset], gucReceivedAuthTagLength);
     PrintBytes(gucReceivedAuthTag, gucReceivedAuthTagLength, false, 0);
     LOG("%s: - saving Auth Tag, length %d bytes \r\n", __FUNCTION__, gucReceivedAuthTagLength);
+
+    //
+    // Construct Additional Authenticated Data (AAD)
+    //
+    gtTemporaryAAD.SenderNodeID      = Swap_Bytes_uint16(guiSourceNodeID);
+    gtTemporaryAAD.DestinationNodeID = Swap_Bytes_uint16(guiDestinationNodeID);
+    gtTemporaryAAD.HomeID            = Swap_Bytes_uint32(gulZWaveHomeID);
+    gtTemporaryAAD.MessageLength     = Swap_Bytes_uint16(gucReceivedCiphertextLength);
+    gtTemporaryAAD.SequenceNumber    = pgucCCBuffer[2];
+    gtTemporaryAAD.ExtensionOptions  = pgucCCBuffer[3];
+    gucTemporaryAADLength = 12;
+    if (lucExtensionsPresent)
+    {
+      //LOG("%s: Copying extension (Sender's Entropy Input) to AAD \r\n", __FUNCTION__);
+      memcpy(gtTemporaryAAD.ExtensionData, gucTemporarySEI, 16  );
+      //PrintBytes(gtTemporaryAAD.ExtensionData, 16, false, 0);
+      gucTemporaryAADLength += 16;
+    }
+    LOG("%s: Temporary AAD \r\n", __FUNCTION__);
+    PrintBytes(&gtTemporaryAAD, gucTemporaryAADLength, false, 0);
 
   } // end if (SECURITY_2_MESSAGE_ENCAPSULATION_V2 == pgucCCBuffer[1])
 
