@@ -59,6 +59,18 @@ Middlewares/wolfSSL/wolfSSL/wolfCrypt/Core/aes.o: \
  ../../../Middlewares/Third_Party/wolfSSL_wolfSSL_wolfSSL/wolfssl/wolfssl/wolfcrypt/memory.h \
  ../../../Middlewares/Third_Party/wolfSSL_wolfSSL_wolfSSL/wolfssl/wolfssl/wolfcrypt/error-crypt.h \
  ../../../Middlewares/Third_Party/wolfSSL_wolfSSL_wolfSSL/wolfssl/wolfssl/wolfcrypt/logging.h \
+ ../../../CM7/Core/Inc/main.h \
+ ../../../Middlewares/Third_Party/FreeRTOS/Source/CMSIS_RTOS_V2/cmsis_os.h \
+ ../../../Middlewares/Third_Party/FreeRTOS/Source/include/FreeRTOS.h \
+ ../../../CM7/Core/Inc/FreeRTOSConfig.h \
+ ../../../Middlewares/Third_Party/FreeRTOS/Source/include/projdefs.h \
+ ../../../Middlewares/Third_Party/FreeRTOS/Source/include/portable.h \
+ ../../../Middlewares/Third_Party/FreeRTOS/Source/include/deprecated_definitions.h \
+ ../../../Middlewares/Third_Party/FreeRTOS/Source/portable/GCC/ARM_CM4F/portmacro.h \
+ ../../../Middlewares/Third_Party/FreeRTOS/Source/include/mpu_wrappers.h \
+ ../../../Middlewares/Third_Party/FreeRTOS/Source/include/task.h \
+ ../../../Middlewares/Third_Party/FreeRTOS/Source/include/list.h \
+ ../../../Middlewares/Third_Party/FreeRTOS/Source/CMSIS_RTOS_V2/cmsis_os2.h \
  ../../../Middlewares/Third_Party/wolfSSL_wolfSSL_wolfSSL/wolfssl/wolfssl/wolfcrypt/aes.h \
  ../../../Middlewares/Third_Party/wolfSSL_wolfSSL_wolfSSL/wolfssl/wolfssl/wolfcrypt/random.h \
  ../../../Middlewares/Third_Party/wolfSSL_wolfSSL_wolfSSL/wolfssl/wolfssl/wolfcrypt/sha256.h \
@@ -124,6 +136,18 @@ Middlewares/wolfSSL/wolfSSL/wolfCrypt/Core/aes.o: \
 ../../../Middlewares/Third_Party/wolfSSL_wolfSSL_wolfSSL/wolfssl/wolfssl/wolfcrypt/memory.h:
 ../../../Middlewares/Third_Party/wolfSSL_wolfSSL_wolfSSL/wolfssl/wolfssl/wolfcrypt/error-crypt.h:
 ../../../Middlewares/Third_Party/wolfSSL_wolfSSL_wolfSSL/wolfssl/wolfssl/wolfcrypt/logging.h:
+../../../CM7/Core/Inc/main.h:
+../../../Middlewares/Third_Party/FreeRTOS/Source/CMSIS_RTOS_V2/cmsis_os.h:
+../../../Middlewares/Third_Party/FreeRTOS/Source/include/FreeRTOS.h:
+../../../CM7/Core/Inc/FreeRTOSConfig.h:
+../../../Middlewares/Third_Party/FreeRTOS/Source/include/projdefs.h:
+../../../Middlewares/Third_Party/FreeRTOS/Source/include/portable.h:
+../../../Middlewares/Third_Party/FreeRTOS/Source/include/deprecated_definitions.h:
+../../../Middlewares/Third_Party/FreeRTOS/Source/portable/GCC/ARM_CM4F/portmacro.h:
+../../../Middlewares/Third_Party/FreeRTOS/Source/include/mpu_wrappers.h:
+../../../Middlewares/Third_Party/FreeRTOS/Source/include/task.h:
+../../../Middlewares/Third_Party/FreeRTOS/Source/include/list.h:
+../../../Middlewares/Third_Party/FreeRTOS/Source/CMSIS_RTOS_V2/cmsis_os2.h:
 ../../../Middlewares/Third_Party/wolfSSL_wolfSSL_wolfSSL/wolfssl/wolfssl/wolfcrypt/aes.h:
 ../../../Middlewares/Third_Party/wolfSSL_wolfSSL_wolfSSL/wolfssl/wolfssl/wolfcrypt/random.h:
 ../../../Middlewares/Third_Party/wolfSSL_wolfSSL_wolfSSL/wolfssl/wolfssl/wolfcrypt/sha256.h:

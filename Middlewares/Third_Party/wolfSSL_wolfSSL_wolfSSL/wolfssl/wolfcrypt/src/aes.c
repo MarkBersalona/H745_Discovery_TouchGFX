@@ -30,6 +30,10 @@ block cipher mechanism that uses n-bit binary string parameter key with 128-bits
 */
 
 #include <wolfssl/wolfcrypt/libwolfssl_sources.h>
+//////////////////////////////
+//// TEST MAB 2026.02.10
+#include "main.h"
+//////////////////////////////
 
 #if !defined(NO_AES)
 
@@ -12672,9 +12676,16 @@ int  wc_AesCcmDecrypt(Aes* aes, byte* out, const byte* in, word32 inSz,
             WOLFSSL_MSG("Preserve output for vector responses");
             #else
             if (inSz > 0)
-                XMEMSET(out, 0, inSz);
+              XMEMSET(out, 0, inSz);
             #endif
             ret = AES_CCM_AUTH_E;
+            ////////////////////////////////////////////////////////////////////
+            //// TEST MAB 2026.02.10
+            LOG("%s:       A (received from end node)\r\n", __FUNCTION__);
+            PrintBytes(A,       authTagSz, 0, 0);
+            LOG("%s: authTag (locally generated)\r\n", __FUNCTION__);
+            PrintBytes(authTag, authTagSz, 0, 0);
+            ////////////////////////////////////////////////////////////////////
         }
     }
 

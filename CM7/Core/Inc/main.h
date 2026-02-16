@@ -57,6 +57,7 @@ extern "C" {
 void Error_Handler(void);
 
 /* USER CODE BEGIN EFP */
+void PrintBytes( uint8_t* buffer, uint16_t len, char printOffset, uint32_t offset);
 
 /* USER CODE END EFP */
 
@@ -402,8 +403,10 @@ typedef enum
 
 // Struct for Inner SPANs
 typedef struct {
+    uint8_t  IsActive;
     uint8_t  Key[16];
     uint8_t  V[16];
+    uint8_t  Nonce[16];
 } inner_span_t;
 
 // Struct for Additional Authenticated Data (AAD)
