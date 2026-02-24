@@ -12542,6 +12542,19 @@ int  wc_AesCcmDecrypt(Aes* aes, byte* out, const byte* in, word32 inSz,
     const word32 wordSz = (word32)sizeof(word32);
     int ret = 0;
 
+//    ///////////////////////////////////////////////////////////////////////////////////////
+//    //// TEST MAB 2026.02.19
+//    LOG("%s: START \r\n", __FUNCTION__);
+//    LOG("%s: in values, inSz=%d \r\n", __FUNCTION__, inSz);
+//    PrintBytes(in, inSz, 0, 0);
+//    LOG("%s: nonce values, nonceSz=%d \r\n", __FUNCTION__, nonceSz);
+//    PrintBytes(nonce, nonceSz, 0, 0);
+//    LOG("%s: authTag values, authTagSz=%d \r\n", __FUNCTION__, authTagSz);
+//    PrintBytes(authTag, authTagSz, 0, 0);
+//    LOG("%s: authIn values, authInSz=%d \r\n", __FUNCTION__, authInSz);
+//    PrintBytes(authIn, authInSz, 0, 0);
+//    ///////////////////////////////////////////////////////////////////////////////////////
+
     /* sanity check on arguments */
     if (aes == NULL || (inSz != 0 && (in == NULL || out == NULL)) ||
         nonce == NULL || authTag == NULL || nonceSz < 7 || nonceSz > 13 ||
@@ -12623,7 +12636,9 @@ int  wc_AesCcmDecrypt(Aes* aes, byte* out, const byte* in, word32 inSz,
     }
 
     if ((ret == 0) && (inSz > 0))
-        ret = wc_AesEncrypt(aes, B, A);
+    {
+      ret = wc_AesEncrypt(aes, B, A);
+    }
 
     if ((ret == 0) && (inSz > 0)) {
         xorbuf(A, in, oSz);
@@ -12651,10 +12666,14 @@ int  wc_AesCcmDecrypt(Aes* aes, byte* out, const byte* in, word32 inSz,
 
     if (ret == 0) {
         if (authInSz > 0)
-            ret = roll_auth(aes, authIn, authInSz, A);
+        {
+          ret = roll_auth(aes, authIn, authInSz, A);
+        }
     }
     if ((ret == 0) && (inSz > 0))
-        ret = roll_x(aes, o, oSz, A);
+    {
+      ret = roll_x(aes, o, oSz, A);
+    }
 
     if (ret == 0) {
         B[0] = (byte)(lenSz - 1U);
@@ -12664,7 +12683,9 @@ int  wc_AesCcmDecrypt(Aes* aes, byte* out, const byte* in, word32 inSz,
     }
 
     if (ret == 0)
-        xorbuf(A, B, authTagSz);
+    {
+      xorbuf(A, B, authTagSz);
+    }
 
     if (ret == 0) {
         if (ConstantCompare(A, authTag, (int)authTagSz) != 0) {
@@ -12681,12 +12702,23 @@ int  wc_AesCcmDecrypt(Aes* aes, byte* out, const byte* in, word32 inSz,
             ret = AES_CCM_AUTH_E;
             ////////////////////////////////////////////////////////////////////
             //// TEST MAB 2026.02.10
+            LOG("%s: *** WARNING *** mismatch detected\r\n", __FUNCTION__);
             LOG("%s:       A (received from end node)\r\n", __FUNCTION__);
             PrintBytes(A,       authTagSz, 0, 0);
             LOG("%s: authTag (locally generated)\r\n", __FUNCTION__);
             PrintBytes(authTag, authTagSz, 0, 0);
             ////////////////////////////////////////////////////////////////////
         }
+//        ///////////////////////////////////////////////////////////////////////////////
+//        //// TEST MAB 2026.02.19
+//        else
+//        {
+//          LOG("%s:       A (received from end node)\r\n", __FUNCTION__);
+//          PrintBytes(A,       authTagSz, 0, 0);
+//          LOG("%s: authTag (locally generated)\r\n", __FUNCTION__);
+//          PrintBytes(authTag, authTagSz, 0, 0);
+//        }
+//        ///////////////////////////////////////////////////////////////////////////////
     }
 
     ForceZero(A, sizeof(A));
@@ -12700,6 +12732,7 @@ int  wc_AesCcmDecrypt(Aes* aes, byte* out, const byte* in, word32 inSz,
 
     VECTOR_REGISTERS_POP;
 
+    LOG("%s: END \r\n", __FUNCTION__);
     return ret;
 }
 

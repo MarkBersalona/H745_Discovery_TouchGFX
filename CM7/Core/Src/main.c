@@ -46,8 +46,8 @@
 //#endif
 #include <wolfssl/wolfcrypt/settings.h>
 #include <wolfssl/ssl.h>
-//#include <wolfssl/wolfcrypt/error-crypt.h>
-//#include <wolfcrypt/test/test.h>
+#include <wolfssl/wolfcrypt/error-crypt.h>
+#include <wolfcrypt/test/test.h>
 //#include <wolfcrypt/benchmark/benchmark.h>
 #include <wolfssl/wolfcrypt/random.h>
 #include <wolfssl/wolfcrypt/curve25519.h>
@@ -510,6 +510,8 @@ uint32_t Swap_Bytes_uint16(uint16_t auiInputValue);
 uint32_t Swap_Bytes_uint32(uint32_t aulInputValue);
 void XOR_Bytes(uint8_t* paucOutputBuffer, uint8_t* paucBufferA, uint8_t* paucBufferB, uint16_t auiLength);
 BootstrapState ZWave_Bootstrap_StateMachine(BootstrapStateMachineCommand stateMachineCommand);
+int ZWave_Controller_Keys_Generate(uint8_t* paucPrivateKey, uint8_t* paucPublicKey);
+void ZWave_Controller_Keys_Zeroize(uint8_t* paucPrivateKey, uint8_t* paucPublicKey);
 uint8_t ZWave_DSK_Extract_NWIAuthHomeID(uint8_t aucDSKIndex, uint8_t* paucNWIAuthHomeIDBuffer);
 uint8_t ZWave_DSK_Find_Zeroized(void);
 uint8_t ZWave_DSK_IsProcessing(void);
@@ -1455,6 +1457,7 @@ int AES_ECB_Encrypt_Block(uint8_t* paucKey, uint8_t* paucInput, uint8_t* paucOut
   if (0!=liReturnValue) goto exit;
 
   /* wolfCrypt exposes AES ECB encrypt as wc_AesEcbEncrypt */
+  memset(paucOutput, 0x00, WC_AES_BLOCK_SIZE);
   liReturnValue = wc_AesEcbEncrypt(&aes, paucOutput, paucInput, WC_AES_BLOCK_SIZE);
 
 exit:
@@ -1529,7 +1532,7 @@ int CTR_DRBG_Generate_16_Random_Bytes(inner_span_t* patSPAN, uint8_t* paucOutput
   static int liReturnValue=0;
   static uint8_t lucZeros[32];
 
-  LOG("%s: START \r\n", __FUNCTION__);
+  //LOG("%s: START \r\n", __FUNCTION__);
 
   // Increment SPAN V
   CTR_DRBG_Increment_V(patSPAN->V);
@@ -1538,8 +1541,8 @@ int CTR_DRBG_Generate_16_Random_Bytes(inner_span_t* patSPAN, uint8_t* paucOutput
   liReturnValue = AES_ECB_Encrypt_Block(patSPAN->Key, patSPAN->V, paucOutputBuffer);
   if (0!=liReturnValue) goto exit;
 
-  LOG("%s: generated random bytes \r\n", __FUNCTION__);
-  PrintBytes(paucOutputBuffer, 16, false, 0);
+  //LOG("%s: generated random bytes \r\n", __FUNCTION__);
+  //PrintBytes(paucOutputBuffer, 16, false, 0);
 
   // Update SPAN, with all 0x00 as provided_data
   memset(lucZeros, 0x00, sizeof(lucZeros));
@@ -1547,7 +1550,7 @@ int CTR_DRBG_Generate_16_Random_Bytes(inner_span_t* patSPAN, uint8_t* paucOutput
 
 exit:
   if (0!=liReturnValue) LOG("%s: *** WARNING *** return value = %d \r\n", __FUNCTION__, liReturnValue);
-  LOG("%s: END \r\n", __FUNCTION__);
+  //LOG("%s: END \r\n", __FUNCTION__);
   return liReturnValue;
 }
 // end CTR_DRBG_Generate_16_Random_Bytes
@@ -1562,7 +1565,7 @@ void CTR_DRBG_Increment_V(uint8_t* paucCtrDrbgV)
   // Could be used to increment any 16-byte buffer, but here we're
   // using it to increment the V of any SPAN, temporary or end node
 
-  LOG("%s: START \r\n", __FUNCTION__);
+  //LOG("%s: START \r\n", __FUNCTION__);
 
   // CTR_DRBG V is 128 bits (16 bytes)
   for (int i = 15; i >= 0; i--)
@@ -1573,7 +1576,7 @@ void CTR_DRBG_Increment_V(uint8_t* paucCtrDrbgV)
     }
     // Carry occurred, continue to next byte
   }
-  LOG("%s: END \r\n", __FUNCTION__);
+  //LOG("%s: END \r\n", __FUNCTION__);
 }
 // end CTR_DRBG_Increment_V
 
@@ -1589,16 +1592,17 @@ int CTR_DRBG_Instantiate_SPAN(inner_span_t* patSPAN, uint8_t* paucMEI, uint8_t* 
   static int liReturnValue=0;
   static uint8_t lucSeed[32];
 
-  LOG("%s: START \r\n", __FUNCTION__);
+  //LOG("%s: START \r\n", __FUNCTION__);
 
   // Seed material = MEI XOR personalization_string
   XOR_Bytes(lucSeed, paucMEI, paucPersonalization, 32);
-  LOG("%s: paucMEI \r\n", __FUNCTION__);
-  PrintBytes(paucMEI, 32, false, 0);
-  LOG("%s: paucPersonalization \r\n", __FUNCTION__);
-  PrintBytes(paucPersonalization, 32, false, 0);
-  LOG("%s: lucSeed = MEI XOR personalization_string \r\n", __FUNCTION__);
-  PrintBytes(lucSeed, 32, false, 0);
+
+  //LOG("%s: paucMEI \r\n", __FUNCTION__);
+  //PrintBytes(paucMEI, 32, false, 0);
+  //LOG("%s: paucPersonalization \r\n", __FUNCTION__);
+  //PrintBytes(paucPersonalization, 32, false, 0);
+  //LOG("%s: lucSeed = MEI XOR personalization_string \r\n", __FUNCTION__);
+  //PrintBytes(lucSeed, 32, false, 0);
 
   // Call CTR_DRBG_Update routine for given SPAN with seed material as provided_data
   liReturnValue = CTR_DRBG_Update_SPAN(patSPAN, lucSeed);
@@ -1609,7 +1613,7 @@ int CTR_DRBG_Instantiate_SPAN(inner_span_t* patSPAN, uint8_t* paucMEI, uint8_t* 
 
 exit:
   if (0!=liReturnValue) LOG("%s: *** WARNING *** return value = %d \r\n", __FUNCTION__, liReturnValue);
-  LOG("%s: END \r\n", __FUNCTION__);
+  //LOG("%s: END \r\n", __FUNCTION__);
   return liReturnValue;
 }
 // end CTR_DRBG_Instantiate_SPAN
@@ -1626,24 +1630,25 @@ int CTR_DRBG_Update_SPAN(inner_span_t* patSPAN, uint8_t* paucProvidedData)
   static uint8_t lucTemp[32];
   static uint8_t lucBlock[16];
 
-  LOG("%s: START \r\n", __FUNCTION__);
+  //LOG("%s: START \r\n", __FUNCTION__);
 
-  LOG("%s: patSPAN->V \r\n", __FUNCTION__);
-  PrintBytes(patSPAN->V, 16, false, 0);
+  //LOG("%s: patSPAN->V \r\n", __FUNCTION__);
+  //PrintBytes(patSPAN->V, 16, false, 0);
+
   // temp = AES(Key, V+1) || AES(Key, V+2) -> 32 bytes total
 
   // :V+1
   CTR_DRBG_Increment_V(patSPAN->V);
-  LOG("%s: patSPAN->V+1 \r\n", __FUNCTION__);
-  PrintBytes(patSPAN->V, 16, false, 0);
+  //LOG("%s: patSPAN->V+1 \r\n", __FUNCTION__);
+  //PrintBytes(patSPAN->V, 16, false, 0);
   liReturnValue = AES_ECB_Encrypt_Block(patSPAN->Key, patSPAN->V, lucBlock);
   if (0!=liReturnValue) goto exit;
   memcpy(lucTemp, lucBlock, sizeof(lucBlock));
 
   // :V+2
   CTR_DRBG_Increment_V(patSPAN->V);
-  LOG("%s: patSPAN->V+2 \r\n", __FUNCTION__);
-  PrintBytes(patSPAN->V, 16, false, 0);
+  //LOG("%s: patSPAN->V+2 \r\n", __FUNCTION__);
+  //PrintBytes(patSPAN->V, 16, false, 0);
   liReturnValue = AES_ECB_Encrypt_Block(patSPAN->Key, patSPAN->V, lucBlock);
   if (0!=liReturnValue) goto exit;
   memcpy(lucTemp+16, lucBlock, sizeof(lucBlock));
@@ -1653,21 +1658,21 @@ int CTR_DRBG_Update_SPAN(inner_span_t* patSPAN, uint8_t* paucProvidedData)
   {
     lucTemp[i] ^= paucProvidedData[i];
   }
-  LOG("%s: - lucTemp (should contain new Key and V) \r\n", __FUNCTION__);
-  PrintBytes(lucTemp, sizeof(lucTemp), false, 0);
+  //LOG("%s: - lucTemp (should contain new Key and V) \r\n", __FUNCTION__);
+  //PrintBytes(lucTemp, sizeof(lucTemp), false, 0);
 
   // Key = leftmost 16, V = rightmost 16 -> 16 bytes each
   memcpy(patSPAN->Key, &lucTemp[0],  16);
   memcpy(patSPAN->V,   &lucTemp[16], 16);
-  LOG("%s: - Key \r\n", __FUNCTION__);
-  PrintBytes(patSPAN->Key, 16, false, 0);
-  LOG("%s: - V \r\n", __FUNCTION__);
-  PrintBytes(patSPAN->V, 16, false, 0);
+  //LOG("%s: - Key \r\n", __FUNCTION__);
+  //PrintBytes(patSPAN->Key, 16, false, 0);
+  //LOG("%s: - V \r\n", __FUNCTION__);
+  //PrintBytes(patSPAN->V, 16, false, 0);
 
 
 exit:
   if (0!=liReturnValue) LOG("%s: *** WARNING *** return value = %d \r\n", __FUNCTION__, liReturnValue);
-  LOG("%s: END \r\n", __FUNCTION__);
+  //LOG("%s: END \r\n", __FUNCTION__);
   return liReturnValue;
 }
 // end CTR_DRBG_Update_SPAN
@@ -1679,14 +1684,14 @@ exit:
   */
 void CTR_DRBG_Zeroize_SPAN(inner_span_t* patSPAN)
 {
-  LOG("%s: START \r\n", __FUNCTION__);
+  //LOG("%s: START \r\n", __FUNCTION__);
   // Zeroize Key and V
   memset(patSPAN->Key, 0x00, sizeof(patSPAN->Key));
   memset(patSPAN->V,   0x00, sizeof(patSPAN->V));
   // Also zeroize Nonce and IsActive
   memset(patSPAN->Nonce, 0x00, sizeof(patSPAN->Nonce));
   patSPAN->IsActive = FALSE;
-  LOG("%s: END \r\n", __FUNCTION__);
+  //LOG("%s: END \r\n", __FUNCTION__);
 }
 // end CTR_DRBG_Zeroize_SPAN
 
@@ -2228,7 +2233,7 @@ BootstrapState ZWave_Bootstrap_StateMachine(BootstrapStateMachineCommand stateMa
   static int liNextNonceResult;
   static int liAesInitResult;
   static int liAesSetKeyResult;
-  static uint8_t lucKexReport[10];
+  static uint8_t lucKexReport[16];
   static Aes aes;
   static int liDecryptKEXReportResult;
   static int liDecryptKEXReportSuccessful;
@@ -2323,7 +2328,8 @@ BootstrapState ZWave_Bootstrap_StateMachine(BootstrapStateMachineCommand stateMa
           lulElapsedTime_sec = 0;
 
           // Send S2 command KEX Set
-          gucSessionID = ZWave_SessionID_Randomize();
+          //gucSessionID = ZWave_SessionID_Randomize();
+          gucSessionID = ZWave_SessionID_Update(gucSessionID);
           memset(lucSendDataBuffer, 0x00, sizeof(lucSendDataBuffer));
           lucSendDataBuffer[0] = COMMAND_CLASS_SECURITY_2_V2;
           lucSendDataBuffer[1] = KEX_SET_V2;
@@ -2388,8 +2394,16 @@ BootstrapState ZWave_Bootstrap_StateMachine(BootstrapStateMachineCommand stateMa
           // Reset elapsed time for next state
           lulElapsedTime_sec = 0;
 
+          // Generate ephemeral controller public/private keys
+          int liControllerKeysGenerateResult = ZWave_Controller_Keys_Generate(gucControllerPrivateKey, gucControllerPublicKey);
+          if (0!=liControllerKeysGenerateResult)
+          {
+            LOG("%s: *** WARNING *** ZWave_Controller_Keys_Generate() returned %d \r\n", __FUNCTION__, liControllerKeysGenerateResult);
+          }
+
           // Send S2 command Public Key Report (for controller)
-          gucSessionID = ZWave_SessionID_Randomize();
+          //gucSessionID = ZWave_SessionID_Randomize();
+          gucSessionID = ZWave_SessionID_Update(gucSessionID);
           memset(lucSendDataBuffer, 0x00, sizeof(lucSendDataBuffer));
           lucSendDataBuffer[0] = COMMAND_CLASS_SECURITY_2_V2;
           lucSendDataBuffer[1] = PUBLIC_KEY_REPORT_V2;
@@ -2449,7 +2463,8 @@ BootstrapState ZWave_Bootstrap_StateMachine(BootstrapStateMachineCommand stateMa
 
         // Send Nonce Report, with REI
         LOG("%s: Send Nonce Report, with REI \r\n", __FUNCTION__);
-        gucSessionID = ZWave_SessionID_Randomize();
+        //gucSessionID = ZWave_SessionID_Randomize();
+        gucSessionID = ZWave_SessionID_Update(gucSessionID);
         memset(lucSendDataBuffer, 0x00, sizeof(lucSendDataBuffer));
         lucSendDataBuffer[0] = COMMAND_CLASS_SECURITY_2_V2;
         lucSendDataBuffer[1] = SECURITY_2_NONCE_REPORT_V2;
@@ -2582,7 +2597,13 @@ BootstrapState ZWave_Bootstrap_StateMachine(BootstrapStateMachineCommand stateMa
           LOG("%s: Transitioning DSK %d Bootstrap state from TEMP_NONCE_SET to TEMP_NONCE_GET\r\n", __FUNCTION__, gucProcessingDSK);
           leBootstrapState = BOOTSTRAP_TEMP_NONCE_GET;
 
-          // Send
+//          /////////////////////////////////////////////////////////////////////////////////////////////////////////////
+//          //// TEST MAB 2026.02.20
+//          //// For illustration only: go to NETWORK_KEY_GET just so I can see what it looks like
+//          // Set state to NETWORK_KEY_GET
+//          LOG("%s: Transitioning DSK %d Bootstrap state from TEMP_NONCE_SET to NETWORK_KEY_GET\r\n", __FUNCTION__, gucProcessingDSK);
+//          leBootstrapState = BOOTSTRAP_NETWORK_KEY_GET;
+//          /////////////////////////////////////////////////////////////////////////////////////////////////////////////
         }
         // ENDIF
 
@@ -2661,6 +2682,74 @@ BootstrapState ZWave_Bootstrap_StateMachine(BootstrapStateMachineCommand stateMa
   return leBootstrapState;
 }
 // end ZWave_Bootstrap_StateMachine
+
+/** *****************************************************************************************************************************
+  * @brief  Generate controller public/private Curve25519 keys
+  * @param  uint8_t* paucPrivateKey - pointer to 32-byte buffer to receive private key
+  * @param  uint8_t* paucPublicKey  - pointer to 32-byte buffer to receive public  key
+  * @retval 0 if successful
+  */
+int ZWave_Controller_Keys_Generate(uint8_t* paucPrivateKey, uint8_t* paucPublicKey)
+{
+  int liReturnValue = 0;
+  WC_RNG ltRng;
+  curve25519_key ltKey;
+  unsigned int luiPrivateSize = 32;
+  unsigned int luiPublicSize  = 32;
+
+  LOG("%s: START \r\n", __FUNCTION__);
+
+  // Initialize wolfSSL random number generator
+  LOG("%s: - Initialize wolfSSL random number generator \r\n", __FUNCTION__);
+  liReturnValue = wc_InitRng(&ltRng);
+  if (liReturnValue != 0) goto exit;
+
+  // Create Curve25519 key object
+  LOG("%s: - Create Curve25519 key object \r\n", __FUNCTION__);
+  liReturnValue = wc_curve25519_init(&ltKey);
+  if (liReturnValue != 0) goto exit;
+
+  // Generate ephemeral X25519 keypair
+  LOG("%s: - Generate ephemeral X25519 keypair \r\n", __FUNCTION__);
+  liReturnValue = wc_curve25519_make_key(&ltRng, 32, &ltKey);
+  if (liReturnValue != 0) goto exit;
+
+  // Export raw 32-byte private + public
+  LOG("%s: ------------------------------- \r\n", __FUNCTION__);
+  LOG("%s: - Export raw 32-byte private key \r\n", __FUNCTION__);
+  LOG("%s: ------------------------------- \r\n", __FUNCTION__);
+  liReturnValue = wc_curve25519_export_private_raw_ex(&ltKey, paucPrivateKey, &luiPrivateSize, EC25519_LITTLE_ENDIAN);
+  PrintBytes(paucPrivateKey, 32, false, 0);
+  if (liReturnValue == 0)
+  {
+    LOG("%s: ------------------------------- \r\n", __FUNCTION__);
+    LOG("%s: - Export raw 32-byte public key \r\n", __FUNCTION__);
+    LOG("%s: ------------------------------- \r\n", __FUNCTION__);
+    liReturnValue = wc_curve25519_export_public_ex(&ltKey, paucPublicKey, &luiPublicSize, EC25519_LITTLE_ENDIAN);
+    PrintBytes(paucPublicKey, 32, false, 0);
+  }
+
+
+exit:
+  LOG("%s: - cleanup \r\n", __FUNCTION__);
+  wc_FreeRng(&ltRng);
+  wc_curve25519_free(&ltKey);
+  if (0!=liReturnValue) LOG("%s: *** WARNING *** return value = %d \r\n", __FUNCTION__, liReturnValue);
+  return liReturnValue;
+}
+// end ZWave_Controller_Keys_Generate
+/** *****************************************************************************************************************************
+  * @brief  Zeroize controller public/private Curve25519 keys
+  * @param  uint8_t* paucPrivateKey - pointer to 32-byte buffer to zeroize private key
+  * @param  uint8_t* paucPublicKey  - pointer to 32-byte buffer to zeroize public  key
+  * @retval None
+  */
+void ZWave_Controller_Keys_Zeroize(uint8_t* paucPrivateKey, uint8_t* paucPublicKey)
+{
+  memset(paucPrivateKey, 0x00, 32);
+  memset(paucPublicKey,  0x00, 32);
+}
+// end ZWave_Controller_Keys_Zeroize
 
 /** *****************************************************************************************************************************
   * @brief  Display received frame data (to debug port)
@@ -4503,9 +4592,9 @@ void ZWave_REQ_CMD_0A_Serial_API_Started(void)
   ZWave_Send_REQ_CMD_0B_Serial_API_Setup(SERIAL_API_SETUP_CMD_TX_GET_MAX_PAYLOAD_SIZE, IGNORE, IGNORE);
   ZWave_Send_REQ_CMD_0B_Serial_API_Setup(SERIAL_API_SETUP_CMD_TX_GET_MAX_LR_PAYLOAD_SIZE, IGNORE, IGNORE);
 
-  // Get NVR values (public/private keys)
-  ZWave_Send_REQ_CMD_28_NVR_Get_Value(NVR_PUK_OFFSET, 32);
-  ZWave_Send_REQ_CMD_28_NVR_Get_Value(NVR_PRK_OFFSET, 32);
+//  // Get NVR values (public/private keys)
+//  ZWave_Send_REQ_CMD_28_NVR_Get_Value(NVR_PUK_OFFSET, 32);
+//  ZWave_Send_REQ_CMD_28_NVR_Get_Value(NVR_PRK_OFFSET, 32);
   ///////////////////////////////////////////////////////////////////////////
   #endif // ENABLE_ZWAVE_CONTROLLER_HOST
 
@@ -4942,6 +5031,42 @@ void ZWave_RES_CMD_28_NVR_Get_Value(void)
     LOG("%s: ------------------------------- \r\n", __FUNCTION__);
     memcpy(gucControllerPrivateKey, ZWaveSerialFrame->payload, 32);
     PrintBytes(gucControllerPrivateKey, 32, false, 0);
+    //////////////////////////////////////////////////////////////////////////////////
+    //// TEST MAB 2026.02.20
+    //// Calculate public key from private key
+    curve25519_key ltKey;
+    uint8_t lucPublicKey[32];
+    unsigned int luiPublicKeySize;
+    int liCurveInitResult = wc_curve25519_init(&ltKey);
+    if (0!=liCurveInitResult)
+    {
+      LOG("%s: *** WARNING *** wc_curve25519_init() returned %d \r\n", __FUNCTION__, liCurveInitResult);
+    }
+    int liCurveImportPrivateResult = wc_curve25519_import_private_ex(gucControllerPrivateKey, 32, &ltKey, EC25519_LITTLE_ENDIAN);
+    if (0!=liCurveImportPrivateResult)
+    {
+      LOG("%s: *** WARNING *** wc_curve25519_import_private_ex() returned %d \r\n", __FUNCTION__, liCurveImportPrivateResult);
+    }
+    int liCurveExportPublicResult = wc_curve25519_export_public_ex(&ltKey, lucPublicKey, &luiPublicKeySize, EC25519_LITTLE_ENDIAN);
+    if (0!=liCurveExportPublicResult)
+    {
+      LOG("%s: *** WARNING *** wc_curve25519_export_public_ex() returned %d \r\n", __FUNCTION__, liCurveExportPublicResult);
+    }
+    wc_curve25519_free(&ltKey);
+    LOG("%s: ------------------------------ \r\n", __FUNCTION__);
+    LOG("%s: CALCULATED controller's public key \r\n", __FUNCTION__);
+    LOG("%s: ------------------------------ \r\n", __FUNCTION__);
+    PrintBytes(lucPublicKey, 32, false, 0);
+    int liPublicKeyCheckResult = memcmp(gucControllerPublicKey, lucPublicKey, 32);
+    if (0==liPublicKeyCheckResult)
+    {
+      LOG("%s: Stored and calculated public keys match - OK \r\n", __FUNCTION__);
+    }
+    else
+    {
+      LOG("%s: *** WARNING *** Stored and calculated public keys do not match \r\n", __FUNCTION__);
+    }
+    //////////////////////////////////////////////////////////////////////////////////
   }
 
   // Done with NVR value, so clear the offset to avoid confusion
@@ -6256,11 +6381,11 @@ void ZWave_Rx_CC_9F_Security_2_V2(void)
         }
         LOG("%s: Extension %d... \r\n", __FUNCTION__, lucExtensionCount);
         PrintBytes(&pgucCCBuffer[6+lucExtensionOffset], pgucCCBuffer[4+lucExtensionOffset] - 2, false, 0);
-        ////////////////////////////////////////////////////////////////////////
-        //// TEST MAB 2026.02.03
-        //// This is the Sender's Entropy Input; save it (if 16 bytes)
-        //// NOTE: this is either for the Temporary Key or for the Network Key,
-        ////       so save appropriately
+
+        // MAB 2026.02.03
+        // This is the Sender's Entropy Input; save it (if 16 bytes)
+        // NOTE: this is either for the Temporary Key or for the Network Key,
+        //       so save appropriately
         if ( 16 == (lucExtensionLength - 2) )
         {
           if (BOOTSTRAP_TEMP_NONCE_SET == geBootstrapState)
@@ -6280,7 +6405,7 @@ void ZWave_Rx_CC_9F_Security_2_V2(void)
             memcpy(gtNodeProvisioningList[gucProcessingDSK].SEI, &pgucCCBuffer[6+lucExtensionOffset], 16);
           }
         }
-        ////////////////////////////////////////////////////////////////////////
+
 
         // Offset to next extension (or to CCM Ciphertext object if no more extensions)
         lucExtensionOffset += pgucCCBuffer[4+lucExtensionOffset];
@@ -6305,25 +6430,33 @@ void ZWave_Rx_CC_9F_Security_2_V2(void)
     PrintBytes(gucReceivedAuthTag, gucReceivedAuthTagLength, false, 0);
     LOG("%s: - saving Auth Tag, length %d bytes \r\n", __FUNCTION__, gucReceivedAuthTagLength);
 
-    ////////////////////////////////////////////////
-    // Construct Additional Authenticated Data (AAD)
-    ////////////////////////////////////////////////
-    gtTemporaryAAD.SenderNodeID      = Swap_Bytes_uint16(guiSourceNodeID);
-    gtTemporaryAAD.DestinationNodeID = Swap_Bytes_uint16(guiDestinationNodeID);
-    gtTemporaryAAD.HomeID            = Swap_Bytes_uint32(gulZWaveHomeID);
-    gtTemporaryAAD.MessageLength     = Swap_Bytes_uint16(gucCCBufferLength);
-    gtTemporaryAAD.SequenceNumber    = pgucCCBuffer[2];
-    gtTemporaryAAD.ExtensionOptions  = pgucCCBuffer[3];
-    gucTemporaryAADLength = 12;
-    if (lucExtensionsPresent)
+    //
+    // TEST MAB 2026.02.20
+    // Construct the TEMPORARY Additional Authenticated Data (AAD)
+    // only when Bootstrap state is TEMP_NONCE_SET
+    //
+    if (BOOTSTRAP_TEMP_NONCE_SET == geBootstrapState)
     {
-      LOG("%s: Copying extension (including length and extension option bytes) to AAD \r\n", __FUNCTION__);
-      memcpy(gtTemporaryAAD.ExtensionData, plucExtensionLocation, 16+2  );
-      PrintBytes(gtTemporaryAAD.ExtensionData, 16+2, false, 0);
-      gucTemporaryAADLength += 16+2;
+      //////////////////////////////////////////////////////////
+      // Construct TEMPORARY Additional Authenticated Data (AAD)
+      //////////////////////////////////////////////////////////
+      gtTemporaryAAD.SenderNodeID      = Swap_Bytes_uint16(guiSourceNodeID);
+      gtTemporaryAAD.DestinationNodeID = Swap_Bytes_uint16(guiDestinationNodeID);
+      gtTemporaryAAD.HomeID            = Swap_Bytes_uint32(gulZWaveHomeID);
+      gtTemporaryAAD.MessageLength     = Swap_Bytes_uint16(gucCCBufferLength);
+      gtTemporaryAAD.SequenceNumber    = pgucCCBuffer[2];
+      gtTemporaryAAD.ExtensionOptions  = pgucCCBuffer[3];
+      gucTemporaryAADLength = 12;
+      if (lucExtensionsPresent)
+      {
+        LOG("%s: Copying extension (including length and extension option bytes) to AAD \r\n", __FUNCTION__);
+        memcpy(gtTemporaryAAD.ExtensionData, plucExtensionLocation, 16+2  );
+        //PrintBytes(gtTemporaryAAD.ExtensionData, 16+2, false, 0);
+        gucTemporaryAADLength += 16+2;
+      }
+      //LOG("%s: Temporary AAD \r\n", __FUNCTION__);
+      //PrintBytes(&gtTemporaryAAD, gucTemporaryAADLength, false, 0);
     }
-    LOG("%s: Temporary AAD \r\n", __FUNCTION__);
-    PrintBytes(&gtTemporaryAAD, gucTemporaryAADLength, false, 0);
 
   } // end if (SECURITY_2_MESSAGE_ENCAPSULATION_V2 == pgucCCBuffer[1])
 
@@ -7963,7 +8096,7 @@ int ZWave_Temporary_Key_Generate(void)
   }
   // If no errors, lucPRK[] has the PRK
   LOG("%s: - PRK \r\n", __FUNCTION__);
-  PrintBytes(lucPRK, sizeof(lucPRK), false, 0);
+  //PrintBytes(lucPRK, sizeof(lucPRK), false, 0);
 
 
   /////////////////////////////////////////////////
@@ -7973,7 +8106,7 @@ int ZWave_Temporary_Key_Generate(void)
   memcpy(lucMsgExpand, CKDF_TEMP_EXPAND_C, 15);
   lucMsgExpand[15] = 0x01;
   LOG("%s: - c88||0x01 \r\n", __FUNCTION__);
-  PrintBytes(lucMsgExpand, sizeof(lucMsgExpand), false, 0);
+  //PrintBytes(lucMsgExpand, sizeof(lucMsgExpand), false, 0);
   liReturnValue = wc_AesCmacGenerate(gucTemporarySymmetricKey, &luiSize,
                                        lucMsgExpand, sizeof(lucMsgExpand),
                                        lucPRK, sizeof(lucPRK));
@@ -7985,7 +8118,7 @@ int ZWave_Temporary_Key_Generate(void)
   }
   // If no errors, gucTemporarySymmetricKey[] has the Temporary Symmetric Key
   LOG("%s: - Temporary Symmetric Key \r\n", __FUNCTION__);
-  PrintBytes(gucTemporarySymmetricKey, sizeof(gucTemporarySymmetricKey), false, 0);
+  //PrintBytes(gucTemporarySymmetricKey, sizeof(gucTemporarySymmetricKey), false, 0);
 
   /////////////////////////////////////////////////
   // TempExpand:
@@ -8007,7 +8140,7 @@ int ZWave_Temporary_Key_Generate(void)
     if (0==liReturnValue) liReturnValue = -1;
     goto exit;
   }
-  PrintBytes(lucT2, sizeof(lucT2), false, 0);
+  //PrintBytes(lucT2, sizeof(lucT2), false, 0);
 
   LOG("%s: - generating T3 = CMAC(PRK, T2||c88||03) \r\n", __FUNCTION__);
   memcpy(lucMsgExpand2,    lucT2,              sizeof(lucT2));
@@ -8022,13 +8155,13 @@ int ZWave_Temporary_Key_Generate(void)
     if (0==liReturnValue) liReturnValue = -1;
     goto exit;
   }
-  PrintBytes(lucT3, sizeof(lucT3), false, 0);
+  //PrintBytes(lucT3, sizeof(lucT3), false, 0);
 
   LOG("%s: - generating TempPersonalizationString = T2||T3 \r\n", __FUNCTION__);
   memcpy(gucTempPersonalizationString,    lucT2, sizeof(lucT2));
   memcpy(gucTempPersonalizationString+16, lucT3, sizeof(lucT3));
   // If no errors, gucTempPersonalizationString[] has the Temporary Personalization String
-  PrintBytes(gucTempPersonalizationString, sizeof(gucTempPersonalizationString), false, 0);
+  //PrintBytes(gucTempPersonalizationString, sizeof(gucTempPersonalizationString), false, 0);
 
 
 exit:
@@ -8057,7 +8190,7 @@ int ZWave_Temporary_SPAN_Establish(void)
   static uint8_t lucMEIExpandT2[16];
   static uint8_t lucMEI[16+16];
 
-  LOG("%s: START \r\n", __FUNCTION__);
+  //LOG("%s: START \r\n", __FUNCTION__);
 
   ///////////////////////////////////////////////////////////
   // CKDF-MEI-Extract: with SEI and REI, generate NoncePRK
@@ -8069,7 +8202,7 @@ int ZWave_Temporary_SPAN_Establish(void)
   liReturnValue = wc_AesCmacGenerate(lucNoncePRK, &luiSize,
                                        lucMEIExtract, sizeof(lucMEIExtract),
                                        CKDF_MEI_EXTRACT_C, sizeof(CKDF_MEI_EXTRACT_C));
-  PrintBytes(lucNoncePRK, sizeof(lucNoncePRK), false, 0);
+  //PrintBytes(lucNoncePRK, sizeof(lucNoncePRK), false, 0);
   if (liReturnValue != 0 || luiSize != 16)
   {
     // Make sure return value is *something* other than 0
@@ -8089,7 +8222,7 @@ int ZWave_Temporary_SPAN_Establish(void)
   LOG("%s: - generating T0 \r\n", __FUNCTION__);
   memcpy(lucMEIExpandT0, CKDF_TEMP_EXPAND_C, sizeof(CKDF_TEMP_EXPAND_C));
   lucMEIExpandT0[15] = 0x00;
-  PrintBytes(lucMEIExpandT0, sizeof(lucMEIExpandT0), false, 0);
+  //PrintBytes(lucMEIExpandT0, sizeof(lucMEIExpandT0), false, 0);
 
   // T1 = CMAC(NoncePRK, T0 | ConstEntropyInput | 0x01)
   LOG("%s: - generating T1 \r\n", __FUNCTION__);
@@ -8100,7 +8233,7 @@ int ZWave_Temporary_SPAN_Establish(void)
   liReturnValue = wc_AesCmacGenerate(lucMEIExpandT1, &luiSize,
                                        lucMEIExpandBuffer, sizeof(lucMEIExpandBuffer),
                                        lucNoncePRK, sizeof(lucNoncePRK));
-  PrintBytes(lucMEIExpandT1, sizeof(lucMEIExpandT1), false, 0);
+  //PrintBytes(lucMEIExpandT1, sizeof(lucMEIExpandT1), false, 0);
   if (liReturnValue != 0 || luiSize != 16)
   {
     // Make sure return value is *something* other than 0
@@ -8117,7 +8250,7 @@ int ZWave_Temporary_SPAN_Establish(void)
   liReturnValue = wc_AesCmacGenerate(lucMEIExpandT2, &luiSize,
                                        lucMEIExpandBuffer, sizeof(lucMEIExpandBuffer),
                                        lucNoncePRK, sizeof(lucNoncePRK));
-  PrintBytes(lucMEIExpandT2, sizeof(lucMEIExpandT2), false, 0);
+  //PrintBytes(lucMEIExpandT2, sizeof(lucMEIExpandT2), false, 0);
   if (liReturnValue != 0 || luiSize != 16)
   {
     // Make sure return value is *something* other than 0
@@ -8130,7 +8263,7 @@ int ZWave_Temporary_SPAN_Establish(void)
   memcpy(lucMEI,    lucMEIExpandT1, sizeof(lucMEIExpandT1));
   memcpy(lucMEI+16, lucMEIExpandT2, sizeof(lucMEIExpandT2));
   // If no errors, lucMEI[] has MEI
-  PrintBytes(lucMEI, sizeof(lucMEI), false, 0);
+  //PrintBytes(lucMEI, sizeof(lucMEI), false, 0);
 
 
   /////////////////////////////////////////////////////////////////////////////////////////////////////
@@ -8143,7 +8276,7 @@ int ZWave_Temporary_SPAN_Establish(void)
 
 exit:
   if (liReturnValue != 0) LOG("%s: *** WARNING *** return value = %d \r\n", __FUNCTION__, liReturnValue);
-  LOG("%s: END \r\n", __FUNCTION__);
+  //LOG("%s: END \r\n", __FUNCTION__);
   return liReturnValue;
 }
 // end ZWave_Temporary_SPAN_Establish
@@ -8332,6 +8465,87 @@ void MainTask(void *argument)
   wolfCrypt_Init();
   LOG("%s: wolfSSL initialized \r\n", __FUNCTION__);
 
+//  LOG("%s: ---------- START selected wolfSSL tests ----------\r\n", __FUNCTION__);
+//
+//  // Run AES-CCM test
+//  wc_test_ret_t tAesCcmTestResult = aesccm_test();
+//  if (0==tAesCcmTestResult)
+//  {
+//    LOG("%s: AES-CCM test passed \r\n", __FUNCTION__);
+//  }
+//  else
+//  {
+//    LOG("%s: *** WARNING *** AES-CCM test failed, return code %d \r\n", __FUNCTION__, tAesCcmTestResult);
+//  }
+//
+//  // Run Curve25519 test
+//  wc_test_ret_t tCurve25519TestResult = curve25519_test();
+//  if (0==tCurve25519TestResult)
+//  {
+//    LOG("%s: Curve25519 test passed \r\n", __FUNCTION__);
+//  }
+//  else
+//  {
+//    LOG("%s: *** WARNING *** Curve25519 test failed, return code %d \r\n", __FUNCTION__, tCurve25519TestResult);
+//  }
+//
+//  // Run AES test
+//  wc_test_ret_t tAesTestResult = aes_test();
+//  if (0==tAesTestResult)
+//  {
+//    LOG("%s: AES test passed \r\n", __FUNCTION__);
+//  }
+//  else
+//  {
+//    LOG("%s: *** WARNING *** AES test failed, return code %d \r\n", __FUNCTION__, tAesTestResult);
+//  }
+//
+//  // Run random test
+//  wc_test_ret_t tRandomTestResult = random_test();
+//  if (0==tRandomTestResult)
+//  {
+//    LOG("%s: random test passed \r\n", __FUNCTION__);
+//  }
+//  else
+//  {
+//    LOG("%s: *** WARNING *** random test failed, return code %d \r\n", __FUNCTION__, tRandomTestResult);
+//  }
+//
+//  // Run memory test
+//  wc_test_ret_t tMemoryTestResult = memory_test();
+//  if (0==tMemoryTestResult)
+//  {
+//    LOG("%s: memory test passed \r\n", __FUNCTION__);
+//  }
+//  else
+//  {
+//    LOG("%s: *** WARNING *** memory test failed, return code %d \r\n", __FUNCTION__, tMemoryTestResult);
+//  }
+//
+//  // Run DH test
+//  wc_test_ret_t tDhTestResult = dh_test();
+//  if (0==tDhTestResult)
+//  {
+//    LOG("%s: DH test passed \r\n", __FUNCTION__);
+//  }
+//  else
+//  {
+//    LOG("%s: *** WARNING *** DH test failed, return code %d \r\n", __FUNCTION__, tDhTestResult);
+//  }
+//
+//  // Run CMAC test
+//  wc_test_ret_t tCmacTestResult = cmac_test();
+//  if (0==tCmacTestResult)
+//  {
+//    LOG("%s: CMAC test passed \r\n", __FUNCTION__);
+//  }
+//  else
+//  {
+//    LOG("%s: *** WARNING *** CMAC test failed, return code %d \r\n", __FUNCTION__, tCmacTestResult);
+//  }
+//
+//  LOG("%s: ----------  END  selected wolfSSL tests ----------\r\n", __FUNCTION__);
+
 //  /////////////////////////////////////////////////////////
 //  // TEST MAB 2025.12.26
 //  // Test the random number generator
@@ -8346,7 +8560,11 @@ void MainTask(void *argument)
 //  LOG("%s: Testing random number generator...\r\n", __FUNCTION__);
 //
 //  // Initialize wolfSSL random number generator
-//  wc_InitRng(&gtWolfSSLRng);
+//  int liInitRngResult = wc_InitRng(&gtWolfSSLRng);
+//  if (0!=liInitRngResult)
+//  {
+//    LOG("%s: *** WARNING *** wc_InitRng() returned %d \r\n", __FUNCTION__, liInitRngResult);
+//  }
 //
 //  // Initialize random bin counters
 //  memset(luiRandomBinCount, 0x00, sizeof(luiRandomBinCount));
@@ -8363,8 +8581,16 @@ void MainTask(void *argument)
 ////    }
 ////    LOG("\r\n");
 ////  }
-//  wc_RNG_GenerateBlock(&gtWolfSSLRng, lucRandomValues, sizeof(lucRandomValues));
-//  wc_FreeRng(&gtWolfSSLRng);
+//  int liRngGenerateResult = wc_RNG_GenerateBlock(&gtWolfSSLRng, lucRandomValues, sizeof(lucRandomValues));
+//  if (0!=liRngGenerateResult)
+//  {
+//    LOG("%s: *** WARNING *** wc_RNG_GenerateBlock() returned %d \r\n", __FUNCTION__, liRngGenerateResult);
+//  }
+//  int liFreeRngResult = wc_FreeRng(&gtWolfSSLRng);
+//  if (0!=liFreeRngResult)
+//  {
+//    LOG("%s: *** WARNING *** wc_FreeRng() returned %d \r\n", __FUNCTION__, liFreeRngResult);
+//  }
 //  PrintBytes(lucRandomValues, sizeof(lucRandomValues), FALSE, 0);
 //
 //  // Determine bin counts
