@@ -2186,16 +2186,16 @@ ZWave_Bootstrap_StateMachine
     ELSE IF state is TEMP_NONCE_SET
       IF encrypted message received
         Establish Temporary SPAN (if needed)
-        LOOP WHILE (KEX Report not decrypted AND retries available)
+        LOOP WHILE (KEX Set not decrypted AND retries available)
           Generate NextNonce
           Decrypt received message
-          IF successfully decrypted KEX Report
+          IF successfully decrypted KEX Set
             Reset elapsed time for next state
             Send encrypted identical KEX Report
             Set state to NETWORK_KEY_GET
           ENDIF
         END WHILE
-        IF failed decrypting KEX Report
+        IF failed decrypting KEX Set
           Reset elapsed time for next state
           Zeroize the Temporary SPAN
           Set state to TEMP_NONCE_GET
@@ -2235,8 +2235,8 @@ BootstrapState ZWave_Bootstrap_StateMachine(BootstrapStateMachineCommand stateMa
   static int liAesSetKeyResult;
   static uint8_t lucKexReport[16];
   static Aes aes;
-  static int liDecryptKEXReportResult;
-  static int liDecryptKEXReportSuccessful;
+  static int liDecryptKEXSetResult;
+  static int liDecryptKEXSetSuccessful;
 
 
 
@@ -2519,12 +2519,12 @@ BootstrapState ZWave_Bootstrap_StateMachine(BootstrapStateMachineCommand stateMa
           if (0 != liTemporarySPANResult) LOG("%s: *** WARNING *** liTemporarySPANResult = %d \r\n", __FUNCTION__, liTemporarySPANResult);
         }
 
-        // LOOP WHILE (KEX Report not decrypted AND retries available)
-        liDecryptKEXReportSuccessful = FALSE;
-        uint8_t lucKEXReportDecryptAttempts = 1;
-        while (!liDecryptKEXReportSuccessful && lucKEXReportDecryptAttempts)
+        // LOOP WHILE (KEX Set not decrypted AND retries available)
+        liDecryptKEXSetSuccessful = FALSE;
+        uint8_t lucKEXSetDecryptAttempts = 1;
+        while (!liDecryptKEXSetSuccessful && lucKEXSetDecryptAttempts)
         {
-          --lucKEXReportDecryptAttempts;
+          --lucKEXSetDecryptAttempts;
 
           // Generate NextNonce
           liNextNonceResult = CTR_DRBG_Generate_16_Random_Bytes(&gtTemporarySPAN, gtTemporarySPAN.Nonce);
@@ -2537,7 +2537,7 @@ BootstrapState ZWave_Bootstrap_StateMachine(BootstrapStateMachineCommand stateMa
           //////////////////////////////////////////
           liAesInitResult = wc_AesInit(&aes, NULL, INVALID_DEVID);
           if (0!=liAesInitResult) LOG("%s: *** WARNING *** liAesInitResult = %d \r\n", __FUNCTION__, liAesInitResult);
-          liAesSetKeyResult = wc_AesCcmSetKey(&aes, gtTemporarySPAN.Key, 16);
+          liAesSetKeyResult = wc_AesCcmSetKey(&aes, gucTemporarySymmetricKey, 16);
           if (0!=liAesSetKeyResult) LOG("%s: *** WARNING *** liAesSetKeyResult = %d \r\n", __FUNCTION__, liAesSetKeyResult);
           LOG("%s: gucReceivedCiphertext \r\n", __FUNCTION__);
           PrintBytes(gucReceivedCiphertext, gucReceivedCiphertextLength, false, 0);
@@ -2551,20 +2551,20 @@ BootstrapState ZWave_Bootstrap_StateMachine(BootstrapStateMachineCommand stateMa
           PrintBytes((uint8_t *)&gtTemporaryAAD, gucTemporaryAADLength, false, 0);
           LOG("%s: gucTemporaryAADLength       = 0x%02X \r\n", __FUNCTION__, gucTemporaryAADLength);
           memset(lucKexReport, 0x00, sizeof(lucKexReport));
-          liDecryptKEXReportResult = wc_AesCcmDecrypt(&aes,
+          liDecryptKEXSetResult = wc_AesCcmDecrypt(&aes,
                                                           lucKexReport,
                                                           gucReceivedCiphertext, gucReceivedCiphertextLength,
                                                           gtTemporarySPAN.Nonce, 13,
                                                           gucReceivedAuthTag, gucReceivedAuthTagLength,
                                                           (const byte *)&gtTemporaryAAD, gucTemporaryAADLength);
-          if (0!=liDecryptKEXReportResult) LOG("%s: *** WARNING *** liDecryptKEXReportResult = %d \r\n", __FUNCTION__, liDecryptKEXReportResult);
-          LOG("%s: Decrypted received KEX Report (9F 05... I hope; all 00 if failed)(%d attempts remaining): \r\n", __FUNCTION__, lucKEXReportDecryptAttempts);
+          if (0!=liDecryptKEXSetResult) LOG("%s: *** WARNING *** liDecryptKEXSetResult = %d \r\n", __FUNCTION__, liDecryptKEXSetResult);
+          LOG("%s: Decrypted received KEX Set (9F 06... I hope; all 00 if failed)(%d attempts remaining): \r\n", __FUNCTION__, lucKEXSetDecryptAttempts);
           PrintBytes(lucKexReport, gucReceivedCiphertextLength, false, 0);
           wc_AesFree(&aes);
 
-          // IF successfully decrypted KEX Report
-          liDecryptKEXReportSuccessful = !liAesInitResult && !liAesSetKeyResult && !liDecryptKEXReportResult;
-          if (liDecryptKEXReportSuccessful)
+          // IF successfully decrypted KEX Set
+          liDecryptKEXSetSuccessful = !liAesInitResult && !liAesSetKeyResult && !liDecryptKEXSetResult;
+          if (liDecryptKEXSetSuccessful)
           {
             // Reset elapsed time for next state
             lulElapsedTime_sec = 0;
@@ -2581,10 +2581,10 @@ BootstrapState ZWave_Bootstrap_StateMachine(BootstrapStateMachineCommand stateMa
         }
         // END WHILE
 
-        // IF failed decrypting KEX Report
-        if (!liDecryptKEXReportSuccessful)
+        // IF failed decrypting KEX Set
+        if (!liDecryptKEXSetSuccessful)
         {
-          LOG("%s: KEX Report decrypt FAILED \r\n", __FUNCTION__);
+          LOG("%s: KEX Set decrypt FAILED \r\n", __FUNCTION__);
 
           // Reset elapsed time for next state
           lulElapsedTime_sec = 0;
@@ -2783,77 +2783,77 @@ void ZWave_Display_Tx_Report(void)
    *           bUsedTxpower | bMeasuredNoiseFloor | bAckDestinationUsedTxPower | bDestinationAckMeasuredRSSI |
    *           bDestinationckMeasuredNoiseFloor */
   LOG("----------------------- Tx report START -----------------------\r\n");
-  PrintBytes(ZWaveSerialFrame->payload, ZWaveSerialFrame->len - 3, false, 0);
-  LOG("%s: Session ID                                    = 0x%02X \r\n", __FUNCTION__, ZWaveSerialFrame->payload[0]);
-  LOG("%s: TX status                                     = 0x%02X \r\n", __FUNCTION__, ZWaveSerialFrame->payload[1]);
-  switch (ZWaveSerialFrame->payload[1])
-  {
-  case TRANSMIT_COMPLETE_OK:
-    LOG("%s: - transmit OK \r\n", __FUNCTION__);
-    break;
-  case TRANSMIT_COMPLETE_NO_ACK:
-    LOG("%s: - transmit ERROR (no ACK received) \r\n", __FUNCTION__);
-    break;
-  case TRANSMIT_COMPLETE_FAIL:
-    LOG("%s: - transmit ERROR (FAIL; network busy or jammed) \r\n", __FUNCTION__);
-    break;
-  case TRANSMIT_ROUTING_NOT_IDLE:
-    LOG("%s: - transmit ERROR (routing not idle) \r\n", __FUNCTION__);
-    break;
-  default:
-    LOG("%s: - *** WARNING *** txStatus value UNKNOWN \r\n", __FUNCTION__);
-    break;
-  }
-
-  LOG("%s: Transmit ticks                                = 0x%04X \r\n", __FUNCTION__, (0x100*ZWaveSerialFrame->payload[2]) + ZWaveSerialFrame->payload[3]);
-  LOG("%s: Repeater count                                = 0x%02X \r\n", __FUNCTION__, ZWaveSerialFrame->payload[4]);
-  LOG("%s: ACK RSSI                                      = 0x%02X \r\n", __FUNCTION__, ZWaveSerialFrame->payload[5]);
-  LOG("%s: Repeater 0 RSSI                               = 0x%02X \r\n", __FUNCTION__, ZWaveSerialFrame->payload[6]);
-  LOG("%s: Repeater 1 RSSI                               = 0x%02X \r\n", __FUNCTION__, ZWaveSerialFrame->payload[7]);
-  LOG("%s: Repeater 2 RSSI                               = 0x%02X \r\n", __FUNCTION__, ZWaveSerialFrame->payload[8]);
-  LOG("%s: Repeater 3 RSSI                               = 0x%02X \r\n", __FUNCTION__, ZWaveSerialFrame->payload[9]);
-  LOG("%s: ACK channel num                               = 0x%02X \r\n", __FUNCTION__, ZWaveSerialFrame->payload[10]);
-  LOG("%s: Tx  channel num                               = 0x%02X \r\n", __FUNCTION__, ZWaveSerialFrame->payload[11]);
-  LOG("%s: Route scheme state                            = 0x%02X \r\n", __FUNCTION__, ZWaveSerialFrame->payload[12]);
-  LOG("%s: Repeater 0 last route                         = 0x%02X \r\n", __FUNCTION__, ZWaveSerialFrame->payload[13]);
-  LOG("%s: Repeater 1 last route                         = 0x%02X \r\n", __FUNCTION__, ZWaveSerialFrame->payload[14]);
-  LOG("%s: Repeater 2 last route                         = 0x%02X \r\n", __FUNCTION__, ZWaveSerialFrame->payload[15]);
-  LOG("%s: Repeater 3 last route                         = 0x%02X \r\n", __FUNCTION__, ZWaveSerialFrame->payload[16]);
-  LOG("%s: Beam bits/last route speed                    = 0x%02X \r\n", __FUNCTION__, ZWaveSerialFrame->payload[17]);
-  if (ZWaveSerialFrame->payload[17] & 0x40)
-  {
-    LOG("%s: - destination requires 1000 msec beam to be reached \r\n", __FUNCTION__);
-  }
-  if (ZWaveSerialFrame->payload[17] & 0x20)
-  {
-    LOG("%s: - destination requires  250 msec beam to be reached \r\n", __FUNCTION__);
-  }
-  switch (ZWaveSerialFrame->payload[17] & 0x07)
-  {
-  case 0x01:
-    LOG("%s: - Z-Wave 9.6 kbits/sec \r\n", __FUNCTION__);
-    break;
-  case 0x02:
-    LOG("%s: - Z-Wave 40 kbits/sec \r\n", __FUNCTION__);
-    break;
-  case 0x03:
-    LOG("%s: - Z-Wave 100 kbits/sec \r\n", __FUNCTION__);
-    break;
-  case 0x04:
-    LOG("%s: - Z-Wave LR 100 kbits/sec \r\n", __FUNCTION__);
-    break;
-  default:
-    LOG("%s: - *** WARNING *** reserved/undefined value for Last Route Speed \r\n", __FUNCTION__);
-    break;
-  }
-  LOG("%s: Routing attempts                              = 0x%02X \r\n", __FUNCTION__, ZWaveSerialFrame->payload[18]);
-  LOG("%s: Last route failed link     functional NodeID  = 0x%02X \r\n", __FUNCTION__, ZWaveSerialFrame->payload[19]);
-  LOG("%s: Last route failed link non-functional NodeID  = 0x%02X \r\n", __FUNCTION__, ZWaveSerialFrame->payload[20]);
-  LOG("%s: Tx power                                      = 0x%02X \r\n", __FUNCTION__, ZWaveSerialFrame->payload[21]);
-  LOG("%s: Measured noise floor                          = 0x%02X \r\n", __FUNCTION__, ZWaveSerialFrame->payload[22]);
-  LOG("%s: Destination ACK MPDU Tx power                 = 0x%02X \r\n", __FUNCTION__, ZWaveSerialFrame->payload[23]);
-  LOG("%s: Destination ACK MPDU measured RSSI            = 0x%02X \r\n", __FUNCTION__, ZWaveSerialFrame->payload[24]);
-  LOG("%s: Destination ACK MPDU measured noise floor     = 0x%02X \r\n", __FUNCTION__, ZWaveSerialFrame->payload[25]);
+//  PrintBytes(ZWaveSerialFrame->payload, ZWaveSerialFrame->len - 3, false, 0);
+//  LOG("%s: Session ID                                    = 0x%02X \r\n", __FUNCTION__, ZWaveSerialFrame->payload[0]);
+//  LOG("%s: TX status                                     = 0x%02X \r\n", __FUNCTION__, ZWaveSerialFrame->payload[1]);
+//  switch (ZWaveSerialFrame->payload[1])
+//  {
+//  case TRANSMIT_COMPLETE_OK:
+//    LOG("%s: - transmit OK \r\n", __FUNCTION__);
+//    break;
+//  case TRANSMIT_COMPLETE_NO_ACK:
+//    LOG("%s: - transmit ERROR (no ACK received) \r\n", __FUNCTION__);
+//    break;
+//  case TRANSMIT_COMPLETE_FAIL:
+//    LOG("%s: - transmit ERROR (FAIL; network busy or jammed) \r\n", __FUNCTION__);
+//    break;
+//  case TRANSMIT_ROUTING_NOT_IDLE:
+//    LOG("%s: - transmit ERROR (routing not idle) \r\n", __FUNCTION__);
+//    break;
+//  default:
+//    LOG("%s: - *** WARNING *** txStatus value UNKNOWN \r\n", __FUNCTION__);
+//    break;
+//  }
+//
+//  LOG("%s: Transmit ticks                                = 0x%04X \r\n", __FUNCTION__, (0x100*ZWaveSerialFrame->payload[2]) + ZWaveSerialFrame->payload[3]);
+//  LOG("%s: Repeater count                                = 0x%02X \r\n", __FUNCTION__, ZWaveSerialFrame->payload[4]);
+//  LOG("%s: ACK RSSI                                      = 0x%02X \r\n", __FUNCTION__, ZWaveSerialFrame->payload[5]);
+//  LOG("%s: Repeater 0 RSSI                               = 0x%02X \r\n", __FUNCTION__, ZWaveSerialFrame->payload[6]);
+//  LOG("%s: Repeater 1 RSSI                               = 0x%02X \r\n", __FUNCTION__, ZWaveSerialFrame->payload[7]);
+//  LOG("%s: Repeater 2 RSSI                               = 0x%02X \r\n", __FUNCTION__, ZWaveSerialFrame->payload[8]);
+//  LOG("%s: Repeater 3 RSSI                               = 0x%02X \r\n", __FUNCTION__, ZWaveSerialFrame->payload[9]);
+//  LOG("%s: ACK channel num                               = 0x%02X \r\n", __FUNCTION__, ZWaveSerialFrame->payload[10]);
+//  LOG("%s: Tx  channel num                               = 0x%02X \r\n", __FUNCTION__, ZWaveSerialFrame->payload[11]);
+//  LOG("%s: Route scheme state                            = 0x%02X \r\n", __FUNCTION__, ZWaveSerialFrame->payload[12]);
+//  LOG("%s: Repeater 0 last route                         = 0x%02X \r\n", __FUNCTION__, ZWaveSerialFrame->payload[13]);
+//  LOG("%s: Repeater 1 last route                         = 0x%02X \r\n", __FUNCTION__, ZWaveSerialFrame->payload[14]);
+//  LOG("%s: Repeater 2 last route                         = 0x%02X \r\n", __FUNCTION__, ZWaveSerialFrame->payload[15]);
+//  LOG("%s: Repeater 3 last route                         = 0x%02X \r\n", __FUNCTION__, ZWaveSerialFrame->payload[16]);
+//  LOG("%s: Beam bits/last route speed                    = 0x%02X \r\n", __FUNCTION__, ZWaveSerialFrame->payload[17]);
+//  if (ZWaveSerialFrame->payload[17] & 0x40)
+//  {
+//    LOG("%s: - destination requires 1000 msec beam to be reached \r\n", __FUNCTION__);
+//  }
+//  if (ZWaveSerialFrame->payload[17] & 0x20)
+//  {
+//    LOG("%s: - destination requires  250 msec beam to be reached \r\n", __FUNCTION__);
+//  }
+//  switch (ZWaveSerialFrame->payload[17] & 0x07)
+//  {
+//  case 0x01:
+//    LOG("%s: - Z-Wave 9.6 kbits/sec \r\n", __FUNCTION__);
+//    break;
+//  case 0x02:
+//    LOG("%s: - Z-Wave 40 kbits/sec \r\n", __FUNCTION__);
+//    break;
+//  case 0x03:
+//    LOG("%s: - Z-Wave 100 kbits/sec \r\n", __FUNCTION__);
+//    break;
+//  case 0x04:
+//    LOG("%s: - Z-Wave LR 100 kbits/sec \r\n", __FUNCTION__);
+//    break;
+//  default:
+//    LOG("%s: - *** WARNING *** reserved/undefined value for Last Route Speed \r\n", __FUNCTION__);
+//    break;
+//  }
+//  LOG("%s: Routing attempts                              = 0x%02X \r\n", __FUNCTION__, ZWaveSerialFrame->payload[18]);
+//  LOG("%s: Last route failed link     functional NodeID  = 0x%02X \r\n", __FUNCTION__, ZWaveSerialFrame->payload[19]);
+//  LOG("%s: Last route failed link non-functional NodeID  = 0x%02X \r\n", __FUNCTION__, ZWaveSerialFrame->payload[20]);
+//  LOG("%s: Tx power                                      = 0x%02X \r\n", __FUNCTION__, ZWaveSerialFrame->payload[21]);
+//  LOG("%s: Measured noise floor                          = 0x%02X \r\n", __FUNCTION__, ZWaveSerialFrame->payload[22]);
+//  LOG("%s: Destination ACK MPDU Tx power                 = 0x%02X \r\n", __FUNCTION__, ZWaveSerialFrame->payload[23]);
+//  LOG("%s: Destination ACK MPDU measured RSSI            = 0x%02X \r\n", __FUNCTION__, ZWaveSerialFrame->payload[24]);
+//  LOG("%s: Destination ACK MPDU measured noise floor     = 0x%02X \r\n", __FUNCTION__, ZWaveSerialFrame->payload[25]);
   LOG("----------------------- Tx report  END  -----------------------\r\n");
 }
 // end ZWave_Display_Tx_Report
@@ -8124,7 +8124,7 @@ int ZWave_Temporary_Key_Generate(void)
   }
   // If no errors, gucTemporarySymmetricKey[] has the Temporary Symmetric Key
   LOG("%s: - Temporary Symmetric Key \r\n", __FUNCTION__);
-  //PrintBytes(gucTemporarySymmetricKey, sizeof(gucTemporarySymmetricKey), false, 0);
+  PrintBytes(gucTemporarySymmetricKey, sizeof(gucTemporarySymmetricKey), false, 0);
 
   /////////////////////////////////////////////////
   // TempExpand:
