@@ -506,7 +506,7 @@ void CTR_DRBG_Increment_V( uint8_t* paucCtrDrbgV);
 int CTR_DRBG_Instantiate_SPAN(inner_span_t* patSPAN, uint8_t* paucMEI, uint8_t* paucPersonalization);
 int CTR_DRBG_Update_SPAN(inner_span_t* patSPAN, uint8_t* paucProvidedData);
 void CTR_DRBG_Zeroize_SPAN(inner_span_t* patSPAN);
-uint32_t Swap_Bytes_uint16(uint16_t auiInputValue);
+uint16_t Swap_Bytes_uint16(uint16_t auiInputValue);
 uint32_t Swap_Bytes_uint32(uint32_t aulInputValue);
 void XOR_Bytes(uint8_t* paucOutputBuffer, uint8_t* paucBufferA, uint8_t* paucBufferB, uint16_t auiLength);
 BootstrapState ZWave_Bootstrap_StateMachine(BootstrapStateMachineCommand stateMachineCommand);
@@ -1913,7 +1913,7 @@ void PrintStartupBanner(void)
   * @param  uint16_t auiInputValue - 16-bit unsigned integer
   * @retval 16-bit unsigned integer
   */
-uint32_t Swap_Bytes_uint16(uint16_t auiInputValue)
+uint16_t Swap_Bytes_uint16(uint16_t auiInputValue)
 {
   return (auiInputValue << 8) | (auiInputValue >> 8);
 }
@@ -2548,7 +2548,7 @@ BootstrapState ZWave_Bootstrap_StateMachine(BootstrapStateMachineCommand stateMa
           PrintBytes(gucReceivedAuthTag, gucReceivedAuthTagLength, false, 0);
           LOG("%s: gucReceivedAuthTagLength    = 0x%02X \r\n", __FUNCTION__, gucReceivedAuthTagLength);
           LOG("%s: gtTemporaryAAD \r\n", __FUNCTION__);
-          PrintBytes(&gtTemporaryAAD, gucTemporaryAADLength, false, 0);
+          PrintBytes((uint8_t *)&gtTemporaryAAD, gucTemporaryAADLength, false, 0);
           LOG("%s: gucTemporaryAADLength       = 0x%02X \r\n", __FUNCTION__, gucTemporaryAADLength);
           memset(lucKexReport, 0x00, sizeof(lucKexReport));
           liDecryptKEXReportResult = wc_AesCcmDecrypt(&aes,
@@ -2556,7 +2556,7 @@ BootstrapState ZWave_Bootstrap_StateMachine(BootstrapStateMachineCommand stateMa
                                                           gucReceivedCiphertext, gucReceivedCiphertextLength,
                                                           gtTemporarySPAN.Nonce, 13,
                                                           gucReceivedAuthTag, gucReceivedAuthTagLength,
-                                                          &gtTemporaryAAD, gucTemporaryAADLength);
+                                                          (const byte *)&gtTemporaryAAD, gucTemporaryAADLength);
           if (0!=liDecryptKEXReportResult) LOG("%s: *** WARNING *** liDecryptKEXReportResult = %d \r\n", __FUNCTION__, liDecryptKEXReportResult);
           LOG("%s: Decrypted received KEX Report (9F 05... I hope; all 00 if failed)(%d attempts remaining): \r\n", __FUNCTION__, lucKEXReportDecryptAttempts);
           PrintBytes(lucKexReport, gucReceivedCiphertextLength, false, 0);
@@ -2637,7 +2637,7 @@ BootstrapState ZWave_Bootstrap_StateMachine(BootstrapStateMachineCommand stateMa
 
     //-------------------------------------------------------
     // ELSE IF state is NETWORK_KEY_DONE
-    else if (BOOTSTRAP_XNETWORK_KEY_DONE == leBootstrapState)
+    else if (BOOTSTRAP_NETWORK_KEY_DONE == leBootstrapState)
     {
     }
 
@@ -2720,6 +2720,7 @@ int ZWave_Controller_Keys_Generate(uint8_t* paucPrivateKey, uint8_t* paucPublicK
   LOG("%s: ------------------------------- \r\n", __FUNCTION__);
   liReturnValue = wc_curve25519_export_private_raw_ex(&ltKey, paucPrivateKey, &luiPrivateSize, EC25519_LITTLE_ENDIAN);
   PrintBytes(paucPrivateKey, 32, false, 0);
+  PrintBytes(gucControllerPrivateKey, 32, false, 0);
   if (liReturnValue == 0)
   {
     LOG("%s: ------------------------------- \r\n", __FUNCTION__);
@@ -2727,6 +2728,7 @@ int ZWave_Controller_Keys_Generate(uint8_t* paucPrivateKey, uint8_t* paucPublicK
     LOG("%s: ------------------------------- \r\n", __FUNCTION__);
     liReturnValue = wc_curve25519_export_public_ex(&ltKey, paucPublicKey, &luiPublicSize, EC25519_LITTLE_ENDIAN);
     PrintBytes(paucPublicKey, 32, false, 0);
+    PrintBytes(gucControllerPublicKey, 32, false, 0);
   }
 
 
@@ -2735,6 +2737,7 @@ exit:
   wc_FreeRng(&ltRng);
   wc_curve25519_free(&ltKey);
   if (0!=liReturnValue) LOG("%s: *** WARNING *** return value = %d \r\n", __FUNCTION__, liReturnValue);
+  LOG("%s: END \r\n", __FUNCTION__);
   return liReturnValue;
 }
 // end ZWave_Controller_Keys_Generate
@@ -6451,7 +6454,7 @@ void ZWave_Rx_CC_9F_Security_2_V2(void)
       {
         LOG("%s: Copying extension (including length and extension option bytes) to AAD \r\n", __FUNCTION__);
         memcpy(gtTemporaryAAD.ExtensionData, plucExtensionLocation, 16+2  );
-        //PrintBytes(gtTemporaryAAD.ExtensionData, 16+2, false, 0);
+        //PrintBytes((uint8_t *)gtTemporaryAAD.ExtensionData, 16+2, false, 0);
         gucTemporaryAADLength += 16+2;
       }
       //LOG("%s: Temporary AAD \r\n", __FUNCTION__);
@@ -7706,6 +7709,7 @@ SmartStartState ZWave_SmartStart_StateMachine(SmartStartStateMachineCommand stat
     lulElapsedTime_sec = 0;
 
     // Initialize subordinate state machines
+    ZWave_Bootstrap_StateMachine(BOOTSTRAP_SM_CMD_INITIALIZE);
 
     // Set state to EMPTY
     LOG("%s: Transitioning from initialization to EMPTY\r\n", __FUNCTION__);
@@ -8021,6 +8025,8 @@ int ZWave_Temporary_Key_Generate(void)
   static uint8_t lucT3[16];
   static unsigned int luiSize;
 
+  LOG("%s: START \r\n", __FUNCTION__);
+
   ///////////////////////////////////////
   // Generate G, the ECDH Shared Secret
   ///////////////////////////////////////
@@ -8169,6 +8175,7 @@ exit:
   wc_curve25519_free(&ltControllerPrivateKey);
 
   if (liReturnValue != 0) LOG("%s: *** WARNING *** return value = %d \r\n", __FUNCTION__, liReturnValue);
+  LOG("%s: END \r\n", __FUNCTION__);
   return liReturnValue;
 }
 // end ZWave_Temporary_Key_Generate

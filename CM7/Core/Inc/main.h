@@ -332,10 +332,10 @@ typedef enum
   SMARTSTART_READY,         // DSK written to node provisioning list; end node not connected
   SMARTSTART_DETECTED,      // End node with correlated DSK detected
   SMARTSTART_INCLUSION,     // End node joining home network
-  SMARTSTART_EXCLUSION,     // End node removed from home network
   SMARTSTART_BOOTSTRAP,     // End node sharing key information
   SMARTSTART_ACTIVE,        // End node fully connected, including security
-  SMARTSTART_REMOVED,       // End node being removed from home network; DSK being erased from node provisioning list
+  SMARTSTART_EXCLUSION,     // End node being removed from home network
+  SMARTSTART_REMOVED,       // End node removed from home network; DSK being erased from node provisioning list
 } SmartStartState;
 
 //  Node provisioning list (i.e. DSK and state variables for end nodes
@@ -358,6 +358,7 @@ typedef struct {
     // optional more fields
 } pl_entry_t;
 #define NODE_PROVISIONING_LIST_COUNT (5)
+// WARNING - DSK_UNAVAILABLE and DSK_UNKNOWN must be values greater than NODE_PROVISIONING_LIST_COUNT
 #define DSK_UNAVAILABLE (0xFF)
 #define DSK_UNKNOWN     (0xFE)
 
@@ -387,7 +388,7 @@ typedef enum
   BOOTSTRAP_NETWORK_NONCE_GET,      // waiting for nonce, i.e. SPAN
   BOOTSTRAP_NETWORK_VERIFY,         // waiting for KEY Verify
   BOOTSTRAP_NETWORK_VERIFY_SPAN,    // waiting for Nonce Report
-  BOOTSTRAP_XNETWORK_KEY_DONE,      // waiting for Transfer End
+  BOOTSTRAP_NETWORK_KEY_DONE,       // waiting for Transfer End
   BOOTSTRAP_COMPLETE,               // S2 Bootstrap completed successfully
   BOOTSTRAP_ERROR,                  // S2 Boot strap failed or timed out
 } BootstrapState;

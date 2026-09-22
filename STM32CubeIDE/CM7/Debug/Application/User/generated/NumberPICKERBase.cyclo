@@ -36,6 +36,8 @@
 ../../CM7/../../CM7/Middlewares/ST/touchgfx/framework/include/touchgfx/containers/scrollers/ScrollBase.hpp:273:10:void touchgfx::ScrollBase::setOvershootPercentage(uint8_t)	1
 ../../CM7/../../CM7/Middlewares/ST/touchgfx/framework/include/touchgfx/containers/scrollers/ScrollBase.hpp:381:18:virtual void touchgfx::ScrollBase::initialize()	1
 ../../CM7/../../CM7/Middlewares/ST/touchgfx/framework/include/touchgfx/containers/scrollers/ScrollWheelWithSelectionStyle.hpp:152:18:virtual void touchgfx::ScrollWheelWithSelectionStyle::initialize()	1
+../../CM7/../../CM7/TouchGFX/gui/include/gui/containers/numberTemplateScrollCustomContainer.hpp:10:13:numberTemplateScrollCustomContainer::~numberTemplateScrollCustomContainer()	1
+../../CM7/../../CM7/TouchGFX/gui/include/gui/containers/numberTemplateScrollCustomContainer.hpp:10:13:virtual numberTemplateScrollCustomContainer::~numberTemplateScrollCustomContainer()	1
 ../../CM7/../../CM7/TouchGFX/generated/gui_generated/include/gui_generated/containers/NumberPICKERBase.hpp:20:18:virtual void NumberPICKERBase::numberScrollWheelUpdateItem(numberTemplateScrollCustomContainer&, int16_t)	1
 ../../CM7/../../CM7/TouchGFX/generated/gui_generated/include/gui_generated/containers/NumberPICKERBase.hpp:25:18:virtual void NumberPICKERBase::numberScrollWheelUpdateCenterItem(numberTemplateScrollCustomContainer&, int16_t)	1
 ../../CM7/../../CM7/Middlewares/ST/touchgfx/framework/include/touchgfx/widgets/Image.hpp:38:7:touchgfx::Image::~Image()	1

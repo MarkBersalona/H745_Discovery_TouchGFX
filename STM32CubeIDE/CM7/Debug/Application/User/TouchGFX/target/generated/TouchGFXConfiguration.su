@@ -57,7 +57,7 @@
 ../../CM7/../../CM7/TouchGFX/gui/include/gui/common/FrontendHeap.hpp:6:7:FrontendHeap::~FrontendHeap()	16	static
 ../../CM7/../../CM7/TouchGFX/gui/include/gui/common/FrontendHeap.hpp:6:7:virtual FrontendHeap::~FrontendHeap()	16	static
 ../../CM7/../../CM7/TouchGFX/gui/include/gui/common/FrontendHeap.hpp:56:29:void __tcf_0()	8	static
-../../CM7/../../CM7/TouchGFX/gui/include/gui/common/FrontendHeap.hpp:54:26:static FrontendHeap& FrontendHeap::getInstance()	8	static
+../../CM7/../../CM7/TouchGFX/gui/include/gui/common/FrontendHeap.hpp:54:26:static FrontendHeap& FrontendHeap::getInstance()	8	static,ignoring_inline_asm
 ../../CM7/../../CM7/Middlewares/ST/touchgfx/framework/include/common/Partition.hpp:42:7:touchgfx::Partition<touchgfx::meta::TypeList<ScreenIPAddressesPresenter, touchgfx::meta::TypeList<touchgfx::meta::Nil, touchgfx::meta::Nil> >, 1>::Partition()	16	static
 ../../CM7/../../CM7/Middlewares/ST/touchgfx/framework/include/common/Partition.hpp:42:7:touchgfx::Partition<touchgfx::meta::TypeList<screenMainView, touchgfx::meta::TypeList<touchgfx::meta::Nil, touchgfx::meta::Nil> >, 1>::Partition()	16	static
 ../../CM7/../../CM7/Middlewares/ST/touchgfx/framework/include/common/Partition.hpp:42:7:touchgfx::Partition<touchgfx::meta::TypeList<touchgfx::WipeTransition<touchgfx::EAST>, touchgfx::meta::TypeList<touchgfx::meta::Nil, touchgfx::meta::Nil> >, 1>::Partition()	16	static
@@ -95,7 +95,7 @@ F:/400_Cellular/Projects/H745_Discovery_TouchGFX/CM7/TouchGFX/target/generated/T
 ../../CM7/../../CM7/Middlewares/ST/touchgfx/framework/include/common/Partition.hpp:63:22:uint32_t touchgfx::Partition<ListOfTypes, NUMBER_OF_ELEMENTS>::element_size() [with ListOfTypes = touchgfx::meta::TypeList<ScreenIPAddressesPresenter, touchgfx::meta::TypeList<touchgfx::meta::Nil, touchgfx::meta::Nil> >; short unsigned int NUMBER_OF_ELEMENTS = 1]	16	static
 ../../CM7/../../CM7/Middlewares/ST/touchgfx/framework/include/common/Partition.hpp:69:19:void* touchgfx::Partition<ListOfTypes, NUMBER_OF_ELEMENTS>::element(uint16_t) [with ListOfTypes = touchgfx::meta::TypeList<ScreenIPAddressesPresenter, touchgfx::meta::TypeList<touchgfx::meta::Nil, touchgfx::meta::Nil> >; short unsigned int NUMBER_OF_ELEMENTS = 1]	16	static
 ../../CM7/../../CM7/Middlewares/ST/touchgfx/framework/include/common/Partition.hpp:74:25:const void* touchgfx::Partition<ListOfTypes, NUMBER_OF_ELEMENTS>::element(uint16_t) const [with ListOfTypes = touchgfx::meta::TypeList<ScreenIPAddressesPresenter, touchgfx::meta::TypeList<touchgfx::meta::Nil, touchgfx::meta::Nil> >; short unsigned int NUMBER_OF_ELEMENTS = 1]	16	static
-../../CM7/../../CM7/Middlewares/ST/touchgfx/framework/include/touchgfx/Callback.hpp:449:18:void touchgfx::Callback<dest_type, void, void, void>::execute() [with dest_type = FrontendApplicationBase]	16	static
+../../CM7/../../CM7/Middlewares/ST/touchgfx/framework/include/touchgfx/Callback.hpp:449:18:void touchgfx::Callback<dest_type, void, void, void>::execute() [with dest_type = FrontendApplicationBase]	32	static
 ../../CM7/../../CM7/Middlewares/ST/touchgfx/framework/include/touchgfx/Callback.hpp:459:18:bool touchgfx::Callback<dest_type, void, void, void>::isValid() const [with dest_type = FrontendApplicationBase]	16	static
 F:/400_Cellular/Projects/H745_Discovery_TouchGFX/CM7/TouchGFX/target/generated/TouchGFXConfiguration.cpp:77:1:cpp)	8	static
 F:/400_Cellular/Projects/H745_Discovery_TouchGFX/CM7/TouchGFX/target/generated/TouchGFXConfiguration.cpp:77:1:cpp)	8	static
