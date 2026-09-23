@@ -2233,7 +2233,7 @@ BootstrapState ZWave_Bootstrap_StateMachine(BootstrapStateMachineCommand stateMa
   static int liNextNonceResult;
   static int liAesInitResult;
   static int liAesSetKeyResult;
-  static uint8_t lucKexReport[16];
+  static uint8_t lucKexSet[16];
   static Aes aes;
   static int liDecryptKEXSetResult;
   static int liDecryptKEXSetSuccessful;
@@ -2550,22 +2550,29 @@ BootstrapState ZWave_Bootstrap_StateMachine(BootstrapStateMachineCommand stateMa
           LOG("%s: gtTemporaryAAD \r\n", __FUNCTION__);
           PrintBytes((uint8_t *)&gtTemporaryAAD, gucTemporaryAADLength, false, 0);
           LOG("%s: gucTemporaryAADLength       = 0x%02X \r\n", __FUNCTION__, gucTemporaryAADLength);
-          memset(lucKexReport, 0x00, sizeof(lucKexReport));
+          memset(lucKexSet, 0x00, sizeof(lucKexSet));
           liDecryptKEXSetResult = wc_AesCcmDecrypt(&aes,
-                                                          lucKexReport,
+                                                          lucKexSet,
                                                           gucReceivedCiphertext, gucReceivedCiphertextLength,
                                                           gtTemporarySPAN.Nonce, 13,
                                                           gucReceivedAuthTag, gucReceivedAuthTagLength,
                                                           (const byte *)&gtTemporaryAAD, gucTemporaryAADLength);
           if (0!=liDecryptKEXSetResult) LOG("%s: *** WARNING *** liDecryptKEXSetResult = %d \r\n", __FUNCTION__, liDecryptKEXSetResult);
           LOG("%s: Decrypted received KEX Set (9F 06... I hope; all 00 if failed)(%d attempts remaining): \r\n", __FUNCTION__, lucKEXSetDecryptAttempts);
-          PrintBytes(lucKexReport, gucReceivedCiphertextLength, false, 0);
+          PrintBytes(lucKexSet, gucReceivedCiphertextLength, false, 0);
           wc_AesFree(&aes);
 
           // IF successfully decrypted KEX Set
           liDecryptKEXSetSuccessful = !liAesInitResult && !liAesSetKeyResult && !liDecryptKEXSetResult;
           if (liDecryptKEXSetSuccessful)
           {
+            LOG("-----------------------  KEX Set START -----------------------\r\n");
+            // Invoke the command class handler
+            pgucCCBuffer = lucKexSet;
+            gucCCBufferLength = gucReceivedCiphertextLength;gb
+            gtZWave_CC_Handler[pgucCCBuffer[0]]();
+            LOG("-----------------------  KEX Set  END  -----------------------\r\n");
+
             // Reset elapsed time for next state
             lulElapsedTime_sec = 0;
 
@@ -6278,7 +6285,7 @@ void ZWave_Rx_CC_9F_Security_2_V2(void)
   }
 
   //  ------------------- SECURITY_2_NONCE_REPORT_V2 -----------------------------------------
-  if (SECURITY_2_NONCE_REPORT_V2          == pgucCCBuffer[1])
+  else if (SECURITY_2_NONCE_REPORT_V2          == pgucCCBuffer[1])
   {
     LOG("%s: Sequence number = 0x%02X \r\n", __FUNCTION__, pgucCCBuffer[2]);
     LOG("%s: Sync flags      = 0x%02X \r\n", __FUNCTION__, pgucCCBuffer[3]);
@@ -6309,7 +6316,7 @@ void ZWave_Rx_CC_9F_Security_2_V2(void)
   }
 
   //  ------------------- SECURITY_2_MESSAGE_ENCAPSULATION_V2 -----------------------------------------
-  if (SECURITY_2_MESSAGE_ENCAPSULATION_V2 == pgucCCBuffer[1])
+  else if (SECURITY_2_MESSAGE_ENCAPSULATION_V2 == pgucCCBuffer[1])
   {
     uint8_t lucExtensionOffset = 0;
 
@@ -6464,7 +6471,7 @@ void ZWave_Rx_CC_9F_Security_2_V2(void)
   } // end if (SECURITY_2_MESSAGE_ENCAPSULATION_V2 == pgucCCBuffer[1])
 
   //  ------------------- KEX_REPORT_V2 -----------------------------------------
-  if (KEX_REPORT_V2 == pgucCCBuffer[1])
+  else if (KEX_REPORT_V2 == pgucCCBuffer[1])
   {
     gucIsKEXReportReceived = TRUE;
 
@@ -6475,7 +6482,7 @@ void ZWave_Rx_CC_9F_Security_2_V2(void)
     }
     if (pgucCCBuffer[2] & KEX_REPORT_PROPERTIES1_REQUEST_CSA_BIT_MASK_V2)
     {
-      LOG("%s: - Request CSA bit set \r\n", __FUNCTION__);
+      LOG("%s: - Client-side Authentication permitted \r\n", __FUNCTION__);
     }
     if (pgucCCBuffer[2] & KEX_REPORT_PROPERTIES1_NLS_SUPPORT_BIT_MASK_V2)
     {
@@ -6537,8 +6544,60 @@ void ZWave_Rx_CC_9F_Security_2_V2(void)
     }
   }
 
+  //  ------------------- KEX_SET_V2 -----------------------------------------
+  else if (KEX_SET_V2 == pgucCCBuffer[1])
+  {
+    LOG("%s: Options         = 0x%02X \r\n", __FUNCTION__, pgucCCBuffer[2]);
+    if (pgucCCBuffer[2] & KEX_SET_PROPERTIES1_ECHO_BIT_MASK_V2)
+    {
+      LOG("%s: - Echo bit set \r\n", __FUNCTION__);
+    }
+    if (pgucCCBuffer[2] & KEX_SET_PROPERTIES1_REQUEST_CSA_BIT_MASK_V2)
+    {
+      LOG("%s: - Client-side Authentication permitted \r\n", __FUNCTION__);
+    }
+
+    LOG("%s: KEX schemes     = 0x%02X \r\n", __FUNCTION__, pgucCCBuffer[3]);
+    if (pgucCCBuffer[3] & 0x02)
+    {
+      LOG("%s: - KEX Scheme 1 supported \r\n", __FUNCTION__);
+    }
+    else
+    {
+      LOG("%s: - *** WARNING *** KEX Scheme 1 is NOT supported \r\n", __FUNCTION__);
+    }
+
+    LOG("%s: ECDH profiles   = 0x%02X \r\n", __FUNCTION__, pgucCCBuffer[4]);
+    if (pgucCCBuffer[4] & 0x01)
+    {
+      LOG("%s: - ECDH Profile Curve25519 supported \r\n", __FUNCTION__);
+    }
+    else
+    {
+      LOG("%s: - *** WARNING *** ECDH Profile Curve25519 is NOT supported \r\n", __FUNCTION__);
+    }
+
+    LOG("%s: Granted keys    = 0x%02X \r\n", __FUNCTION__, pgucCCBuffer[5]);
+    if (pgucCCBuffer[5] & SECURITY_KEY_S2_ACCESS_BIT)
+    {
+      LOG("%s: - S2 Access Control Class supported \r\n", __FUNCTION__);
+    }
+    if (pgucCCBuffer[5] & SECURITY_KEY_S2_AUTHENTICATED_BIT)
+    {
+      LOG("%s: - S2 Authenticated Class supported \r\n", __FUNCTION__);
+    }
+    if (pgucCCBuffer[5] & SECURITY_KEY_S2_UNAUTHENTICATED_BIT)
+    {
+      LOG("%s: - S2 Unauthenticated Class supported \r\n", __FUNCTION__);
+    }
+    if (pgucCCBuffer[5] & SECURITY_KEY_S0_BIT)
+    {
+      LOG("%s: - S0 Secure legacy devices supported \r\n", __FUNCTION__);
+    }
+  }
+
   //  ------------------- KEX_FAIL_V2 -----------------------------------------
-  if (KEX_FAIL_V2 == pgucCCBuffer[1])
+  else if (KEX_FAIL_V2 == pgucCCBuffer[1])
   {
     LOG("%s: KEX Fail type   = 0x%02X \r\n", __FUNCTION__, pgucCCBuffer[2]);
     switch (pgucCCBuffer[2])
@@ -6577,7 +6636,7 @@ void ZWave_Rx_CC_9F_Security_2_V2(void)
   }
 
   //  ------------------- PUBLIC_KEY_REPORT_V2 -----------------------------------------
-  if (PUBLIC_KEY_REPORT_V2 == pgucCCBuffer[1])
+  else if (PUBLIC_KEY_REPORT_V2 == pgucCCBuffer[1])
   {
     gucIsPublicKeyReportReceived = TRUE;
 
@@ -6612,6 +6671,12 @@ void ZWave_Rx_CC_9F_Security_2_V2(void)
     }
     ////////////////////////////////////////////////
 
+  }
+
+  //  ------------------- No further parsing detail implemented -----------------------------------------
+  else
+  {
+    LOG("%s: No further parsing detail implemented yet \r\n", __FUNCTION__);
   }
 
 }
