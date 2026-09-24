@@ -357,6 +357,7 @@ zwave_cmd_handler_t gtZWave_CMD_Handler[256];
 zwave_cmd_handler_t gtZWave_CC_Handler[256];
 
 // State variables for ZWave state machine
+ZWaveState geZWaveState;
 uint8_t gucRetryCount = 0;
 
 // Payload buffer for transmitted ZWave frames
@@ -370,6 +371,9 @@ uint16_t guiZWaveNodeID = 0;
 // Z-Wave received command class buffer
 uint8_t* pgucCCBuffer;
 uint8_t  gucCCBufferLength;
+
+// SmartStart state machine state
+SmartStartState geSmartStartState;
 
 // Node Provisioning list (i.e. DSK and state variables for end nodes)
 pl_entry_t gtNodeProvisioningList[NODE_PROVISIONING_LIST_COUNT];
@@ -409,6 +413,9 @@ uint8_t gucControllerPrivateKey[32];
 
 // wolfSSL stuff
 WC_RNG gtWolfSSLRng;
+
+// Saved KEX Report
+uint8_t gucKEXReport[6];
 
 // For Temporary Symmetric key
 static const uint8_t CKDF_TEMP_EXTRACT_KEY_C[16] = {
@@ -2293,6 +2300,7 @@ BootstrapState ZWave_Bootstrap_StateMachine(BootstrapStateMachineCommand stateMa
         lucSendDataBuffer[0] = COMMAND_CLASS_SECURITY_2_V2;
         lucSendDataBuffer[1] = KEX_GET_V2;
         #if ENABLE_ZWAVE_CONTROLLER_HOST
+        LOG("%s: Sending KEX Get \r\n", __FUNCTION__);
         ZWave_Send_REQ_CMD_13_Send_Data(gtNodeProvisioningList[gucProcessingDSK].NodeID, 2, lucSendDataBuffer, TRANSMIT_OPTION_ACK, gucSessionID);
         #endif
 
@@ -2360,6 +2368,7 @@ BootstrapState ZWave_Bootstrap_StateMachine(BootstrapStateMachineCommand stateMa
           LOG("%s: Saving DSK %d granted key \r\n", __FUNCTION__, gucProcessingDSK);
           gtNodeProvisioningList[gucProcessingDSK].granted_keys = lucSendDataBuffer[5];
           #if ENABLE_ZWAVE_CONTROLLER_HOST
+          LOG("%s: Sending KEX Set \r\n", __FUNCTION__);
           ZWave_Send_REQ_CMD_13_Send_Data(gtNodeProvisioningList[gucProcessingDSK].NodeID, 6, lucSendDataBuffer, TRANSMIT_OPTION_ACK, gucSessionID);
           #endif
 
@@ -2411,6 +2420,7 @@ BootstrapState ZWave_Bootstrap_StateMachine(BootstrapStateMachineCommand stateMa
           // (Copy controller's public key into lucSendDataBuffer[3])
           memcpy(&lucSendDataBuffer[3], gucControllerPublicKey, 32);
           #if ENABLE_ZWAVE_CONTROLLER_HOST
+          LOG("%s: Sending Public Key Report (for controller), i.e. controller ECDH public key\r\n", __FUNCTION__);
           ZWave_Send_REQ_CMD_13_Send_Data(gtNodeProvisioningList[gucProcessingDSK].NodeID, 3+32, lucSendDataBuffer, TRANSMIT_OPTION_ACK, gucSessionID);
           #endif
 
@@ -2508,7 +2518,7 @@ BootstrapState ZWave_Bootstrap_StateMachine(BootstrapStateMachineCommand stateMa
       // IF encrypted message received
       if (gucIsEncryptedMsgReceived)
       {
-        // (reset so subsequent KEX Report retries from end node may be processed also)
+        // (reset so subsequent KEX Set retries from end node may be processed also)
         gucIsEncryptedMsgReceived = FALSE;
 
         // Establish Temporary SPAN (if needed)
@@ -2532,9 +2542,7 @@ BootstrapState ZWave_Bootstrap_StateMachine(BootstrapStateMachineCommand stateMa
           LOG("%s: FULL 16-bytes of gtTemporarySPAN.Nonce \r\n", __FUNCTION__);
           PrintBytes(gtTemporarySPAN.Nonce, 16, false, 0);
 
-          //////////////////////////////////////////
           // Decrypt received message
-          //////////////////////////////////////////
           liAesInitResult = wc_AesInit(&aes, NULL, INVALID_DEVID);
           if (0!=liAesInitResult) LOG("%s: *** WARNING *** liAesInitResult = %d \r\n", __FUNCTION__, liAesInitResult);
           liAesSetKeyResult = wc_AesCcmSetKey(&aes, gucTemporarySymmetricKey, 16);
@@ -2569,14 +2577,81 @@ BootstrapState ZWave_Bootstrap_StateMachine(BootstrapStateMachineCommand stateMa
             LOG("-----------------------  KEX Set START -----------------------\r\n");
             // Invoke the command class handler
             pgucCCBuffer = lucKexSet;
-            gucCCBufferLength = gucReceivedCiphertextLength;gb
+            gucCCBufferLength = gucReceivedCiphertextLength;
             gtZWave_CC_Handler[pgucCCBuffer[0]]();
             LOG("-----------------------  KEX Set  END  -----------------------\r\n");
 
             // Reset elapsed time for next state
             lulElapsedTime_sec = 0;
 
+            //////////////////////////////////////////
             // Send encrypted identical KEX Report
+            //////////////////////////////////////////
+            LOG("%s: Send encrypted identical KEX Report \r\n", __FUNCTION__);
+
+            // (Need the KEX report received from end node; set Echo bit)
+            gucKEXReport[2] |= 0x01;
+            LOG("-----------------------  Original KEX Report with Echo START -----------------------\r\n");
+            PrintBytes(gucKEXReport, sizeof(gucKEXReport), false, 0);
+            // Invoke the command class handler
+            pgucCCBuffer = gucKEXReport;
+            gucCCBufferLength = sizeof(gucKEXReport);
+            gtZWave_CC_Handler[pgucCCBuffer[0]]();
+            LOG("-----------------------  Original KEX Report with Echo  END  -----------------------\r\n");
+
+            // (*** Encrypt the KEX Report ***)
+            gucSessionID = ZWave_SessionID_Update(gucSessionID);
+            memset(lucSendDataBuffer, 0x00, sizeof(lucSendDataBuffer));
+            lucSendDataBuffer[0] = COMMAND_CLASS_SECURITY_2_V2;
+            lucSendDataBuffer[1] = SECURITY_2_MESSAGE_ENCAPSULATION_V2;
+            lucSendDataBuffer[2] = gucSessionID;
+            lucSendDataBuffer[3] = 0; // no non-encrypted nor encrypted extensions
+            const uint8_t lucKEXReportLength = sizeof(gucKEXReport);
+            const uint8_t lucHeaderLength = 4; // 9F 03 ID 00
+            const uint8_t lucFrameLength = lucKEXReportLength + lucHeaderLength + AUTH_TAG_LENGTH;
+
+            // (Generate NextNonce)
+            liNextNonceResult = CTR_DRBG_Generate_16_Random_Bytes(&gtTemporarySPAN, gtTemporarySPAN.Nonce);
+            if (0 != liNextNonceResult) LOG("%s: *** WARNING *** liNextNonceResult = %d \r\n", __FUNCTION__, liNextNonceResult);
+            LOG("%s: FULL 16-bytes of gtTemporarySPAN.Nonce \r\n", __FUNCTION__);
+            PrintBytes(gtTemporarySPAN.Nonce, 16, false, 0);
+
+            // (AAD for the OUTGOING frame)
+            aad_t ltTxAAD;
+            memset(&ltTxAAD, 0x00, sizeof(ltTxAAD));
+            ltTxAAD.SenderNodeID      = Swap_Bytes_uint16(guiDestinationNodeID);  // us (dest of KEX Set)
+            ltTxAAD.DestinationNodeID = Swap_Bytes_uint16(gtNodeProvisioningList[gucProcessingDSK].NodeID);
+            ltTxAAD.HomeID            = Swap_Bytes_uint32(gulZWaveHomeID);
+            ltTxAAD.MessageLength     = Swap_Bytes_uint16(lucFrameLength);
+            ltTxAAD.SequenceNumber    = lucSendDataBuffer[2];
+            ltTxAAD.ExtensionOptions  = lucSendDataBuffer[3];
+            uint8_t lucTxAADLength    = 12;
+
+            // (AES-CCM encrypt: ciphertext -> [4], tag -> [4+6])
+            int liEncryptKEXReportResult;
+            liAesInitResult   = wc_AesInit(&aes, NULL, INVALID_DEVID);
+            liAesSetKeyResult = wc_AesCcmSetKey(&aes, gucTemporarySymmetricKey, 16);
+            liEncryptKEXReportResult = wc_AesCcmEncrypt(&aes,
+                    &lucSendDataBuffer[lucHeaderLength],                           // out: ciphertext
+                    gucKEXReport, lucKEXReportLength,                              // in:  plaintext
+                    gtTemporarySPAN.Nonce, 13,                                     // 13-byte CCM nonce
+                    &lucSendDataBuffer[lucHeaderLength + lucKEXReportLength],      // out: auth tag
+                    AUTH_TAG_LENGTH,
+                    (const byte *)&ltTxAAD, lucTxAADLength);
+            wc_AesFree(&aes);
+            if (liAesInitResult || liAesSetKeyResult || liEncryptKEXReportResult)
+              LOG("%s: *** WARNING *** KEX Report encrypt failed (%d/%d/%d) \r\n", __FUNCTION__,
+                  liAesInitResult, liAesSetKeyResult, liEncryptKEXReportResult);
+
+            LOG("%s: Encrypted KEX Report frame \r\n", __FUNCTION__);
+            PrintBytes(lucSendDataBuffer, lucFrameLength, false, 0);
+
+            // (Transmit the encrypted KEX Report)
+            #if ENABLE_ZWAVE_CONTROLLER_HOST
+            ZWave_Send_REQ_CMD_13_Send_Data(gtNodeProvisioningList[gucProcessingDSK].NodeID, lucFrameLength, lucSendDataBuffer, TRANSMIT_OPTION_ACK, gucSessionID);
+            #endif
+
+
 
             // Set state to NETWORK_KEY_GET
             LOG("%s: Transitioning DSK %d Bootstrap state from TEMP_NONCE_SET to NETWORK_KEY_GET\r\n", __FUNCTION__, gucProcessingDSK);
@@ -6526,15 +6601,35 @@ void ZWave_Rx_CC_9F_Security_2_V2(void)
     {
       LOG("%s: - S0 Secure legacy devices supported \r\n", __FUNCTION__);
     }
+
     //////////////////////////////////////////////////////////
     //// MAB 2026.01.19
     //// If this is a freshly included node, save requested keys
-    if (gucProcessingDSK <= NODE_PROVISIONING_LIST_COUNT && SMARTSTART_BOOTSTRAP == gtNodeProvisioningList[gucProcessingDSK].status)
+    if (gucProcessingDSK < NODE_PROVISIONING_LIST_COUNT                         &&
+        SMARTSTART_BOOTSTRAP == gtNodeProvisioningList[gucProcessingDSK].status &&
+        (BOOTSTRAP_KEX==geBootstrapState)                                          )
     {
       LOG("%s: Saving requested keys for DSK %d \r\n", __FUNCTION__, gucProcessingDSK);
       gtNodeProvisioningList[gucProcessingDSK].requested_keys = pgucCCBuffer[5];
     }
     //////////////////////////////////////////////////////////
+
+    //////////////////////////////////////////////////////////
+    //// MAB 2026.09.24
+    //// If this is the KEX Report from the joining node,
+    //// save the KEX Report so the controller can respond
+    //// to the KEX Set with the same KEX Report, Echo bit set,
+    //// encrypted
+    if ( (gucProcessingDSK < NODE_PROVISIONING_LIST_COUNT)               &&
+          0==(pgucCCBuffer[2] & KEX_REPORT_PROPERTIES1_ECHO_BIT_MASK_V2) &&
+          (BOOTSTRAP_KEX==geBootstrapState)                                 )
+    {
+      LOG("%s: Saving end node's KEX Report for later use... \r\n", __FUNCTION__);
+      memcpy(gucKEXReport, pgucCCBuffer, sizeof(gucKEXReport));
+      PrintBytes(gucKEXReport, sizeof(gucKEXReport), false, 0);
+    }
+    //////////////////////////////////////////////////////////
+
     // Put out a warning if no S2 levels are supported
     gucIsS2Supported = TRUE;
     if ( 0 == pgucCCBuffer[5] & (SECURITY_KEY_S2_ACCESS_BIT|SECURITY_KEY_S2_AUTHENTICATED_BIT|SECURITY_KEY_S2_UNAUTHENTICATED_BIT) )
@@ -6654,9 +6749,7 @@ void ZWave_Rx_CC_9F_Security_2_V2(void)
     LOG("%s: ECDH Public key (1st 16 bytes: DSK with some bytes possibly obfuscated with 0x00)... \r\n", __FUNCTION__);
     PrintBytes(&pgucCCBuffer[3], 32, false, 0);
 
-    ////////////////////////////////////////////////
-    //// MAB 2026.01.02
-    //// Try to detect DSK in node provisioning list
+    // Try to detect DSK in node provisioning list
     uint8_t lucDetectedDSKIndex;
     #define SCAN_FOR_DSK_INCOMPLETE_MATCH_ACCEPTABLE (FALSE)
     #define SCAN_FOR_DSK_FULL_MATCH_REQUIRED (TRUE)
@@ -6669,7 +6762,6 @@ void ZWave_Rx_CC_9F_Security_2_V2(void)
       memcpy(&gtNodeProvisioningList[lucDetectedDSKIndex].ECDHPublicKey[16], &pgucCCBuffer[3+DSK_LENGTH_BYTES],               DSK_LENGTH_BYTES);
       PrintBytes(gtNodeProvisioningList[lucDetectedDSKIndex].ECDHPublicKey, 32, false, 0);
     }
-    ////////////////////////////////////////////////
 
   }
 
@@ -6749,6 +6841,10 @@ uint8_t ZWave_Scan_ProvisioningList_For_DSK(uint8_t* paucDSKBuffer, uint8_t aucN
       lucReturnValue = lucDSKIndex;
       break;  // Quit searching for a matching DSK
     }
+  }
+  if (DSK_UNAVAILABLE == lucReturnValue)
+  {
+    LOG("%s: *** WARNING *** DSK not found in provisioning list \r\n", __FUNCTION__);
   }
 
   return lucReturnValue;
@@ -7774,7 +7870,7 @@ SmartStartState ZWave_SmartStart_StateMachine(SmartStartStateMachineCommand stat
     lulElapsedTime_sec = 0;
 
     // Initialize subordinate state machines
-    ZWave_Bootstrap_StateMachine(BOOTSTRAP_SM_CMD_INITIALIZE);
+    geBootstrapState = ZWave_Bootstrap_StateMachine(BOOTSTRAP_SM_CMD_INITIALIZE);
 
     // Set state to EMPTY
     LOG("%s: Transitioning from initialization to EMPTY\r\n", __FUNCTION__);
@@ -7917,7 +8013,7 @@ SmartStartState ZWave_SmartStart_StateMachine(SmartStartStateMachineCommand stat
         lulElapsedTime_Bootstrap_msec = 0;
         gucIsBootstrapFailed   = FALSE;
         gucIsBootstrapFinished = FALSE;
-        ZWave_Bootstrap_StateMachine(BOOTSTRAP_SM_CMD_INITIALIZE);
+        geBootstrapState = ZWave_Bootstrap_StateMachine(BOOTSTRAP_SM_CMD_INITIALIZE);
         LOG("%s: Transitioning DSK %d from INCLUSION to BOOTSTRAP\r\n", __FUNCTION__, gucProcessingDSK);
         leSmartStartState                               = SMARTSTART_BOOTSTRAP;
         gtNodeProvisioningList[gucProcessingDSK].status = SMARTSTART_BOOTSTRAP;
@@ -7960,7 +8056,7 @@ SmartStartState ZWave_SmartStart_StateMachine(SmartStartStateMachineCommand stat
       lulElapsedTime_Bootstrap_msec += ZWAVE_TASK_PERIOD;
 
       // Run Bootstrap state machine
-      ZWave_Bootstrap_StateMachine(BOOTSTRAP_SM_CMD_RUN);
+      geBootstrapState = ZWave_Bootstrap_StateMachine(BOOTSTRAP_SM_CMD_RUN);
 
       // IF S2 bootstrap failed OR timed out
       if ( gucIsBootstrapFailed || lulElapsedTime_Bootstrap_msec > BOOTSTRAP_TIMEOUT_MSEC)
@@ -9164,12 +9260,12 @@ void ZWaveTask(void *argument)
   //////////////////////////////////////////////////////////////////////////////
   // Initialize Z-Wave SerialAPI state machine
   //////////////////////////////////////////////////////////////////////////////
-  ZWave_SerialAPI_StateMachine(ZWAVE_SM_CMD_INITIALIZE);
+  geZWaveState = ZWave_SerialAPI_StateMachine(ZWAVE_SM_CMD_INITIALIZE);
 
   //////////////////////////////////////////////////////////////////////////////
   // Initialize Z-Wave SmartStart state machine
   //////////////////////////////////////////////////////////////////////////////
-  ZWave_SmartStart_StateMachine(SMARTSTART_SM_CMD_INITIALIZE);
+  geSmartStartState = ZWave_SmartStart_StateMachine(SMARTSTART_SM_CMD_INITIALIZE);
 
   //////////////////////////////////////////////
   // Reset the EFR32ZG23 Z-Wave controller
@@ -9355,7 +9451,7 @@ void ZWaveTask(void *argument)
     // Run the Z-Wave state machine
     //
     //////////////////////////////////////////////
-    ZWave_SerialAPI_StateMachine(ZWAVE_SM_CMD_RUN);
+    geZWaveState = ZWave_SerialAPI_StateMachine(ZWAVE_SM_CMD_RUN);
 
     //////////////////////////////////////////////
     //
@@ -9364,7 +9460,7 @@ void ZWaveTask(void *argument)
     //////////////////////////////////////////////
     if (ZWave_DSK_IsProcessing())
     {
-      ZWave_SmartStart_StateMachine(SMARTSTART_SM_CMD_RUN);
+      geSmartStartState = ZWave_SmartStart_StateMachine(SMARTSTART_SM_CMD_RUN);
     }
 
 //    ////////////////////////////////////////////////////////////////////////

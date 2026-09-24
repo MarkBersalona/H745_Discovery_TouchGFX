@@ -390,7 +390,7 @@ typedef enum
   BOOTSTRAP_NETWORK_VERIFY_SPAN,    // waiting for Nonce Report
   BOOTSTRAP_NETWORK_KEY_DONE,       // waiting for Transfer End
   BOOTSTRAP_COMPLETE,               // S2 Bootstrap completed successfully
-  BOOTSTRAP_ERROR,                  // S2 Boot strap failed or timed out
+  BOOTSTRAP_ERROR,                  // S2 Bootstrap failed or timed out
 } BootstrapState;
 
 
