@@ -458,6 +458,12 @@ uint8_t gucReceivedAuthTagLength;
 aad_t gtTemporaryAAD;
 uint8_t gucTemporaryAADLength;
 
+// Z-Wave Nntwork keys for the controller
+uint8_t gucS2AccessKey[16];
+uint8_t gucS2AuthenticatedKey[16];
+uint8_t gucS2UnauthenticatedKey[16];
+uint8_t gucS0LegacyKey[16];
+
 
 
 
@@ -2209,6 +2215,12 @@ ZWave_Bootstrap_StateMachine
         ENDIF
       ENDIF
     ELSE IF state is NETWORK_KEY_GET
+      IF encrypted message received
+        Generate NextNonce
+        Decrypt received message
+        IF successfully decrypted Network Key Get
+        ENDIF
+      ENDIF
     ELSE IF state is NETWORK_NONCE_GET
     ELSE IF state is NETWORK_VERIFY
     ELSE IF state is NETWORK_VERIFY_SPAN
@@ -2241,9 +2253,12 @@ BootstrapState ZWave_Bootstrap_StateMachine(BootstrapStateMachineCommand stateMa
   static int liAesInitResult;
   static int liAesSetKeyResult;
   static uint8_t lucKexSet[16];
+  static uint8_t lucNetworkKeyGet[3];
   static Aes aes;
   static int liDecryptKEXSetResult;
   static int liDecryptKEXSetSuccessful;
+  static int liDecryptNetworkKeyGetResult;
+  static int liDecryptNetworkKeyGetSuccessful;
 
 
 
@@ -2584,9 +2599,7 @@ BootstrapState ZWave_Bootstrap_StateMachine(BootstrapStateMachineCommand stateMa
             // Reset elapsed time for next state
             lulElapsedTime_sec = 0;
 
-            //////////////////////////////////////////
             // Send encrypted identical KEX Report
-            //////////////////////////////////////////
             LOG("%s: Send encrypted identical KEX Report \r\n", __FUNCTION__);
 
             // (Need the KEX report received from end node; set Echo bit)
@@ -2599,7 +2612,7 @@ BootstrapState ZWave_Bootstrap_StateMachine(BootstrapStateMachineCommand stateMa
             gtZWave_CC_Handler[pgucCCBuffer[0]]();
             LOG("-----------------------  Original KEX Report with Echo  END  -----------------------\r\n");
 
-            // (*** Encrypt the KEX Report ***)
+            // (Prep the frame header and update session ID)
             gucSessionID = ZWave_SessionID_Update(gucSessionID);
             memset(lucSendDataBuffer, 0x00, sizeof(lucSendDataBuffer));
             lucSendDataBuffer[0] = COMMAND_CLASS_SECURITY_2_V2;
@@ -2640,8 +2653,10 @@ BootstrapState ZWave_Bootstrap_StateMachine(BootstrapStateMachineCommand stateMa
                     (const byte *)&ltTxAAD, lucTxAADLength);
             wc_AesFree(&aes);
             if (liAesInitResult || liAesSetKeyResult || liEncryptKEXReportResult)
+            {
               LOG("%s: *** WARNING *** KEX Report encrypt failed (%d/%d/%d) \r\n", __FUNCTION__,
                   liAesInitResult, liAesSetKeyResult, liEncryptKEXReportResult);
+            }
 
             LOG("%s: Encrypted KEX Report frame \r\n", __FUNCTION__);
             PrintBytes(lucSendDataBuffer, lucFrameLength, false, 0);
@@ -2678,14 +2693,6 @@ BootstrapState ZWave_Bootstrap_StateMachine(BootstrapStateMachineCommand stateMa
           gucIsNonceGetReceived = TRUE; // Don't wait for a Nonce Get, send new REI in a Nonce Report immediately
           LOG("%s: Transitioning DSK %d Bootstrap state from TEMP_NONCE_SET to TEMP_NONCE_GET\r\n", __FUNCTION__, gucProcessingDSK);
           leBootstrapState = BOOTSTRAP_TEMP_NONCE_GET;
-
-//          /////////////////////////////////////////////////////////////////////////////////////////////////////////////
-//          //// TEST MAB 2026.02.20
-//          //// For illustration only: go to NETWORK_KEY_GET just so I can see what it looks like
-//          // Set state to NETWORK_KEY_GET
-//          LOG("%s: Transitioning DSK %d Bootstrap state from TEMP_NONCE_SET to NETWORK_KEY_GET\r\n", __FUNCTION__, gucProcessingDSK);
-//          leBootstrapState = BOOTSTRAP_NETWORK_KEY_GET;
-//          /////////////////////////////////////////////////////////////////////////////////////////////////////////////
         }
         // ENDIF
 
@@ -2697,6 +2704,90 @@ BootstrapState ZWave_Bootstrap_StateMachine(BootstrapStateMachineCommand stateMa
     // ELSE IF state is NETWORK_KEY_GET
     else if (BOOTSTRAP_NETWORK_KEY_GET == leBootstrapState)
     {
+      // IF encrypted message received
+      if (gucIsEncryptedMsgReceived)
+      {
+        // (reset so subsequent retries from end node may be processed also)
+        gucIsEncryptedMsgReceived = FALSE;
+
+        // Generate NextNonce
+        liNextNonceResult = CTR_DRBG_Generate_16_Random_Bytes(&gtTemporarySPAN, gtTemporarySPAN.Nonce);
+        if (0 != liNextNonceResult) LOG("%s: *** WARNING *** liNextNonceResult = %d \r\n", __FUNCTION__, liNextNonceResult);
+        LOG("%s: FULL 16-bytes of gtTemporarySPAN.Nonce \r\n", __FUNCTION__);
+        PrintBytes(gtTemporarySPAN.Nonce, 16, false, 0);
+
+        // Decrypt received message
+        liAesInitResult = wc_AesInit(&aes, NULL, INVALID_DEVID);
+        if (0!=liAesInitResult) LOG("%s: *** WARNING *** liAesInitResult = %d \r\n", __FUNCTION__, liAesInitResult);
+        liAesSetKeyResult = wc_AesCcmSetKey(&aes, gucTemporarySymmetricKey, 16);
+        if (0!=liAesSetKeyResult) LOG("%s: *** WARNING *** liAesSetKeyResult = %d \r\n", __FUNCTION__, liAesSetKeyResult);
+        LOG("%s: gucReceivedCiphertext \r\n", __FUNCTION__);
+        PrintBytes(gucReceivedCiphertext, gucReceivedCiphertextLength, false, 0);
+        LOG("%s: gucReceivedCiphertextLength = 0x%02X \r\n", __FUNCTION__, gucReceivedCiphertextLength);
+        LOG("%s: gtTemporarySPAN.Nonce \r\n", __FUNCTION__);
+        PrintBytes(gtTemporarySPAN.Nonce, 13, false, 0);
+        LOG("%s: gucReceivedAuthTag \r\n", __FUNCTION__);
+        PrintBytes(gucReceivedAuthTag, gucReceivedAuthTagLength, false, 0);
+        LOG("%s: gucReceivedAuthTagLength    = 0x%02X \r\n", __FUNCTION__, gucReceivedAuthTagLength);
+        LOG("%s: gtTemporaryAAD \r\n", __FUNCTION__);
+        PrintBytes((uint8_t *)&gtTemporaryAAD, gucTemporaryAADLength, false, 0);
+        LOG("%s: gucTemporaryAADLength       = 0x%02X \r\n", __FUNCTION__, gucTemporaryAADLength);
+        memset(lucNetworkKeyGet, 0x00, sizeof(lucNetworkKeyGet));
+        if (gucReceivedCiphertextLength == sizeof(lucNetworkKeyGet))
+        {
+          liDecryptNetworkKeyGetResult = wc_AesCcmDecrypt(&aes,
+                                                          lucNetworkKeyGet,
+                                                          gucReceivedCiphertext, gucReceivedCiphertextLength,
+                                                          gtTemporarySPAN.Nonce, 13,
+                                                          gucReceivedAuthTag, gucReceivedAuthTagLength,
+                                                          (const byte *)&gtTemporaryAAD, gucTemporaryAADLength);
+          if (0!=liDecryptNetworkKeyGetResult) LOG("%s: *** WARNING *** liDecryptNetworkKeyGetResult = %d \r\n", __FUNCTION__, liDecryptNetworkKeyGetResult);
+          LOG("%s: Decrypted received Network Key Get (9F 09... I hope; all 00 if failed): \r\n", __FUNCTION__);
+          PrintBytes(lucNetworkKeyGet, gucReceivedCiphertextLength, false, 0);
+        }
+        else
+        {
+          LOG("%s: *** WARNING *** gucReceivedCiphertextLength = %d, not %d: skip decryption, it's already bad \r\n",
+              gucReceivedCiphertextLength, sizeof(lucNetworkKeyGet));
+          liDecryptNetworkKeyGetResult = FALSE;
+        }
+        wc_AesFree(&aes);
+
+        // IF successfully decrypted Network Key Get
+        liDecryptNetworkKeyGetSuccessful = !liAesInitResult && !liAesSetKeyResult && !liDecryptNetworkKeyGetResult;
+        if (liDecryptNetworkKeyGetSuccessful)
+        {
+          LOG("-----------------------  Network Key Get START -----------------------\r\n");
+          // Invoke the command class handler
+          pgucCCBuffer = lucNetworkKeyGet;
+          gucCCBufferLength = gucReceivedCiphertextLength;
+          gtZWave_CC_Handler[pgucCCBuffer[0]]();
+          LOG("-----------------------  Network Key Get  END  -----------------------\r\n");
+
+          // Detect the requested key
+          uint8_t lucRequestedKeyType = lucNetworkKeyGet[2];
+          switch (lucRequestedKeyType)
+          {
+          case SECURITY_KEY_S2_ACCESS_BIT:
+            LOG("%s: S2 Access Control key requested \r\n", __FUNCTION__);
+            break;
+          case SECURITY_KEY_S2_AUTHENTICATED_BIT:
+            LOG("%s: S2 Authenticated key requested \r\n", __FUNCTION__);
+            break;
+          case SECURITY_KEY_S2_UNAUTHENTICATED_BIT:
+            LOG("%s: S2 Unauthenticated key requested \r\n", __FUNCTION__);
+            break;
+          case SECURITY_KEY_S0_BIT:
+            LOG("%s: S0 Legacy key requested \r\n", __FUNCTION__);
+            break;
+          default:
+            LOG("%s: *** WARNING *** unknown key requested \r\n", __FUNCTION__);
+            break;
+          }
+        }
+        // endif
+      }
+      // ENDIF
     }
 
     //-------------------------------------------------------
@@ -6501,6 +6592,17 @@ void ZWave_Rx_CC_9F_Security_2_V2(void)
 
     uint8_t lucCCMOffset = 4 + lucExtensionOffset;
     LOG("%s: CCM Ciphertext... \r\n", __FUNCTION__);
+    /////////////////////////////////////////////////////////////////////////////////
+    //// TEST MAB 2026.09.25
+    //// Per Claude suggestion, check against truncated received
+    if ( gucCCBufferLength < (lucCCMOffset + AUTH_TAG_LENGTH) )
+    {
+      LOG("%s: *** WARNING *** truncated received data detected \r\n", __FUNCTION__);
+      // This effectively will set received ciphertext length to 1,
+      // so decryption should fail later
+      gucCCBufferLength = lucCCMOffset + AUTH_TAG_LENGTH + 1;
+    }
+    /////////////////////////////////////////////////////////////////////////////////
     gucReceivedCiphertextLength = gucCCBufferLength - lucCCMOffset - AUTH_TAG_LENGTH;
     memset(gucReceivedCiphertext, 0x00, sizeof(gucReceivedCiphertext));
     memcpy(gucReceivedCiphertext, &pgucCCBuffer[lucCCMOffset], gucReceivedCiphertextLength);
@@ -6519,8 +6621,10 @@ void ZWave_Rx_CC_9F_Security_2_V2(void)
     // TEST MAB 2026.02.20
     // Construct the TEMPORARY Additional Authenticated Data (AAD)
     // only when Bootstrap state is TEMP_NONCE_SET
+    // TEST MAB 2026.09.25
+    // Claude recommends eliminating the state check
     //
-    if (BOOTSTRAP_TEMP_NONCE_SET == geBootstrapState)
+    //// TEST MAB 2026.09.25 if (BOOTSTRAP_TEMP_NONCE_SET == geBootstrapState)
     {
       //////////////////////////////////////////////////////////
       // Construct TEMPORARY Additional Authenticated Data (AAD)
@@ -6763,6 +6867,29 @@ void ZWave_Rx_CC_9F_Security_2_V2(void)
       PrintBytes(gtNodeProvisioningList[lucDetectedDSKIndex].ECDHPublicKey, 32, false, 0);
     }
 
+  }
+
+
+  //  ------------------- SECURITY_2_NETWORK_KEY_GET_V2 -----------------------------------------
+  else if (SECURITY_2_NETWORK_KEY_GET_V2 == pgucCCBuffer[1])
+  {
+    LOG("%s: Requested key   = 0x%02X \r\n", __FUNCTION__, pgucCCBuffer[2]);
+    if (pgucCCBuffer[2] & SECURITY_KEY_S2_ACCESS_BIT)
+    {
+      LOG("%s: - S2 Access Control Class \r\n", __FUNCTION__);
+    }
+    if (pgucCCBuffer[2] & SECURITY_KEY_S2_AUTHENTICATED_BIT)
+    {
+      LOG("%s: - S2 Authenticated Class \r\n", __FUNCTION__);
+    }
+    if (pgucCCBuffer[2] & SECURITY_KEY_S2_UNAUTHENTICATED_BIT)
+    {
+      LOG("%s: - S2 Unauthenticated Class \r\n", __FUNCTION__);
+    }
+    if (pgucCCBuffer[2] & SECURITY_KEY_S0_BIT)
+    {
+      LOG("%s: - S0 Secure legacy devices \r\n", __FUNCTION__);
+    }
   }
 
   //  ------------------- No further parsing detail implemented -----------------------------------------
@@ -9378,6 +9505,40 @@ void ZWaveTask(void *argument)
 //  while (luiNodeID);
 //  LOG("%s: %d active NodeIDs detected \r\n", __FUNCTION__, luiActiveNodeIDCount);
 //  ///////////////////////////////////////////////////////////////////////////////////////////////////////
+
+  //////////////////////////////////////////////
+  // Initialize the controller's network keys
+  //////////////////////////////////////////////
+  // First, zeroize the keys
+  memset(gucS2AccessKey,          0x00, sizeof(gucS2AccessKey));
+  memset(gucS2AuthenticatedKey,   0x00, sizeof(gucS2AuthenticatedKey));
+  memset(gucS2UnauthenticatedKey, 0x00, sizeof(gucS2UnauthenticatedKey));
+  memset(gucS0LegacyKey,          0x00, sizeof(gucS0LegacyKey));
+  // For production, read keys from flash storage
+  // For the prototype, fill in demo keys
+  #define S2_ACCESS_KEY          "S2 Access   demo"
+  #define S2_AUTHENTICATED_KEY   "S2 Authentc demo"
+  #define S2_UNAUTHENTICATED_KEY "S2 Unauth   demo"
+  #define S0_LEGACY_KEY          "S0 Legacy   demo"
+  memcpy(gucS2AccessKey,          S2_ACCESS_KEY,          sizeof(gucS2AccessKey));
+  memcpy(gucS2AuthenticatedKey,   S2_AUTHENTICATED_KEY,   sizeof(gucS2AuthenticatedKey));
+  memcpy(gucS2UnauthenticatedKey, S2_UNAUTHENTICATED_KEY, sizeof(gucS2UnauthenticatedKey));
+  memcpy(gucS0LegacyKey,          S0_LEGACY_KEY,          sizeof(gucS0LegacyKey));
+  // Debug print the keys
+  // WARNING - Do NOT debug print the keys for production!!!
+  LOG("%s: =====================================================================================\r\n");
+  LOG("%s: ----- S2 Access Control key -----\r\n", __FUNCTION__);
+  PrintBytes(gucS2AccessKey, 16, FALSE, 0);
+  LOG("%s: ----- S2 Authenticated key -----\r\n", __FUNCTION__);
+  PrintBytes(gucS2AuthenticatedKey, 16, FALSE, 0);
+  LOG("%s: ----- S2 Unauthenticated key -----\r\n", __FUNCTION__);
+  PrintBytes(gucS2UnauthenticatedKey, 16, FALSE, 0);
+  LOG("%s: ----- S0 Legacy key -----\r\n", __FUNCTION__);
+  PrintBytes(gucS0LegacyKey, 16, FALSE, 0);
+  LOG("%s: =====================================================================================\r\n");
+
+
+
 
   /* Infinite loop */
   for(;;)
