@@ -458,7 +458,7 @@ uint8_t gucReceivedAuthTagLength;
 aad_t gtTemporaryAAD;
 uint8_t gucTemporaryAADLength;
 
-// Z-Wave Nntwork keys for the controller
+// Z-Wave Network keys for the controller
 uint8_t gucS2AccessKey[16];
 uint8_t gucS2AuthenticatedKey[16];
 uint8_t gucS2UnauthenticatedKey[16];
@@ -2219,9 +2219,17 @@ ZWave_Bootstrap_StateMachine
         Generate NextNonce
         Decrypt received message
         IF successfully decrypted Network Key Get
+          Reset elapsed time for next state
+          Send encrypted Network Key Report with requested key
+          Set state to NETWORK_NONCE_GET
         ENDIF
       ENDIF
     ELSE IF state is NETWORK_NONCE_GET
+      IF Nonce Get is received
+        Reset elapsed time for next state
+        Send Nonce Report, with REI
+        Set state to NETWORK_VERIFY
+      ENDIF
     ELSE IF state is NETWORK_VERIFY
     ELSE IF state is NETWORK_VERIFY_SPAN
     ELSE IF state is NETWORK_KEY_DONE
@@ -2254,11 +2262,18 @@ BootstrapState ZWave_Bootstrap_StateMachine(BootstrapStateMachineCommand stateMa
   static int liAesSetKeyResult;
   static uint8_t lucKexSet[16];
   static uint8_t lucNetworkKeyGet[3];
+  static uint8_t lucNetworkKeyReport[19];
   static Aes aes;
   static int liDecryptKEXSetResult;
   static int liDecryptKEXSetSuccessful;
   static int liDecryptNetworkKeyGetResult;
   static int liDecryptNetworkKeyGetSuccessful;
+  static uint8_t lucHeaderLength;
+  static uint8_t lucFrameLength;
+  static aad_t ltTxAAD;
+  static uint8_t lucTxAADLength;
+  static int liWolfSSLRngReturn;
+
 
 
 
@@ -2500,7 +2515,7 @@ BootstrapState ZWave_Bootstrap_StateMachine(BootstrapStateMachineCommand stateMa
         //   wc_InitRng() is a blocking operation, so use it sparingly
         //   see https://www.wolfssl.com/documentation/manuals/wolfssl/group__Random.html#function-wc_initrng
         LOG("%s: - generating 16 bytes of random data as Receiver's Entropy Input (REI) \r\n", __FUNCTION__);
-        int liWolfSSLRngReturn = wc_InitRng(&gtWolfSSLRng);
+        liWolfSSLRngReturn = wc_InitRng(&gtWolfSSLRng);
         if (liWolfSSLRngReturn) LOG("%s: *** WARNING *** wc_InitRng() return value was %d \r\n", __FUNCTION__, liWolfSSLRngReturn);
         //liWolfSSLRngReturn = wc_RNG_GenerateBlock(&gtWolfSSLRng, gtNodeProvisioningList[gucProcessingDSK].REI, 16);
         liWolfSSLRngReturn = wc_RNG_GenerateBlock(&gtWolfSSLRng, gucTemporaryREI, 16);
@@ -2620,8 +2635,8 @@ BootstrapState ZWave_Bootstrap_StateMachine(BootstrapStateMachineCommand stateMa
             lucSendDataBuffer[2] = gucSessionID;
             lucSendDataBuffer[3] = 0; // no non-encrypted nor encrypted extensions
             const uint8_t lucKEXReportLength = sizeof(gucKEXReport);
-            const uint8_t lucHeaderLength = 4; // 9F 03 ID 00
-            const uint8_t lucFrameLength = lucKEXReportLength + lucHeaderLength + AUTH_TAG_LENGTH;
+            lucHeaderLength = 4; // 9F 03 ID 00
+            lucFrameLength = lucKEXReportLength + lucHeaderLength + AUTH_TAG_LENGTH;
 
             // (Generate NextNonce)
             liNextNonceResult = CTR_DRBG_Generate_16_Random_Bytes(&gtTemporarySPAN, gtTemporarySPAN.Nonce);
@@ -2630,7 +2645,6 @@ BootstrapState ZWave_Bootstrap_StateMachine(BootstrapStateMachineCommand stateMa
             PrintBytes(gtTemporarySPAN.Nonce, 16, false, 0);
 
             // (AAD for the OUTGOING frame)
-            aad_t ltTxAAD;
             memset(&ltTxAAD, 0x00, sizeof(ltTxAAD));
             ltTxAAD.SenderNodeID      = Swap_Bytes_uint16(guiDestinationNodeID);  // us (dest of KEX Set)
             ltTxAAD.DestinationNodeID = Swap_Bytes_uint16(gtNodeProvisioningList[gucProcessingDSK].NodeID);
@@ -2638,7 +2652,7 @@ BootstrapState ZWave_Bootstrap_StateMachine(BootstrapStateMachineCommand stateMa
             ltTxAAD.MessageLength     = Swap_Bytes_uint16(lucFrameLength);
             ltTxAAD.SequenceNumber    = lucSendDataBuffer[2];
             ltTxAAD.ExtensionOptions  = lucSendDataBuffer[3];
-            uint8_t lucTxAADLength    = 12;
+            lucTxAADLength    = 12;
 
             // (AES-CCM encrypt: ciphertext -> [4], tag -> [4+6])
             int liEncryptKEXReportResult;
@@ -2652,6 +2666,7 @@ BootstrapState ZWave_Bootstrap_StateMachine(BootstrapStateMachineCommand stateMa
                     AUTH_TAG_LENGTH,
                     (const byte *)&ltTxAAD, lucTxAADLength);
             wc_AesFree(&aes);
+
             if (liAesInitResult || liAesSetKeyResult || liEncryptKEXReportResult)
             {
               LOG("%s: *** WARNING *** KEX Report encrypt failed (%d/%d/%d) \r\n", __FUNCTION__,
@@ -2757,6 +2772,9 @@ BootstrapState ZWave_Bootstrap_StateMachine(BootstrapStateMachineCommand stateMa
         liDecryptNetworkKeyGetSuccessful = !liAesInitResult && !liAesSetKeyResult && !liDecryptNetworkKeyGetResult;
         if (liDecryptNetworkKeyGetSuccessful)
         {
+          // Reset elapsed time for next state
+          lulElapsedTime_sec = 0;
+
           LOG("-----------------------  Network Key Get START -----------------------\r\n");
           // Invoke the command class handler
           pgucCCBuffer = lucNetworkKeyGet;
@@ -2764,28 +2782,111 @@ BootstrapState ZWave_Bootstrap_StateMachine(BootstrapStateMachineCommand stateMa
           gtZWave_CC_Handler[pgucCCBuffer[0]]();
           LOG("-----------------------  Network Key Get  END  -----------------------\r\n");
 
-          // Detect the requested key
+          // Send encrypted Network Key Report with requested key
+          LOG("%s: Send encrypted  Network Key Report with requested key \r\n", __FUNCTION__);
+
+          // (Prep the frame header and update session ID)
+          gucSessionID = ZWave_SessionID_Update(gucSessionID);
+          memset(lucSendDataBuffer, 0x00, sizeof(lucSendDataBuffer));
+          lucSendDataBuffer[0] = COMMAND_CLASS_SECURITY_2_V2;
+          lucSendDataBuffer[1] = SECURITY_2_MESSAGE_ENCAPSULATION_V2;
+          lucSendDataBuffer[2] = gucSessionID;
+          lucSendDataBuffer[3] = 0; // no non-encrypted nor encrypted extensions
+          const uint8_t lucNetworkKeyReportLength = sizeof(lucNetworkKeyReport);
+          lucHeaderLength = 4; // 9F 03 ID 00
+          lucFrameLength = lucNetworkKeyReportLength + lucHeaderLength + AUTH_TAG_LENGTH;
+
+          // (Prep the Network Key Report)
+          lucNetworkKeyReport[0] = COMMAND_CLASS_SECURITY_2_V2;
+          lucNetworkKeyReport[1] = SECURITY_2_NETWORK_KEY_REPORT_V2;
+          lucNetworkKeyReport[2] = lucNetworkKeyGet[2];
+          memset(&lucNetworkKeyReport[3], 0x00, 16); // zeroize key area first
+
+          // (Detect the requested key)
           uint8_t lucRequestedKeyType = lucNetworkKeyGet[2];
+          ///////////////////////////////////////////////////////////////////////
+          //// TEST MAB 2026.09.25
+          //// Sanity check: requested key should match the granted key in KEX
+          if (lucRequestedKeyType != gtNodeProvisioningList[gucProcessingDSK].granted_keys)
+          {
+            LOG("%s: *** WARNING *** Requested key does NOT match the granted key; don't send any key \r\n");
+            lucRequestedKeyType = 0;
+          }
+          ///////////////////////////////////////////////////////////////////////
           switch (lucRequestedKeyType)
           {
           case SECURITY_KEY_S2_ACCESS_BIT:
             LOG("%s: S2 Access Control key requested \r\n", __FUNCTION__);
+            memcpy(&lucNetworkKeyReport[3], gucS2AccessKey, 16);
             break;
           case SECURITY_KEY_S2_AUTHENTICATED_BIT:
             LOG("%s: S2 Authenticated key requested \r\n", __FUNCTION__);
+            memcpy(&lucNetworkKeyReport[3], gucS2AuthenticatedKey, 16);
             break;
           case SECURITY_KEY_S2_UNAUTHENTICATED_BIT:
             LOG("%s: S2 Unauthenticated key requested \r\n", __FUNCTION__);
-            break;
+            memcpy(&lucNetworkKeyReport[3], gucS2UnauthenticatedKey, 16);
+           break;
           case SECURITY_KEY_S0_BIT:
             LOG("%s: S0 Legacy key requested \r\n", __FUNCTION__);
+            memcpy(&lucNetworkKeyReport[3], gucS0LegacyKey, 16);
             break;
           default:
             LOG("%s: *** WARNING *** unknown key requested \r\n", __FUNCTION__);
             break;
+          } // end switch
+          LOG("%s: Plaintext Network Key Report \r\n", __FUNCTION__);
+          PrintBytes(lucNetworkKeyReport, sizeof(lucNetworkKeyReport), false, 0);
+
+          // (Generate NextNonce)
+          liNextNonceResult = CTR_DRBG_Generate_16_Random_Bytes(&gtTemporarySPAN, gtTemporarySPAN.Nonce);
+          if (0 != liNextNonceResult) LOG("%s: *** WARNING *** liNextNonceResult = %d \r\n", __FUNCTION__, liNextNonceResult);
+          LOG("%s: FULL 16-bytes of gtTemporarySPAN.Nonce \r\n", __FUNCTION__);
+          PrintBytes(gtTemporarySPAN.Nonce, 16, false, 0);
+
+          // (AAD for the OUTGOING frame)
+          memset(&ltTxAAD, 0x00, sizeof(ltTxAAD));
+          ltTxAAD.SenderNodeID      = Swap_Bytes_uint16(guiDestinationNodeID);  // us (dest of KEX Set)
+          ltTxAAD.DestinationNodeID = Swap_Bytes_uint16(gtNodeProvisioningList[gucProcessingDSK].NodeID);
+          ltTxAAD.HomeID            = Swap_Bytes_uint32(gulZWaveHomeID);
+          ltTxAAD.MessageLength     = Swap_Bytes_uint16(lucFrameLength);
+          ltTxAAD.SequenceNumber    = lucSendDataBuffer[2];
+          ltTxAAD.ExtensionOptions  = lucSendDataBuffer[3];
+          lucTxAADLength    = 12;
+
+          // (AES-CCM encrypt: ciphertext -> [4], tag -> [4+6])
+          int liEncryptNetworkKeyReportResult;
+          liAesInitResult   = wc_AesInit(&aes, NULL, INVALID_DEVID);
+          liAesSetKeyResult = wc_AesCcmSetKey(&aes, gucTemporarySymmetricKey, 16);
+          liEncryptNetworkKeyReportResult = wc_AesCcmEncrypt(&aes,
+                  &lucSendDataBuffer[lucHeaderLength],                              // out: ciphertext
+                  lucNetworkKeyReport, lucNetworkKeyReportLength,                   // in:  plaintext
+                  gtTemporarySPAN.Nonce, 13,                                        // 13-byte CCM nonce
+                  &lucSendDataBuffer[lucHeaderLength + lucNetworkKeyReportLength],  // out: auth tag
+                  AUTH_TAG_LENGTH,
+                  (const byte *)&ltTxAAD, lucTxAADLength);
+          wc_AesFree(&aes);
+
+          if (liAesInitResult || liAesSetKeyResult || liEncryptNetworkKeyReportResult)
+          {
+            LOG("%s: *** WARNING *** Network Key Report encrypt failed (%d/%d/%d) \r\n", __FUNCTION__,
+                liAesInitResult, liAesSetKeyResult, liEncryptNetworkKeyReportResult);
           }
+
+          LOG("%s: Encrypted Network Key Report frame \r\n", __FUNCTION__);
+          PrintBytes(lucSendDataBuffer, lucFrameLength, false, 0);
+
+          // (Transmit the encrypted Network Key Report)
+          #if ENABLE_ZWAVE_CONTROLLER_HOST
+          ZWave_Send_REQ_CMD_13_Send_Data(gtNodeProvisioningList[gucProcessingDSK].NodeID, lucFrameLength, lucSendDataBuffer, TRANSMIT_OPTION_ACK, gucSessionID);
+          #endif
+
+          // Set state to NETWORK_NONCE_GET
+          gucIsNonceGetReceived = FALSE;
+          LOG("%s: Transitioning DSK %d Bootstrap state from NETWORK_KEY_GET to NETWORK_NONCE_GET\r\n", __FUNCTION__, gucProcessingDSK);
+          leBootstrapState = BOOTSTRAP_NETWORK_NONCE_GET;
         }
-        // endif
+        // ENDIF successfully decrypted Network Key Get
       }
       // ENDIF
     }
@@ -2794,6 +2895,50 @@ BootstrapState ZWave_Bootstrap_StateMachine(BootstrapStateMachineCommand stateMa
     // ELSE IF state is NETWORK_NONCE_GET
     else if (BOOTSTRAP_NETWORK_NONCE_GET == leBootstrapState)
     {
+      // IF Nonce Get is received
+      if (gucIsNonceGetReceived)
+      {
+        // Reset elapsed time for next state
+        lulElapsedTime_sec = 0;
+
+        // Send Nonce Report, with REI
+        LOG("%s: Send Nonce Report, with REI \r\n", __FUNCTION__);
+        gucSessionID = ZWave_SessionID_Update(gucSessionID);
+        memset(lucSendDataBuffer, 0x00, sizeof(lucSendDataBuffer));
+        lucSendDataBuffer[0] = COMMAND_CLASS_SECURITY_2_V2;
+        lucSendDataBuffer[1] = SECURITY_2_NONCE_REPORT_V2;
+        lucSendDataBuffer[2] = gucSessionID;
+        lucSendDataBuffer[3] = SECURITY_2_NONCE_REPORT_PROPERTIES1_SOS_BIT_MASK_V2; // set SOS bit, so must include REI bytes
+
+        // (Generate 16 bytes of random data as Receiver's Entropy Input (REI); save it)
+        //   wc_InitRng() is a blocking operation, so use it sparingly
+        //   see https://www.wolfssl.com/documentation/manuals/wolfssl/group__Random.html#function-wc_initrng
+        LOG("%s: - generating 16 bytes of random data as Receiver's Entropy Input (REI) \r\n", __FUNCTION__);
+        liWolfSSLRngReturn = wc_InitRng(&gtWolfSSLRng);
+        if (liWolfSSLRngReturn) LOG("%s: *** WARNING *** wc_InitRng() return value was %d \r\n", __FUNCTION__, liWolfSSLRngReturn);
+        liWolfSSLRngReturn = wc_RNG_GenerateBlock(&gtWolfSSLRng, gtNodeProvisioningList[gucProcessingDSK].REI, 16);
+        //liWolfSSLRngReturn = wc_RNG_GenerateBlock(&gtWolfSSLRng, gucTemporaryREI, 16);
+        if (liWolfSSLRngReturn) LOG("%s: *** WARNING *** wc_RNG_GenerateBlock() return value was %d \r\n", __FUNCTION__, liWolfSSLRngReturn);
+        LOG("%s: - saving Receiver's Entropy Input (REI) for DSK %d \r\n", __FUNCTION__, gucProcessingDSK);
+        memcpy(&lucSendDataBuffer[4], gtNodeProvisioningList[gucProcessingDSK].REI, 16);
+        //LOG("%s: - saving Receiver's Entropy Input (REI) for TEMPORARY KEY \r\n", __FUNCTION__);
+        //memcpy(&lucSendDataBuffer[4], gucTemporaryREI, 16);
+        liWolfSSLRngReturn = wc_FreeRng(&gtWolfSSLRng);
+        if (liWolfSSLRngReturn) LOG("%s: *** WARNING *** wc_FreeRng() return value was %d \r\n", __FUNCTION__, liWolfSSLRngReturn);
+        LOG("%s: TEMP_NONCE_GET randomized Receiver's Entropy Input (REI) \r\n", __FUNCTION__);
+        PrintBytes(gtNodeProvisioningList[gucProcessingDSK].REI, 16, FALSE, 0);
+        //PrintBytes(gucTemporaryREI, 16, FALSE, 0);
+
+        #if ENABLE_ZWAVE_CONTROLLER_HOST
+        ZWave_Send_REQ_CMD_13_Send_Data(gtNodeProvisioningList[gucProcessingDSK].NodeID, 4+16, lucSendDataBuffer, TRANSMIT_OPTION_ACK, gucSessionID);
+        #endif
+
+        // Set state to NETWORK_VERIFY
+        gucIsEncryptedMsgReceived = FALSE;
+        LOG("%s: Transitioning DSK %d Bootstrap state from NETWORK_NONCE_GET to NETWORK_VERIFY\r\n", __FUNCTION__, gucProcessingDSK);
+        leBootstrapState = BOOTSTRAP_NETWORK_VERIFY;
+      }
+      // ENDIF
     }
 
     //-------------------------------------------------------
