@@ -2228,9 +2228,9 @@ ZWave_Bootstrap_StateMachine
       IF Nonce Get is received
         Reset elapsed time for next state
         Send Nonce Report, with REI
-        Set state to NETWORK_VERIFY
+        Set state to NETWORK_KEY_VERIFY
       ENDIF
-    ELSE IF state is NETWORK_VERIFY
+    ELSE IF state is NETWORK_KEY_VERIFY
     ELSE IF state is NETWORK_VERIFY_SPAN
     ELSE IF state is NETWORK_KEY_DONE
     ELSE IF state is COMPLETE
@@ -2517,11 +2517,8 @@ BootstrapState ZWave_Bootstrap_StateMachine(BootstrapStateMachineCommand stateMa
         LOG("%s: - generating 16 bytes of random data as Receiver's Entropy Input (REI) \r\n", __FUNCTION__);
         liWolfSSLRngReturn = wc_InitRng(&gtWolfSSLRng);
         if (liWolfSSLRngReturn) LOG("%s: *** WARNING *** wc_InitRng() return value was %d \r\n", __FUNCTION__, liWolfSSLRngReturn);
-        //liWolfSSLRngReturn = wc_RNG_GenerateBlock(&gtWolfSSLRng, gtNodeProvisioningList[gucProcessingDSK].REI, 16);
         liWolfSSLRngReturn = wc_RNG_GenerateBlock(&gtWolfSSLRng, gucTemporaryREI, 16);
         if (liWolfSSLRngReturn) LOG("%s: *** WARNING *** wc_RNG_GenerateBlock() return value was %d \r\n", __FUNCTION__, liWolfSSLRngReturn);
-        //LOG("%s: - saving Receiver's Entropy Input (REI) for DSK %d \r\n", __FUNCTION__, gucProcessingDSK);
-        //memcpy(&lucSendDataBuffer[4], gtNodeProvisioningList[gucProcessingDSK].REI, 16);
         LOG("%s: - saving Receiver's Entropy Input (REI) for TEMPORARY KEY \r\n", __FUNCTION__);
         memcpy(&lucSendDataBuffer[4], gucTemporaryREI, 16);
         liWolfSSLRngReturn = wc_FreeRng(&gtWolfSSLRng);
@@ -2917,33 +2914,29 @@ BootstrapState ZWave_Bootstrap_StateMachine(BootstrapStateMachineCommand stateMa
         liWolfSSLRngReturn = wc_InitRng(&gtWolfSSLRng);
         if (liWolfSSLRngReturn) LOG("%s: *** WARNING *** wc_InitRng() return value was %d \r\n", __FUNCTION__, liWolfSSLRngReturn);
         liWolfSSLRngReturn = wc_RNG_GenerateBlock(&gtWolfSSLRng, gtNodeProvisioningList[gucProcessingDSK].REI, 16);
-        //liWolfSSLRngReturn = wc_RNG_GenerateBlock(&gtWolfSSLRng, gucTemporaryREI, 16);
         if (liWolfSSLRngReturn) LOG("%s: *** WARNING *** wc_RNG_GenerateBlock() return value was %d \r\n", __FUNCTION__, liWolfSSLRngReturn);
         LOG("%s: - saving Receiver's Entropy Input (REI) for DSK %d \r\n", __FUNCTION__, gucProcessingDSK);
         memcpy(&lucSendDataBuffer[4], gtNodeProvisioningList[gucProcessingDSK].REI, 16);
-        //LOG("%s: - saving Receiver's Entropy Input (REI) for TEMPORARY KEY \r\n", __FUNCTION__);
-        //memcpy(&lucSendDataBuffer[4], gucTemporaryREI, 16);
         liWolfSSLRngReturn = wc_FreeRng(&gtWolfSSLRng);
         if (liWolfSSLRngReturn) LOG("%s: *** WARNING *** wc_FreeRng() return value was %d \r\n", __FUNCTION__, liWolfSSLRngReturn);
         LOG("%s: TEMP_NONCE_GET randomized Receiver's Entropy Input (REI) \r\n", __FUNCTION__);
         PrintBytes(gtNodeProvisioningList[gucProcessingDSK].REI, 16, FALSE, 0);
-        //PrintBytes(gucTemporaryREI, 16, FALSE, 0);
 
         #if ENABLE_ZWAVE_CONTROLLER_HOST
         ZWave_Send_REQ_CMD_13_Send_Data(gtNodeProvisioningList[gucProcessingDSK].NodeID, 4+16, lucSendDataBuffer, TRANSMIT_OPTION_ACK, gucSessionID);
         #endif
 
-        // Set state to NETWORK_VERIFY
+        // Set state to NETWORK_KEY_VERIFY
         gucIsEncryptedMsgReceived = FALSE;
-        LOG("%s: Transitioning DSK %d Bootstrap state from NETWORK_NONCE_GET to NETWORK_VERIFY\r\n", __FUNCTION__, gucProcessingDSK);
-        leBootstrapState = BOOTSTRAP_NETWORK_VERIFY;
+        LOG("%s: Transitioning DSK %d Bootstrap state from NETWORK_NONCE_GET to NETWORK_KEY_VERIFY\r\n", __FUNCTION__, gucProcessingDSK);
+        leBootstrapState = BOOTSTRAP_NETWORK_KEY_VERIFY;
       }
       // ENDIF
     }
 
     //-------------------------------------------------------
-    // ELSE IF state is NETWORK_VERIFY
-    else if (BOOTSTRAP_NETWORK_VERIFY == leBootstrapState)
+    // ELSE IF state is NETWORK_KEY_VERIFY
+    else if (BOOTSTRAP_NETWORK_KEY_VERIFY == leBootstrapState)
     {
     }
 
@@ -6720,7 +6713,7 @@ void ZWave_Rx_CC_9F_Security_2_V2(void)
             // But first, zeroize temporary SPAN
             CTR_DRBG_Zeroize_SPAN(&gtTemporarySPAN);
           }
-          if (BOOTSTRAP_NETWORK_VERIFY == geBootstrapState)
+          if (BOOTSTRAP_NETWORK_KEY_VERIFY == geBootstrapState)
           {
             LOG("%s: - saving Sender's Entropy Input (SEI) for DSK %d \r\n", __FUNCTION__, gucProcessingDSK);
             memcpy(gtNodeProvisioningList[gucProcessingDSK].SEI, &pgucCCBuffer[6+lucExtensionOffset], 16);
