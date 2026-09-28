@@ -152,6 +152,27 @@ typedef enum Intertask_messages
 } Intertask_message_ID;
 
 //
+// Diagnostic state machine commands
+//
+typedef enum Diagnostic_state_machine_commands
+{
+  DIAGNOSTIC_SM_CMD_INITIALIZE,
+  DIAGNOSTIC_SM_CMD_RUN,
+  DIAGNOSTIC_SM_CMD_STOP,
+  DIAGNOSTIC_SM_CMD_STATE,
+} DiagnosticStateMachineCommand;
+
+//
+// Diagnostic state machine states
+//
+typedef enum Diagnostic_state_machine_states
+{
+  DIAGNOSTIC_STATE_STARTUP,
+  DIAGNOSTIC_STATE_ENABLED,
+  DIAGNOSTIC_STATE_DISABLED,
+} DiagnosticState;
+
+//
 // Z-Wave SerialAPI state machine commands
 //
 typedef enum ZWave_state_machine_commands

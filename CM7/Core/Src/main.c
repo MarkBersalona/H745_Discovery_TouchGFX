@@ -1963,6 +1963,45 @@ uint32_t RandomValue(void)
 // end RandomValue
 
 /** *****************************************************************************************************************************
+  * @brief  Read chars from console serial port, return NULL-terminated string
+  * @param  paucReceiveString - pointer to string buffer
+  * @param  aucMaxChars - maximum number of characters, 1-255; typically the max size of the string buffer
+  * @retval None
+  */
+void Read_String_from_Diagnostic(char* paucReceiveString, uint8_t aucMaxChars)
+{
+  static uint8_t lucBufferIndex;
+  static uint8_t lucReceivedChar;
+
+  lucBufferIndex = 0;
+
+  // Receive any and all chars from serial port, build up string
+  while (lucBufferIndex < aucMaxChars)
+  {
+    //
+    // Pet the watchdog
+    //
+//    HAL_IWDG_Refresh(&hiwdg);
+
+    if (HAL_UART_Receive(&huart1, &lucReceivedChar, 1, 1)==HAL_OK)
+    {
+      paucReceiveString[lucBufferIndex++] = lucReceivedChar;
+      HAL_UART_Transmit(&huart1, &lucReceivedChar, 1, 10); // echo character
+      if (13==lucReceivedChar || 10==lucReceivedChar)
+        break;
+    }
+  }
+
+  // Terminate the string with NULL
+  if (lucBufferIndex > 0)
+    paucReceiveString[--lucBufferIndex] = 0;
+  else
+    paucReceiveString[0] = 0;
+
+}
+// end Read_String_from_Diagnostic
+
+/** *****************************************************************************************************************************
   * @brief  XOR bytes of 2 same-sized buffers, to an output buffer
   * @param  uint8_t* paucOutputBuffer - pointer to output buffer
   * @param  uint8_t* paucBufferA - pointer to input buffer A
@@ -2145,6 +2184,534 @@ void ZW_NodeMaskSetBit(uint8_t* paucMask, node_id_t auiNodeID)
 /* ***************************************************************************************************************************** */
 
 /** *****************************************************************************************************************************
+  * @brief  Display the Diagnostic mode menu; requires Diagnostic mutex
+  * @param  None
+  * @retval None
+  */
+void Main_Diagnostic_DisplayMenu(void)
+{
+  osMutexWait(DiagnosticMutexHandle, 1000);
+  LOG_NOW("-------------------------------------------------------------------------------\r\n");
+  LOG_NOW("                             DIAGNOSTIC MODE                                   \r\n");
+  LOG_NOW("     0  = display Diagnostic mode menu\r\n");
+  LOG_NOW("     1  = erase external flash\r\n");
+  LOG_NOW("     4  = calculate/store application CRC\r\n");
+  LOG_NOW("     5  = copy application to external flash\r\n");
+  LOG_NOW("     6  = write application from external flash\r\n");
+  LOG_NOW("     B  = write unit's board revision [A:Z]\r\n");
+  LOG_NOW("     b  = read  unit's board revision [A:Z]\r\n");
+  LOG_NOW("     F  = SPI Flash test (verbose)\r\n");
+  LOG_NOW("     f  = SPI Flash test (brief)\r\n");
+  LOG_NOW("    K/k = acknowledge all alarms\r\n");
+  LOG_NOW("    L/l = toggle Lamp Test\r\n");
+  //LOG_NOW("     M  = write unit's MAC address\r\n");
+  //LOG_NOW("     m  = read  unit's MAC address\r\n");
+  LOG_NOW("    P/p = Ping server\r\n");
+  LOG_NOW("    R/r = toggle the dry contact relay\r\n");
+  LOG_NOW("    S/s = close all secure sockets to the server\r\n");
+  LOG_NOW("    U/u = trigger Zone Update POST\r\n");
+  LOG_NOW("    X/x = factory reset\r\n");
+  LOG_NOW("    Z/z = EXIT diagnostic mode and REBOOT\r\n");
+  LOG_NOW("-------------------------------------------------------------------------------\r\n");
+  osMutexRelease(DiagnosticMutexHandle);
+}
+// end Main_Diagnostic_DisplayMenu
+
+/** *****************************************************************************************************************************
+  * @brief  Process the Diagnostic command byte, including invalid commands
+  * @param  aucCommandByte - received byte from the serial diagnostic port
+  * @retval None
+  */
+void Main_Diagnostic_ProcessCommand(uint8_t aucCommandByte)
+{
+  static char receivedDiagnosticString[20];
+  static uint8_t lucRelayActive = 0;
+  static uint8_t lucPcbRevisionChar = 'A';
+  static uint32_t lulEEPROMValue;
+  static uint16_t luiEEPROMValue;
+  static  int32_t llCalibration;
+  static uint8_t lucAirplaneModeActive = 0;
+  static uint8_t lucLampTestActive = 0;
+  static uint8_t lucQuickScanActive = false;
+  static uint8_t lucManufacturerID;
+  static uint16_t luiChipID;
+  static char lucZoneNameBuffer[40];
+  static char lucZoneTypeName[40];
+  static uint8_t lucZoneType;
+  static int zone;
+  static unsigned int luiMessageQueueBuffer;
+
+  switch (aucCommandByte)
+  {
+    // Display the Diagnostic mode menu
+    case '0':
+      Main_Diagnostic_DisplayMenu();
+      break;
+
+    // Erase external flash
+    case '1':
+      LOG("%s: Erase external flash\r\n", __FUNCTION__);
+//      luiMessageQueueBuffer = msgid_MAIN_FLASH_ERASE;
+//      osMessageQueuePut(MainQueueHandle, &luiMessageQueueBuffer, 0, 0);
+      break;
+
+    // Calculate and store application CRC
+    case '4':
+      LOG("%s: Calculate and store application CRC\r\n", __FUNCTION__);
+//      luiMessageQueueBuffer = msgid_MAIN_FLASH_APP_CRC;
+//      osMessageQueuePut(MainQueueHandle, &luiMessageQueueBuffer, 0, 0);
+      break;
+
+    // Copy application to external flash
+    case '5':
+      LOG("%s: Copy application to external flash\r\n", __FUNCTION__);
+//      luiMessageQueueBuffer = msgid_MAIN_FLASH_COPY_APP;
+//      osMessageQueuePut(MainQueueHandle, &luiMessageQueueBuffer, 0, 0);
+      break;
+
+    // Write application from external flash
+    case '6':
+      LOG("%s: Write application from external flash\r\n", __FUNCTION__);
+//      luiMessageQueueBuffer = msgid_MAIN_FLASH_WRITE_APP;
+//      osMessageQueuePut(MainQueueHandle, &luiMessageQueueBuffer, 0, 0);
+      break;
+
+      // Save board revision
+      case 'B':
+//        osMutexWait(DiagnosticMutexHandle, 1000);
+//        LOG_NOW("Enter board revision [A:Z]: \r\n");
+//        memset(receivedDiagnosticString, 0x00, sizeof(receivedDiagnosticString));
+//        Read_String_from_Diagnostic(receivedDiagnosticString, sizeof(receivedDiagnosticString));
+//        receivedDiagnosticString[0] = toupper(receivedDiagnosticString[0]);
+//        if (receivedDiagnosticString[0] >= 'A' && receivedDiagnosticString[0] <= 'Z')
+//        {
+//          // Board revision is valid - save it
+//          lucPcbRevisionChar = receivedDiagnosticString[0];
+////          put_store_codes(EE_BOARD_REV, lucPcbRevisionChar - 'A', CODE_READ_ONLY, CODE_READ_ONLY_BOARD_REV, 0, 0);
+////          setSystemBoardRev(lucPcbRevisionChar - 'A');
+////          lucPcbRevisionChar = getSystemBoardRev();
+//          LOG_NOW("\r\n%s: New board revision = %c  \r\n", __FUNCTION__, lucPcbRevisionChar);
+//        }
+//        else
+//        {
+//          // Board revision is invalid - reject it
+//          LOG_NOW("\r\n%s: *** Bad board revision %c is REJECTED ***\r\n", __FUNCTION__, receivedDiagnosticString[0]);
+//        }
+//        osMutexRelease(DiagnosticMutexHandle);
+        LOG("%s: Save board revision DISABLED for now \r\n", __FUNCTION__);
+        break;
+
+      // Read board revision
+      case 'b':
+        //lucPcbRevisionChar = getSystemBoardRev();
+        lucPcbRevisionChar = BOARD_REVISION;
+        LOG("%s: Board revision = %c   \r\n", __FUNCTION__, lucPcbRevisionChar);
+        break;
+
+    // SPI flash tests
+    case 'F':
+    case 'f':
+      LOG("%s: SPI flash test\r\n", __FUNCTION__);
+
+      // Inform the other tasks the flash diagnostic is running
+//      luiMessageQueueBuffer = msgid_MAIN_FLASH_DIAGNOSTIC_ON;
+//      osMessageQueuePut(InputQueueHandle, &luiMessageQueueBuffer, 0, 0);
+//      osMessageQueuePut(OutputQueueHandle, &luiMessageQueueBuffer, 0, 0);
+//      osMessageQueuePut(NetworkQueueHandle, &luiMessageQueueBuffer, 0, 0);
+
+//      // Read the SPI flash chip's Manufacturer and Chip IDs
+//      // NOTE: Micron/Numonyx flash chips use 0x9E for RDID command; Winbond and Macronix use 0x9F
+//      spi_flash_read_ID(M25PX_RDID, &lucManufacturerID, &luiChipID);
+//      if (MANUFACTURER_ID_NUMONYX != lucManufacturerID)
+//      {
+//        spi_flash_read_ID(W25Q_RDID, &lucManufacturerID, &luiChipID);
+//      }
+//      LOG("lucManufacturerID = 0x%X    luiChipID = 0x%X  \r\n", lucManufacturerID, luiChipID);
+//      switch ( (luiChipID&0xFF00)/0x100 )
+//      {
+//        case FLASH_MEMORY_TYPE_M25PX:
+//          LOG("%s: M25PX ", __FUNCTION__);
+//          break;
+//        case FLASH_MEMORY_TYPE_N25Q:
+//          LOG("%s: N25Q ", __FUNCTION__);
+//          break;
+//        case FLASH_MEMORY_TYPE_W25Q:
+//          LOG("%s: W25Q ", __FUNCTION__);
+//          break;
+//        case FLASH_MEMORY_TYPE_MX25L:
+//          LOG("%s: MX25L ", __FUNCTION__);
+//          break;
+//        default:
+//          LOG("%s: Unknown model, ", __FUNCTION__);
+//          break;
+//      }
+//      switch (luiChipID&0xFF)
+//      {
+//        case DATA_FLASH_16M:
+//          LOG("16Mb ");
+//          break;
+//        case DATA_FLASH_32M:
+//          LOG("32Mb ");
+//          break;
+//        case DATA_FLASH_64M:
+//          LOG("64Mb ");
+//          break;
+//        case DATA_FLASH_128M:
+//          LOG("128Mb ");
+//          break;
+//        case DATA_FLASH_256M:
+//          LOG("256Mb ");
+//          break;
+//        case DATA_FLASH_512M:
+//          LOG("512Mb ");
+//          break;
+//        case DATA_FLASH_1G:
+//          LOG("1024Mb ");
+//          break;
+//        default:
+//          LOG("unknown size ");
+//          break;
+//      }
+//      switch (lucManufacturerID)
+//      {
+//        case MANUFACTURER_ID_NUMONYX:
+//          LOG("SPI flash chip by Numonyx\r\n");
+//          break;
+//        case MANUFACTURER_ID_WINBOND:
+//          LOG("SPI flash chip by Winbond\r\n");
+//          break;
+//        case MANUFACTURER_ID_MACRONIX:
+//          LOG("SPI flash chip by Macronix\r\n");
+//          break;
+//        default:
+//          LOG("SPI flash chip by UNKNOWN manufacturer\r\n");
+//          break;
+//      }
+//      // Execute the flash test
+//      if (aucCommandByte == 'F')
+//      {
+//        Main_Diagnostic_SPI_FlashTest_Nondestructive(TRUE);
+//      }
+//      else
+//      {
+//        Main_Diagnostic_SPI_FlashTest_Nondestructive(FALSE);
+//      }
+
+      // Inform the other tasks the flash diagnostic is comoplete
+//      luiMessageQueueBuffer = msgid_MAIN_FLASH_DIAGNOSTIC_OFF;
+//      osMessageQueuePut(InputQueueHandle, &luiMessageQueueBuffer, 0, 0);
+//      osMessageQueuePut(OutputQueueHandle, &luiMessageQueueBuffer, 0, 0);
+//      osMessageQueuePut(NetworkQueueHandle, &luiMessageQueueBuffer, 0, 0);
+      break;
+
+    // Acknowledge all alarms
+    case 'K':
+    case 'k':
+      LOG("%s: Acknowledge all alarms\r\n", __FUNCTION__);
+//      inputs_acknowledgeAllAlarms();
+      break;
+
+    // Toggle Lamp Test
+    case 'L':
+    case 'l':
+      if (lucLampTestActive)
+      {
+        LOG("%s: Lamp test OFF\r\n", __FUNCTION__);
+        lucLampTestActive = 0;
+//        luiMessageQueueBuffer = msgid_MAIN_OUTPUT_LAMP_TEST_OFF;
+//        osMessageQueuePut(OutputQueueHandle, &luiMessageQueueBuffer, 0, 0);
+      }
+      else
+      {
+        LOG("%s: Lamp test ON\r\n", __FUNCTION__);
+        lucLampTestActive = 1;
+//        luiMessageQueueBuffer = msgid_MAIN_OUTPUT_LAMP_TEST_ON;
+//        osMessageQueuePut(OutputQueueHandle, &luiMessageQueueBuffer, 0, 0);
+      }
+      break;
+
+    // Save MAC address
+    case 'M':
+//      osMutexWait(DiagnosticMutexHandle, 1000);
+//      LOG_NOW("Enter MAC address: \r\n");
+//      memset(receivedDiagnosticString, 0x00, sizeof(receivedDiagnosticString));
+//      Read_String_from_Diagnostic(receivedDiagnosticString, sizeof(receivedDiagnosticString));
+//      //// TODO: validate string is MAC before calling setDeviceMACStr()
+//      setDeviceMACStr(receivedDiagnosticString);
+//      LOG_NOW("\r\n%s: New MAC address = %s  \r\n", __FUNCTION__, receivedDiagnosticString);
+//      osMutexRelease(DiagnosticMutexHandle);
+      LOG("%s: Save MAC address DISABLED for now \r\n", __FUNCTION__);
+      break;
+
+    // Read MAC address
+    case 'm':
+//      LOG("%s: MAC address: %s\r\n", __FUNCTION__, getDeviceMACStr());
+      LOG("%s: Read MAC address DISABLED for now \r\n", __FUNCTION__);
+      break;
+
+      // Send Ping WebSocket control frame to server
+      case 'P':
+      case 'p':
+        LOG("%s: Ping server\r\n", __FUNCTION__);
+//        luiMessageQueueBuffer = msgid_MAIN_NETWORK_PING;
+//        osMessageQueuePut(NetworkQueueHandle, &luiMessageQueueBuffer, 0, 0);
+        break;
+
+      // Toggle the dry contact relay
+      case 'R':
+      case 'r':
+        LOG("%s: Toggle the dry contact relay\r\n", __FUNCTION__);
+        if (lucRelayActive)
+        {
+          lucRelayActive = 0;
+//          luiMessageQueueBuffer = msgid_MAIN_OUTPUT_RELAY_OFF;
+//          osMessageQueuePut(OutputQueueHandle, &luiMessageQueueBuffer, 0, 0);
+        }
+        else
+        {
+          lucRelayActive = 1;
+//          luiMessageQueueBuffer = msgid_MAIN_OUTPUT_RELAY_ON;
+//          osMessageQueuePut(OutputQueueHandle, &luiMessageQueueBuffer, 0, 0);
+        }
+        break;
+
+    // Close all secure sockets to the server
+    case 'S':
+    case 's':
+      LOG("%s: Close all secure sockets to the server\r\n", __FUNCTION__);
+//      luiMessageQueueBuffer = msgid_MAIN_NETWORK_CLOSE_SOCKETS;
+//      osMessageQueuePut(NetworkQueueHandle, &luiMessageQueueBuffer, 0, 0);
+      break;
+
+    // Trigger an immediate Zone Update POST
+    case 'U':
+    case 'u':
+      LOG("%s: Send a Zone Update POST immediately\r\n", __FUNCTION__);
+//      luiMessageQueueBuffer = msgid_MAIN_NETWORK_UPDATE_POST;
+//      osMessageQueuePut(NetworkQueueHandle, &luiMessageQueueBuffer, 0, 0);
+      // Reset Zone Update timeout
+//      Network_Zone_Update_Timeout_Reset();
+      break;
+
+    // Reset all except serial number, PCB revision and calibrations to factory defaults
+    case 'X':
+    case 'x':
+      LOG("%s: Reset to defaults and REBOOT\r\n", __FUNCTION__);
+//      luiMessageQueueBuffer = msgid_MAIN_OUTPUT_RESET_IN_PROGRESS;
+//      osMessageQueuePut(OutputQueueHandle, &luiMessageQueueBuffer, 0, 0);
+//      resetSystemToDefaults();
+      break;
+
+    // EXIT Diagnostic mode and REBOOT
+    case 'Z':
+    case 'z':
+      LOG("%s: EXIT diagnostic mode and REBOOT\r\n", __FUNCTION__);
+      // Send reboot message to Main task
+      luiMessageQueueBuffer = msgid_MAIN_REBOOT;
+      osMessageQueuePut(MainQueueHandle, &luiMessageQueueBuffer, 0, 0);
+      break;
+
+    //////////////////////////////////////////////////////////
+    // Handle undefined keypresses, if necessary
+    //////////////////////////////////////////////////////////
+    default:
+      LOG("Received byte %d from diagnostic port\r\n", aucCommandByte);
+      break;
+  } // end switch
+}
+// end Main_Diagnostic_ProcessCommand
+
+/** *****************************************************************************************************************************
+  * @brief  Diagnostic mode state machine
+  * @param  stateMachineCommand - INITIALIZE, RUN, STOP or STATE
+  * @retval Present state
+  */
+/***********************************************
+Main_Diagnostic_StateMachine
+
+  IF command is INITIALIZE
+    Set state to STARTUP
+    Clear elapsed time
+    Initialize subordinate state machines
+
+  ELSE IF command is RUN
+    IF state is STARTUP
+      Set state to ENABLED
+      Display Diagnostic mode menu
+    ELSE IF state is DISABLED
+      Do nothing
+    ELSE IF state is ENABLED
+      Update elapsed time
+      Check for and process any received command
+    ENDIF
+
+  ELSE IF command is STOP
+    Set state to DISABLED
+
+  ELSE IF command is STATE
+    Do nothing (present state will be returned)
+
+  ELSE
+    Flag faulty state machine call
+  ENDIF (command)
+
+END Main_Diagnostic_StateMachine
+************************************************/
+DiagnosticState Main_Diagnostic_StateMachine(DiagnosticStateMachineCommand stateMachineCommand)
+{
+  #define DIAGNOSTIC_SUMMARY_PERIOD_MSEC (5000)
+  static DiagnosticState leDiagnosticState = DIAGNOSTIC_STATE_STARTUP;
+  static uint32_t lulElapsedTime_ms = 0;
+  static uint32_t lulSummaryElapsedTime_ms = 0;
+  static uint8_t lucDiagnosticReceiveBuffer[100];
+  static uint16_t luiDiagnosticRxCount;
+  static char *plcATCommandDetected, *plcMenuDetected;
+
+  /////////////////////////////////////////////////////////////////////////////////
+  // IF command is INITIALIZE
+  if (DIAGNOSTIC_SM_CMD_INITIALIZE == stateMachineCommand)
+  {
+    LOG("%s: Initializing...\r\n", __FUNCTION__);
+
+    // Set state to STARTUP
+    leDiagnosticState = DIAGNOSTIC_STATE_STARTUP;
+
+    // Clear elapsed time
+    lulElapsedTime_ms = 0;
+    lulSummaryElapsedTime_ms = 0;
+
+    // Initialize subordinate state machines
+  }
+
+  /////////////////////////////////////////////////////////////////////////////////
+  // ELSE IF command is RUN
+  else if (DIAGNOSTIC_SM_CMD_RUN == stateMachineCommand)
+  {
+    //---------------------------------------------
+    // IF state is STARTUP
+    if (DIAGNOSTIC_STATE_STARTUP == leDiagnosticState)
+    {
+      LOG("%s: Enabling Diagnostic mode\r\n", __FUNCTION__);
+
+      // Set state to ENABLED
+      leDiagnosticState = DIAGNOSTIC_STATE_ENABLED;
+
+      // Display Diagnostic mode menu
+      Main_Diagnostic_DisplayMenu();
+    }
+
+    //---------------------------------------------
+    // ELSE IF state is DISABLED
+    else if (DIAGNOSTIC_STATE_DISABLED == leDiagnosticState)
+    {
+      // Do nothing
+    }
+
+    //---------------------------------------------
+    // ELSE IF state is ENABLED
+    else if (DIAGNOSTIC_STATE_ENABLED == leDiagnosticState)
+    {
+      // Update elapsed time
+      lulElapsedTime_ms += MAIN_TASK_PERIOD;
+
+      // Check for and process any received command
+      memset(gucDiagnosticRxBuffer, 0, sizeof(gucDiagnosticRxBuffer));
+      luiDiagnosticRxCount = Diagnostic_Receive_Response(gucDiagnosticRxBuffer);
+      if (luiDiagnosticRxCount)
+      {
+        LOG("%s: Received Diagnostic string >>%s<<\r\n", __FUNCTION__, gucDiagnosticRxBuffer);
+
+        // Look for "+++MENU:"
+        plcMenuDetected = strstr(gucDiagnosticRxBuffer, "+++MENU:");
+        if (plcMenuDetected)
+        {
+          // Diagnostic mode menu item selected
+          // First, get the string following MENU:
+          memset(lucDiagnosticReceiveBuffer, 0, sizeof(lucDiagnosticReceiveBuffer));
+          //// TEST MAB 2026.09.28 memcpy(lucDiagnosticReceiveBuffer, gucDiagnosticRxBuffer+8, min((size_t)strlen(gucDiagnosticRxBuffer+8), sizeof(lucDiagnosticReceiveBuffer)) );
+          memcpy(lucDiagnosticReceiveBuffer, gucDiagnosticRxBuffer+8, strlen(gucDiagnosticRxBuffer+8) );
+          LOG("%s: Diagnostic menu string >>%s<<\r\n", __FUNCTION__, lucDiagnosticReceiveBuffer);
+          // If writing a new MAC or Board rev, skip any spaces and get the 2nd MENU parameter
+          if ('M' == lucDiagnosticReceiveBuffer[0] || 'B' == lucDiagnosticReceiveBuffer[0])
+          {
+            char* plcParamStart = &lucDiagnosticReceiveBuffer[1];
+            while (isspace((char)*plcParamStart))
+            {
+              ++plcParamStart;
+            }
+            LOG("%s: 2nd menu parameter >>%s<<\r\n", __FUNCTION__, plcParamStart);
+
+            // If a new MAC, save the new MAC
+            if ('M' == lucDiagnosticReceiveBuffer[0])
+            {
+//              setDeviceMACStr(plcParamStart);
+//              LOG("\r\n%s: New MAC address: %s  \r\n", __FUNCTION__, getDeviceMACStr());
+            }
+
+            // If a new Board rev, save the new Board rev
+            if ('B' == lucDiagnosticReceiveBuffer[0])
+            {
+              uint8_t lucPcbRevisionChar = toupper(*plcParamStart);
+//              put_store_codes(EE_BOARD_REV, lucPcbRevisionChar - 'A', CODE_READ_ONLY, CODE_READ_ONLY_BOARD_REV, 0, 0);
+//              setSystemBoardRev(lucPcbRevisionChar - 'A');
+//              lucPcbRevisionChar = getSystemBoardRev();
+              LOG("\r\n%s: New Board revision = %c  \r\n", __FUNCTION__, lucPcbRevisionChar);
+            }
+          }
+          else
+          {
+            // Normal menu command: execute it
+            Main_Diagnostic_ProcessCommand(lucDiagnosticReceiveBuffer[0]);
+          }
+        }
+
+        // If neither '+++COMMAND:' nor '+++MENU:' were found, then assume
+        // it's a menu selection directly from the console.
+        // Call Main_Diagnostic_ProcessCommand() with the first char received, as before
+        // (Exceptions might be when writing MAC or Board rev)
+        if (!plcATCommandDetected && !plcMenuDetected)
+        {
+          Main_Diagnostic_ProcessCommand(gucDiagnosticRxBuffer[0]);
+        }
+      }
+
+    } // ENABLED state
+
+
+  } // RUN command
+
+  /////////////////////////////////////////////////////////////////////////////////
+  // ELSE IF command is STOP
+  else if (DIAGNOSTIC_SM_CMD_STOP == stateMachineCommand)
+  {
+    // Set state to DISABLED
+    LOG("%s: Disabling Diagnostic mode\r\n", __FUNCTION__);
+    leDiagnosticState = DIAGNOSTIC_STATE_DISABLED;
+  }
+
+  /////////////////////////////////////////////////////////////////////////////////
+  // ELSE IF command is STATE
+  else if (DIAGNOSTIC_SM_CMD_STATE == stateMachineCommand)
+  {
+    // Do nothing (present state will be returned)
+  }
+
+  /////////////////////////////////////////////////////////////////////////////////
+  // ELSE
+  else
+  {
+    // Flag faulty state machine call
+    LOG("%s: Faulty state machine call, stateMachineCommand = %d\r\n", __FUNCTION__, stateMachineCommand);
+  }
+  // ENDIF (command)
+
+  return leDiagnosticState;
+}
+// end Main_Diagnostic_StateMachine
+
+
+
+/** *****************************************************************************************************************************
   * @brief  Bootstrap state machine
   * @param  stateMachineCommand - INITIALIZE, RUN or STATE
   * @retval Present state
@@ -2231,6 +2798,8 @@ ZWave_Bootstrap_StateMachine
         Set state to NETWORK_KEY_VERIFY
       ENDIF
     ELSE IF state is NETWORK_KEY_VERIFY
+      IF encrypted message received
+      ENDIF
     ELSE IF state is NETWORK_VERIFY_SPAN
     ELSE IF state is NETWORK_KEY_DONE
     ELSE IF state is COMPLETE
@@ -2938,6 +3507,16 @@ BootstrapState ZWave_Bootstrap_StateMachine(BootstrapStateMachineCommand stateMa
     // ELSE IF state is NETWORK_KEY_VERIFY
     else if (BOOTSTRAP_NETWORK_KEY_VERIFY == leBootstrapState)
     {
+      // IF encrypted message received
+      if (gucIsEncryptedMsgReceived)
+      {
+        // (reset so subsequent retries from end node may be processed also)
+        gucIsEncryptedMsgReceived = FALSE;
+
+        // Establish SPAN for this DSK
+        // (need to establish personalization string before instantiating SPAN)
+      }
+      // ENDIF encrypted message received
     }
 
     //-------------------------------------------------------
@@ -3221,6 +3800,33 @@ uint8_t ZWave_DSK_Extract_NWIAuthHomeID(uint8_t aucDSKIndex, uint8_t* paucNWIAut
   return lucReturnValue;
 }
 // end ZWave_DSK_Extract_NWIAuthHomeID
+
+/** *****************************************************************************************************************************
+  * @brief  Find the DSK with corresponding NodeID
+  * @param  None
+  * @retval Index into the node provisioning list of the DSK with NodeID [0, NODE_PROVISIONING_LIST_COUNT-1]; 0xFF if none available
+  */
+uint8_t ZWave_DSK_Find_NodeID(uint16_t auiNodeID)
+{
+  uint8_t lucReturnValue = DSK_UNAVAILABLE; // Assume no  DSK with corresponding NodeID present until proven otherwise
+
+  for (uint8_t lucDSKIndex = 0; lucDSKIndex < NODE_PROVISIONING_LIST_COUNT; ++lucDSKIndex)
+  {
+    if (gtNodeProvisioningList[lucDSKIndex].NodeID == auiNodeID)
+    {
+      LOG("%s: NodeID %d (0x%04X) detected in DSK %d \r\n", __FUNCTION__, auiNodeID, auiNodeID, lucDSKIndex);
+      lucReturnValue = lucDSKIndex;
+    }
+  }
+
+  if (DSK_UNAVAILABLE == lucReturnValue)
+  {
+    LOG("%s: *** WARNING ***  NodeID %d (0x%04X) not detected in any DSK \r\n", __FUNCTION__, auiNodeID, auiNodeID);
+  }
+
+  return lucReturnValue;
+}
+// end ZWave_DSK_Find_NodeID
 
 /** *****************************************************************************************************************************
   * @brief  Find the first zeroized DSK in the node provisioning list
@@ -5844,6 +6450,12 @@ void ZWave_REQ_CMD_4A_ZW_Add_Node_To_Network(void)
     guiNodeID = (0x100*ZWaveSerialFrame->payload[2]) + ZWaveSerialFrame->payload[3];
     LOG("%s: Saving DSK %d NodeID 0x%04X \r\n", __FUNCTION__, gucProcessingDSK, guiNodeID);
     gtNodeProvisioningList[gucProcessingDSK].NodeID = guiNodeID;
+    ///////////////////////////////////////////////////////////////////////////////////////
+    //// TEST MAB 2026.09.25
+    //// Test ZWave_DSK_Find_NodeID(), success and fail paths
+    ZWave_DSK_Find_NodeID(guiNodeID);
+    ZWave_DSK_Find_NodeID(guiNodeID+1);
+    ///////////////////////////////////////////////////////////////////////////////////////
   }
   LOG("%s: Data length            = 0x%02X\r\n", __FUNCTION__, ZWaveSerialFrame->payload[4]);
   if (ZWaveSerialFrame->payload[4])
@@ -8852,6 +9464,7 @@ void MainTask(void *argument)
   static uint16_t luiCurrentZWaveZone;
   static uint16_t luiDiagnosticRxCount = 0;
   static HAL_StatusTypeDef ltHALStatus;
+  #define ENABLE_DIAGNOSTIC_TIMEOUT_MS 10000
 
   PrintStartupBanner();
   LOG("%s: initializing...\r\n", __FUNCTION__);
@@ -9061,6 +9674,10 @@ void MainTask(void *argument)
 //  }
 //  /////////////////////////////////////////////////////////////////////////////////
 
+  // For the sake of the Sensaphone ZWave Sentinel Diagnostic tool,
+  // display the firmware version
+  LOG("%s() ZWave Sentinel firmware version is v%s.%s.%s\r\n", __FUNCTION__, VERSION_A,VERSION_B,VERSION_C);
+
   /* ************************************************** Infinite loop ************************************************** */
   for(;;)
   {
@@ -9237,6 +9854,62 @@ void MainTask(void *argument)
 
     //////////////////////////////////////////////
     //
+    // Check if Diagnostic mode should be enabled
+    // Can enter Diagnostic mode iff
+    // 1. Diagnostic state is STARTUP
+    // 2. Within 10 seconds after boot
+    //
+    //////////////////////////////////////////////
+    static uint32_t lulDiagnosticStartupElapsedTime_msec = 0;
+    static uint8_t lfIsDiagnosticModeEnabled = 0;
+    if ( lulDiagnosticStartupElapsedTime_msec < ENABLE_DIAGNOSTIC_TIMEOUT_MS  &&
+         /*Main_Diagnostic_StateMachine(DIAGNOSTIC_SM_CMD_STATE) == DIAGNOSTIC_STATE_STARTUP*/ !lfIsDiagnosticModeEnabled)
+    {
+      if (0==lulDiagnosticStartupElapsedTime_msec)
+      {
+        LOG("%s: Enable Diagnostic mode with any keypress within %d seconds\r\n", __FUNCTION__, ENABLE_DIAGNOSTIC_TIMEOUT_MS/1000);
+      }
+      lulDiagnosticStartupElapsedTime_msec += MAIN_TASK_PERIOD;
+      if ( (lulDiagnosticStartupElapsedTime_msec/1000)*1000 == lulDiagnosticStartupElapsedTime_msec)
+      {
+        LOG("%s: %d seconds to Diagnostic mode disable...\r\n", __FUNCTION__, (int)(ENABLE_DIAGNOSTIC_TIMEOUT_MS-lulDiagnosticStartupElapsedTime_msec)/1000);
+      }
+      if (lulDiagnosticStartupElapsedTime_msec >= ENABLE_DIAGNOSTIC_TIMEOUT_MS)
+      {
+        LOG("%s: timeout for Diagnostic mode after %d seconds\r\n", __FUNCTION__, ENABLE_DIAGNOSTIC_TIMEOUT_MS/1000);
+        // Disable Diagnostic mode until reboot; decrement run requests
+        Main_Diagnostic_StateMachine(DIAGNOSTIC_SM_CMD_STOP);
+      }
+      else
+      {
+        // Check if operator wants to enable Diagnostic mode
+        // If so, enter Diagnostic mode
+        //// TEST MAB 2019.10.29 enable this line to make Diagnostic mode optional if (HAL_OK==diagnosticReceiveStatus)
+        {
+          Main_Diagnostic_StateMachine(DIAGNOSTIC_SM_CMD_RUN);
+          LOG("%s: +++ Start DIAGNOSTIC MODE +++\r\n", __FUNCTION__);
+          lfIsDiagnosticModeEnabled = 1;
+
+          // For the sake of the Sensaphone ZWave Sentinel Diagnostic tool,
+          // display the Board revision as if the user had requested the board revision
+          // from the Diagnostic menu
+          Main_Diagnostic_ProcessCommand('b');
+        }
+      }
+      // endif checking elapsed time since boot
+    }
+    // endif checking for Diagnostic mode enable
+
+    //
+    // If Diagnostic mode is enabled, run Diagnostic mode state machine
+    //
+    if ( Main_Diagnostic_StateMachine(DIAGNOSTIC_SM_CMD_STATE) == DIAGNOSTIC_STATE_ENABLED )
+    {
+      Main_Diagnostic_StateMachine(DIAGNOSTIC_SM_CMD_RUN);
+    }
+
+    //////////////////////////////////////////////
+    //
     // Pull messages from the queue and process
     //
     //////////////////////////////////////////////
@@ -9276,6 +9949,16 @@ void MainTask(void *argument)
           break;
 
         case msgid_MAIN_REBOOT:
+          LOG("%s: REBOOT in progress...\r\n", __FUNCTION__);
+          // Reboot the cellular module
+          //// TEST MAB 2020.09.10 Network_Reboot();
+          // Reboot the board
+          NVIC_SystemReset();
+          // Reinitialize watchdog to timeout ASAP
+          //hiwdg.Instance = IWDG;
+          //hiwdg.Init.Prescaler = IWDG_PRESCALER_4;
+          //hiwdg.Init.Reload = 0;
+          //HAL_IWDG_Init(&hiwdg);
           break;
 
         default:
