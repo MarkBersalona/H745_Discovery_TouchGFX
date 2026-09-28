@@ -809,15 +809,20 @@ void SystemClock_Config(void)
 
   while(!__HAL_PWR_GET_FLAG(PWR_FLAG_VOSRDY)) {}
 
+  /** Configure LSE Drive Capability
+  */
+  HAL_PWR_EnableBkUpAccess();
+  __HAL_RCC_LSEDRIVE_CONFIG(RCC_LSEDRIVE_LOW);
+
   /** Initializes the RCC Oscillators according to the specified parameters
   * in the RCC_OscInitTypeDef structure.
   */
   RCC_OscInitStruct.OscillatorType = RCC_OSCILLATORTYPE_HSI48|RCC_OSCILLATORTYPE_HSI
-                              |RCC_OSCILLATORTYPE_LSI|RCC_OSCILLATORTYPE_HSE;
+                              |RCC_OSCILLATORTYPE_HSE|RCC_OSCILLATORTYPE_LSE;
   RCC_OscInitStruct.HSEState = RCC_HSE_ON;
+  RCC_OscInitStruct.LSEState = RCC_LSE_ON;
   RCC_OscInitStruct.HSIState = RCC_HSI_DIV1;
   RCC_OscInitStruct.HSICalibrationValue = RCC_HSICALIBRATION_DEFAULT;
-  RCC_OscInitStruct.LSIState = RCC_LSI_ON;
   RCC_OscInitStruct.HSI48State = RCC_HSI48_ON;
   RCC_OscInitStruct.PLL.PLLState = RCC_PLL_ON;
   RCC_OscInitStruct.PLL.PLLSource = RCC_PLLSOURCE_HSE;
@@ -1123,6 +1128,9 @@ static void MX_RTC_Init(void)
 
   /* USER CODE END RTC_Init 0 */
 
+  RTC_TimeTypeDef sTime = {0};
+  RTC_DateTypeDef sDate = {0};
+
   /* USER CODE BEGIN RTC_Init 1 */
 
   /* USER CODE END RTC_Init 1 */
@@ -1138,6 +1146,31 @@ static void MX_RTC_Init(void)
   hrtc.Init.OutPutType = RTC_OUTPUT_TYPE_OPENDRAIN;
   hrtc.Init.OutPutRemap = RTC_OUTPUT_REMAP_NONE;
   if (HAL_RTC_Init(&hrtc) != HAL_OK)
+  {
+    Error_Handler();
+  }
+
+  /* USER CODE BEGIN Check_RTC_BKUP */
+
+  /* USER CODE END Check_RTC_BKUP */
+
+  /** Initialize RTC and set the Time and Date
+  */
+  sTime.Hours = 0x0;
+  sTime.Minutes = 0x0;
+  sTime.Seconds = 0x0;
+  sTime.DayLightSaving = RTC_DAYLIGHTSAVING_NONE;
+  sTime.StoreOperation = RTC_STOREOPERATION_RESET;
+  if (HAL_RTC_SetTime(&hrtc, &sTime, RTC_FORMAT_BCD) != HAL_OK)
+  {
+    Error_Handler();
+  }
+  sDate.WeekDay = RTC_WEEKDAY_MONDAY;
+  sDate.Month = RTC_MONTH_JANUARY;
+  sDate.Date = 0x1;
+  sDate.Year = 0x0;
+
+  if (HAL_RTC_SetDate(&hrtc, &sDate, RTC_FORMAT_BCD) != HAL_OK)
   {
     Error_Handler();
   }
@@ -1907,6 +1940,8 @@ void PrintBytes( uint8_t* buffer, uint16_t len, char printOffset, uint32_t offse
 void PrintStartupBanner(void)
 {
   osMutexWait(DiagnosticMutexHandle, 1000);
+  // When Bootloader is active, copy the "starting..." printouts
+  // to Bootloader and disable the "starting..." printouts here
   LOG_NOW("\r\nSensaphone Z-Wave Sentinel starting...\r\n");
   LOG_NOW("\r\nSensaphone Z-Wave Sentinel starting...\r\n");
   LOG_NOW("\r\nSensaphone Z-Wave Sentinel starting...\r\n");
@@ -2000,6 +2035,40 @@ void Read_String_from_Diagnostic(char* paucReceiveString, uint8_t aucMaxChars)
 
 }
 // end Read_String_from_Diagnostic
+
+/** *****************************************************************************************************************************
+  * @brief  Set RTC from 32-bit UNIX time
+  * @param  aulUNIXTime - UNIX timestamp
+  * @retval HAL_OK/HAL_ERROR
+  */
+HAL_StatusTypeDef  Set_RTC_from_UNIX(uint32_t aulUNIXTime)
+{
+   time_t t = (time_t)aulUNIXTime;
+   struct tm tmv;
+
+   if (gmtime_r(&t, &tmv) == NULL)        /* UTC, reentrant, ignores TZ */
+       return HAL_ERROR;
+
+   RTC_TimeTypeDef sTime = {0};
+   RTC_DateTypeDef sDate = {0};
+
+   sTime.Hours          = tmv.tm_hour;
+   sTime.Minutes        = tmv.tm_min;
+   sTime.Seconds        = tmv.tm_sec;
+   sTime.DayLightSaving = RTC_DAYLIGHTSAVING_NONE;
+   sTime.StoreOperation = RTC_STOREOPERATION_RESET;
+
+   sDate.Year    = tmv.tm_year - 100;               /* tm: since 1900 -> RTC: 00..99 (20xx) */
+   sDate.Month   = tmv.tm_mon + 1;                  /* tm: 0..11 -> RTC: 1..12 */
+   sDate.Date    = tmv.tm_mday;
+   sDate.WeekDay = tmv.tm_wday == 0 ? RTC_WEEKDAY_SUNDAY : tmv.tm_wday; /* tm: Sun=0 -> RTC: Mon=1..Sun=7 */
+
+   HAL_PWR_EnableBkUpAccess();
+   if (HAL_RTC_SetTime(&hrtc, &sTime, RTC_FORMAT_BIN) != HAL_OK) return HAL_ERROR;
+   if (HAL_RTC_SetDate(&hrtc, &sDate, RTC_FORMAT_BIN) != HAL_OK) return HAL_ERROR;
+   return HAL_OK;
+}
+// end Set_RTC_from_UNIX
 
 /** *****************************************************************************************************************************
   * @brief  XOR bytes of 2 same-sized buffers, to an output buffer
@@ -2209,6 +2278,7 @@ void Main_Diagnostic_DisplayMenu(void)
   LOG_NOW("    P/p = Ping server\r\n");
   LOG_NOW("    R/r = toggle the dry contact relay\r\n");
   LOG_NOW("    S/s = close all secure sockets to the server\r\n");
+  LOG_NOW("     T  = set unit's RTC with UNIX timestamp\r\n");
   LOG_NOW("    U/u = trigger Zone Update POST\r\n");
   LOG_NOW("    X/x = factory reset\r\n");
   LOG_NOW("    Z/z = EXIT diagnostic mode and REBOOT\r\n");
@@ -2483,6 +2553,11 @@ void Main_Diagnostic_ProcessCommand(uint8_t aucCommandByte)
 //      osMessageQueuePut(NetworkQueueHandle, &luiMessageQueueBuffer, 0, 0);
       break;
 
+      // Set unit's RTC with UNIX timestamp
+      case 'T':
+        LOG("%s: Set unit's RTC with UNIX timestamp\r\n", __FUNCTION__);
+        break;
+
     // Trigger an immediate Zone Update POST
     case 'U':
     case 'u':
@@ -2632,7 +2707,7 @@ DiagnosticState Main_Diagnostic_StateMachine(DiagnosticStateMachineCommand state
           memcpy(lucDiagnosticReceiveBuffer, gucDiagnosticRxBuffer+8, strlen(gucDiagnosticRxBuffer+8) );
           LOG("%s: Diagnostic menu string >>%s<<\r\n", __FUNCTION__, lucDiagnosticReceiveBuffer);
           // If writing a new MAC or Board rev, skip any spaces and get the 2nd MENU parameter
-          if ('M' == lucDiagnosticReceiveBuffer[0] || 'B' == lucDiagnosticReceiveBuffer[0])
+          if ('M' == lucDiagnosticReceiveBuffer[0] || 'B' == lucDiagnosticReceiveBuffer[0] || 'T' == lucDiagnosticReceiveBuffer[0])
           {
             char* plcParamStart = &lucDiagnosticReceiveBuffer[1];
             while (isspace((char)*plcParamStart))
@@ -2656,6 +2731,17 @@ DiagnosticState Main_Diagnostic_StateMachine(DiagnosticStateMachineCommand state
 //              setSystemBoardRev(lucPcbRevisionChar - 'A');
 //              lucPcbRevisionChar = getSystemBoardRev();
               LOG("\r\n%s: New Board revision = %c  \r\n", __FUNCTION__, lucPcbRevisionChar);
+            }
+
+            // If a new RTC timestamp, write the new timestamp to the RTC
+            if ('T' == lucDiagnosticReceiveBuffer[0])
+            {
+              // the UNIX timestamp string (ex.: "1790609496") will be at plcParamStart
+              char* plucEndptr;
+              uint32_t lulUNIXTimestamp = strtoul(plcParamStart, &plucEndptr, 10);
+              LOG("%s: Converted UNIX timestamp = %d\r\n", __FUNCTION__, lulUNIXTimestamp);
+              HAL_StatusTypeDef ltSetRTCResult = Set_RTC_from_UNIX(lulUNIXTimestamp);
+              if (HAL_OK != ltSetRTCResult) LOG("%s: *** WARNING *** RTC failed to set correctly \r\n", __FUNCTION__);
             }
           }
           else

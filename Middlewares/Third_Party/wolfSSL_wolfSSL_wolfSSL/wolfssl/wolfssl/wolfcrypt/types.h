@@ -48,6 +48,7 @@ library files.
     extern "C" {
 #endif
 
+
 /*
     * This struct is used multiple time by other structs and
     * needs to be defined somewhere that all structs can import
