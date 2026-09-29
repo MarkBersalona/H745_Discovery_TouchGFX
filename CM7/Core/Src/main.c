@@ -389,6 +389,7 @@ uint8_t gucSessionID;
 // Copy of LR nodes [0x0100, 0x04FF]
 //
 uint8_t gucLRNodes[MAX_LR_NODEMASK_LENGTH];
+uint16_t guiActiveNodeCount=0;
 
 // general usage NodeIDs
 uint16_t guiNodeID;
@@ -2041,32 +2042,48 @@ void Read_String_from_Diagnostic(char* paucReceiveString, uint8_t aucMaxChars)
   * @param  aulUNIXTime - UNIX timestamp
   * @retval HAL_OK/HAL_ERROR
   */
-HAL_StatusTypeDef  Set_RTC_from_UNIX(uint32_t aulUNIXTime)
+HAL_StatusTypeDef Set_RTC_from_UNIX(uint32_t aulUNIXTime)
 {
-   time_t t = (time_t)aulUNIXTime;
-   struct tm tmv;
+   time_t ltNewTime = (time_t)aulUNIXTime;
+   struct tm lsNewTimeValues;
+   HAL_StatusTypeDef ltReturnValue = HAL_OK;
 
-   if (gmtime_r(&t, &tmv) == NULL)        /* UTC, reentrant, ignores TZ */
-       return HAL_ERROR;
+   if (gmtime_r(&ltNewTime, &lsNewTimeValues) == NULL)        /* UTC, reentrant, ignores TZ */
+   {
+     LOG("%s: *** WARNING *** gmtime_r() failed \r\n", __FUNCTION__);
+     ltReturnValue = HAL_ERROR;
+   }
 
-   RTC_TimeTypeDef sTime = {0};
-   RTC_DateTypeDef sDate = {0};
+   if (HAL_OK == ltReturnValue)
+   {
+     RTC_TimeTypeDef lsTime = {0};
+     RTC_DateTypeDef lsDate = {0};
 
-   sTime.Hours          = tmv.tm_hour;
-   sTime.Minutes        = tmv.tm_min;
-   sTime.Seconds        = tmv.tm_sec;
-   sTime.DayLightSaving = RTC_DAYLIGHTSAVING_NONE;
-   sTime.StoreOperation = RTC_STOREOPERATION_RESET;
+     lsTime.Hours          = lsNewTimeValues.tm_hour;
+     lsTime.Minutes        = lsNewTimeValues.tm_min;
+     lsTime.Seconds        = lsNewTimeValues.tm_sec;
+     lsTime.DayLightSaving = RTC_DAYLIGHTSAVING_NONE;
+     lsTime.StoreOperation = RTC_STOREOPERATION_RESET;
 
-   sDate.Year    = tmv.tm_year - 100;               /* tm: since 1900 -> RTC: 00..99 (20xx) */
-   sDate.Month   = tmv.tm_mon + 1;                  /* tm: 0..11 -> RTC: 1..12 */
-   sDate.Date    = tmv.tm_mday;
-   sDate.WeekDay = tmv.tm_wday == 0 ? RTC_WEEKDAY_SUNDAY : tmv.tm_wday; /* tm: Sun=0 -> RTC: Mon=1..Sun=7 */
+     lsDate.Year    = lsNewTimeValues.tm_year - 100;               /* tm: since 1900 -> RTC: 00..99 (20xx) */
+     lsDate.Month   = lsNewTimeValues.tm_mon + 1;                  /* tm: 0..11 -> RTC: 1..12 */
+     lsDate.Date    = lsNewTimeValues.tm_mday;
+     lsDate.WeekDay = lsNewTimeValues.tm_wday == 0 ? RTC_WEEKDAY_SUNDAY : lsNewTimeValues.tm_wday; /* tm: Sun=0 -> RTC: Mon=1..Sun=7 */
 
-   HAL_PWR_EnableBkUpAccess();
-   if (HAL_RTC_SetTime(&hrtc, &sTime, RTC_FORMAT_BIN) != HAL_OK) return HAL_ERROR;
-   if (HAL_RTC_SetDate(&hrtc, &sDate, RTC_FORMAT_BIN) != HAL_OK) return HAL_ERROR;
-   return HAL_OK;
+     HAL_PWR_EnableBkUpAccess();
+     if (HAL_RTC_SetTime(&hrtc, &lsTime, RTC_FORMAT_BIN) != HAL_OK)
+     {
+       LOG("%s: *** WARNING *** HAL_RTC_SetTime() failed \r\n", __FUNCTION__);
+       ltReturnValue = HAL_ERROR;
+     }
+     if (HAL_RTC_SetDate(&hrtc, &lsDate, RTC_FORMAT_BIN) != HAL_OK)
+     {
+       LOG("%s: *** WARNING *** HAL_RTC_SetDate() failed \r\n", __FUNCTION__);
+       ltReturnValue = HAL_ERROR;
+     }
+   }
+
+   return ltReturnValue;
 }
 // end Set_RTC_from_UNIX
 
@@ -7037,6 +7054,7 @@ void ZWave_RES_CMD_DA_Serial_API_Get_LR_Nodes(void)
   uint16_t luiNodeID;
   uint8_t lucOffset = ZWaveSerialFrame->payload[1];
   uint8_t lucIsAnyNodeActive = FALSE;
+  guiActiveNodeCount = 0;
   LOG("%s: -------------------------------------- \r\n", __FUNCTION__);
   for (uint8_t lucByteIndexJ = 0; lucByteIndexJ < ZWaveSerialFrame->payload[2]; ++lucByteIndexJ)
   {
@@ -7048,11 +7066,13 @@ void ZWave_RES_CMD_DA_Serial_API_Get_LR_Nodes(void)
         lucIsAnyNodeActive = TRUE;
         luiNodeID = 256 + (8*lucByteIndexJ) + lucBitIndexI + (128*8*lucOffset);
         LOG("%s: Node %d (0x%04X) is active \r\n", __FUNCTION__, luiNodeID, luiNodeID);
+        ++guiActiveNodeCount;
       }
     }
   }
   if (!lucIsAnyNodeActive) LOG("%s: No nodes active \r\n", __FUNCTION__);
   LOG("%s: -------------------------------------- \r\n", __FUNCTION__);
+  LOG("%s: Active node count: %04d \r\n", __FUNCTION__, guiActiveNodeCount);
   ////////////////////////////////////////////////////////////////////////////////////////
   //// TEST MAB 2026.01.07
   //// Save the LR nodes bitmask array
@@ -9784,9 +9804,13 @@ void MainTask(void *argument)
             sMainRTCTime.Hours, sMainRTCTime.Minutes, sMainRTCTime.Seconds);
 
       // Check if UNIX timestamp is updating every second
-      if (0 != sOldUNIXTime && (sUNIXTime-sOldUNIXTime) > 1)
+      if (0 != sOldUNIXTime && (sUNIXTime>sOldUNIXTime) && (sUNIXTime-sOldUNIXTime) > 1)
       {
         LOG("%s: *** WARNING *** UNIX timestamp: %d incremented by %d\r\n", __FUNCTION__, sUNIXTime, (sUNIXTime-sOldUNIXTime));
+      }
+      else if (0 != sOldUNIXTime && (sUNIXTime<sOldUNIXTime) && (sOldUNIXTime-sUNIXTime) > 1)
+      {
+        LOG("%s: *** WARNING *** UNIX timestamp: %d decremented by %d\r\n", __FUNCTION__, sUNIXTime, (sOldUNIXTime-sUNIXTime));
       }
 //      if (0 != sOldUNIXTime && (sUNIXTime-sOldUNIXTime) == 1)
 //      {
@@ -10740,8 +10764,8 @@ void ZWaveTask(void *argument)
     static uint16_t luiAbandonedNodeID = 0;
     static uint8_t lucSendDataBuffer[10];
     static uint8_t lucIsAbandonedNodeIDSearchActive;
-    if (0 == lulCountdownToCheckAbandonedNodeID_seconds)
-    //if (0 == lulCountdownToCheckAbandonedNodeID_seconds && !ZWave_DSK_IsProcessing())
+    //if (0 == lulCountdownToCheckAbandonedNodeID_seconds)
+    if (0 == lulCountdownToCheckAbandonedNodeID_seconds && guiActiveNodeCount)
     {
       //lulCountdownToCheckAbandonedNodeID_seconds = 300 + RandomValue()%60; // 5-6 minutes
       lulCountdownToCheckAbandonedNodeID_seconds = 60 + RandomValue()%60; // 1-2 minutes
@@ -10806,7 +10830,7 @@ void ZWaveTask(void *argument)
       // will need to update the local copy of the NodeID list more frequently.
       // In the final deliverable firmware probably don't need this ELSE case,
       // can rely on the separate periodic update of the local copy of the NodeID list.
-      else
+      else if (guiActiveNodeCount)
       {
         // (no more NodeIDs to check in the current LR node list)
         // Fetch latest LR node list
