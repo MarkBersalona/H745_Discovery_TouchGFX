@@ -359,6 +359,14 @@ typedef enum
   SMARTSTART_REMOVED,       // End node removed from home network; DSK being erased from node provisioning list
 } SmartStartState;
 
+// Struct for Inner SPANs
+typedef struct {
+    uint8_t  IsActive;
+    uint8_t  Key[16];
+    uint8_t  V[16];
+    uint8_t  Nonce[16];
+} inner_span_t;
+
 //  Node provisioning list (i.e. DSK and state variables for end nodes
 #define DSK_LENGTH_BYTES   16
 #define ZWAVE_NODE_PROVISIONING_LIST_MESH_ONLY (0)
@@ -391,6 +399,7 @@ typedef struct {
   uint8_t  KeyCCM[16];                  // KeyCCM for the given network key
   uint8_t  PersonalizationString[32];   // PersonalizationString for the given network key
   uint8_t  KeyMPAN[16];                 // KeyMPAN for the given network key
+  inner_span_t SPAN;                    // SPAN for the given network key
 } cl_entry_t;
 
 
@@ -430,14 +439,6 @@ typedef enum
 #define NVR_HW_VER_OFFSET 0x70
 #define NVR_HW_VER_SIZE   1
 
-
-// Struct for Inner SPANs
-typedef struct {
-    uint8_t  IsActive;
-    uint8_t  Key[16];
-    uint8_t  V[16];
-    uint8_t  Nonce[16];
-} inner_span_t;
 
 // Struct for Additional Authenticated Data (AAD)
 typedef struct

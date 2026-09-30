@@ -533,7 +533,6 @@ uint16_t Swap_Bytes_uint16(uint16_t auiInputValue);
 uint32_t Swap_Bytes_uint32(uint32_t aulInputValue);
 void XOR_Bytes(uint8_t* paucOutputBuffer, uint8_t* paucBufferA, uint8_t* paucBufferB, uint16_t auiLength);
 BootstrapState ZWave_Bootstrap_StateMachine(BootstrapStateMachineCommand stateMachineCommand);
-int ZWave_CKDF_NetworkKeyExpand(uint8_t aucDSKIndex, uint8_t* paucNetworkKey);
 int ZWave_Controller_Keys_Generate(uint8_t* paucPrivateKey, uint8_t* paucPublicKey);
 void ZWave_Controller_Keys_Zeroize(uint8_t* paucPrivateKey, uint8_t* paucPublicKey);
 uint8_t ZWave_DSK_Extract_NWIAuthHomeID(uint8_t aucDSKIndex, uint8_t* paucNWIAuthHomeIDBuffer);
@@ -545,6 +544,8 @@ void ZWave_DSK_Write(uint8_t aucDSKIndex, uint8_t* paucDSKBuffer);
 uint8_t ZWave_DSK_Write_From_String(uint8_t aucDSKIndex, char* paucDSKString);
 void ZWave_DSK_Write_To_String(uint8_t aucDSKIndex, char* paucDSKBuffer);
 void ZWave_DSK_Zeroize(uint8_t aucDSKIndex);
+int ZWave_Network_Key_Expand(uint8_t aucDSKIndex, uint8_t* paucNetworkKey);
+int ZWave_Network_SPAN_Establish(uint8_t aucDSKIndex);
 void ZWave_REQ_CMD_0A_Serial_API_Started(void);
 void ZWave_RES_CMD_02_Get_Init_Data(void);
 void ZWave_RES_CMD_05_ZW_Get_Controller_Capabilities(void);
@@ -2949,12 +2950,15 @@ BootstrapState ZWave_Bootstrap_StateMachine(BootstrapStateMachineCommand stateMa
   static int liDecryptKEXSetSuccessful;
   static int liDecryptNetworkKeyGetResult;
   static int liDecryptNetworkKeyGetSuccessful;
+  static int liDecryptNetworkKeyVerifyResult;
+  static int liDecryptNetworkKeyVerifySuccessful;
   static uint8_t lucHeaderLength;
   static uint8_t lucFrameLength;
   static aad_t ltTxAAD;
   static uint8_t lucTxAADLength;
   static int liWolfSSLRngReturn;
   static uint8_t *plucNetworkKey;
+  static uint8_t lucNetworkKeyVerify[2];
 
 
 
@@ -3576,7 +3580,7 @@ BootstrapState ZWave_Bootstrap_StateMachine(BootstrapStateMachineCommand stateMa
           //// where ZWave_Temporary_Key_Generate() generates TempKeyCCM in gucTemporarySymmetricKey
           //// and TempPersonalzationString in gucTempPersonalizationString.
           //// Proposed: ZWave_CKDF_NetworkKeyExpand(aucDSKIndex, paucNetworkKey)
-          ZWave_CKDF_NetworkKeyExpand(gucProcessingDSK, plucNetworkKey);
+          ZWave_Network_Key_Expand(gucProcessingDSK, plucNetworkKey);
           //////////////////////////////////////////////////////////////////////////////////
 
           // Set state to NETWORK_NONCE_GET
@@ -3646,7 +3650,48 @@ BootstrapState ZWave_Bootstrap_StateMachine(BootstrapStateMachineCommand stateMa
         gucIsEncryptedMsgReceived = FALSE;
 
         // Establish SPAN for this DSK
-        // (need to establish personalization string before instantiating SPAN)
+        liTemporarySPANResult = 0;
+        if (FALSE == gtNodeConnectionList[gucProcessingDSK].SPAN.IsActive)
+        {
+          liTemporarySPANResult = ZWave_Network_SPAN_Establish(gucProcessingDSK);
+          if (0 != liTemporarySPANResult) LOG("%s: *** WARNING *** liTemporarySPANResult for DSK %d = %d \r\n", __FUNCTION__, gucProcessingDSK, liTemporarySPANResult);
+        }
+
+        // Generate NextNonce
+        liNextNonceResult = CTR_DRBG_Generate_16_Random_Bytes(&gtNodeConnectionList[gucProcessingDSK].SPAN, gtNodeConnectionList[gucProcessingDSK].SPAN.Nonce);
+        if (0 != liNextNonceResult) LOG("%s: *** WARNING *** liNextNonceResult = %d \r\n", __FUNCTION__, liNextNonceResult);
+        LOG("%s: FULL 16-bytes of gtNodeConnectionList[%d].SPAN.Nonce \r\n", __FUNCTION__, gucProcessingDSK);
+        PrintBytes(gtNodeConnectionList[gucProcessingDSK].SPAN.Nonce, 16, false, 0);
+
+        // Decrypt received message
+        liAesInitResult = wc_AesInit(&aes, NULL, INVALID_DEVID);
+        if (0!=liAesInitResult) LOG("%s: *** WARNING *** liAesInitResult = %d \r\n", __FUNCTION__, liAesInitResult);
+        liAesSetKeyResult = wc_AesCcmSetKey(&aes, gtNodeConnectionList[gucProcessingDSK].KeyCCM, 16);
+        if (0!=liAesSetKeyResult) LOG("%s: *** WARNING *** liAesSetKeyResult = %d \r\n", __FUNCTION__, liAesSetKeyResult);
+        LOG("%s: gucReceivedCiphertext \r\n", __FUNCTION__);
+        PrintBytes(gucReceivedCiphertext, gucReceivedCiphertextLength, false, 0);
+        LOG("%s: gucReceivedCiphertextLength = 0x%02X \r\n", __FUNCTION__, gucReceivedCiphertextLength);
+        LOG("%s: gtNodeConnectionList[%d].SPAN.Nonce \r\n", __FUNCTION__, gucProcessingDSK);
+        PrintBytes(gtNodeConnectionList[gucProcessingDSK].SPAN.Nonce, 13, false, 0);
+        LOG("%s: gucReceivedAuthTag \r\n", __FUNCTION__);
+        PrintBytes(gucReceivedAuthTag, gucReceivedAuthTagLength, false, 0);
+        LOG("%s: gucReceivedAuthTagLength    = 0x%02X \r\n", __FUNCTION__, gucReceivedAuthTagLength);
+        LOG("%s: gtTemporaryAAD \r\n", __FUNCTION__);
+        PrintBytes((uint8_t *)&gtTemporaryAAD, gucTemporaryAADLength, false, 0);
+        LOG("%s: gucTemporaryAADLength       = 0x%02X \r\n", __FUNCTION__, gucTemporaryAADLength);
+        memset(lucNetworkKeyVerify, 0x00, sizeof(lucNetworkKeyVerify));
+        liDecryptNetworkKeyVerifyResult = wc_AesCcmDecrypt(&aes,
+                                                        lucNetworkKeyVerify,
+                                                        gucReceivedCiphertext, gucReceivedCiphertextLength,
+                                                        gtNodeConnectionList[gucProcessingDSK].SPAN.Nonce, 13,
+                                                        gucReceivedAuthTag, gucReceivedAuthTagLength,
+                                                        (const byte *)&gtTemporaryAAD, gucTemporaryAADLength);
+        if (0!=liDecryptNetworkKeyVerifyResult) LOG("%s: *** WARNING *** liDecryptNetworkKeyVerifyResult = %d \r\n", __FUNCTION__, liDecryptNetworkKeyVerifyResult);
+        LOG("%s: Decrypted received Network Key Verify (9F 0B I hope; all 00 if failed): \r\n", __FUNCTION__);
+        PrintBytes(lucNetworkKeyVerify, gucReceivedCiphertextLength, false, 0);
+        wc_AesFree(&aes);
+
+
       }
       // ENDIF encrypted message received
     }
@@ -3698,139 +3743,6 @@ BootstrapState ZWave_Bootstrap_StateMachine(BootstrapStateMachineCommand stateMa
   return leBootstrapState;
 }
 // end ZWave_Bootstrap_StateMachine
-
-/** *****************************************************************************************************************************
-  * @brief  Generate KeyCCM, PersonaliationString and KeyMPAN for given network key
-  * @param  aucDSKIndex - index into the Node Provisioning List and/or Node Connection List for the DSK/NodeID being processed
-  * @param  paucNetworkKey - pointer to selected 16-byte network key
-  * @retval 0 if all OK; nonzero otherwise
-  */
-int ZWave_CKDF_NetworkKeyExpand(uint8_t aucDSKIndex, uint8_t* paucNetworkKey)
-{
-  int liReturnValue = 0;
-  static uint8_t lucT1[16];
-  static uint8_t lucT2[16];
-  static uint8_t lucT3[16];
-  static uint8_t lucT4[16];
-  static uint8_t lucMsgExpand[16];
-  static uint8_t lucMsgExpand2[32];
-  static unsigned int luiSize;
-
-  LOG("%s: START \r\n", __FUNCTION__);
-
-  // Sanity check: display the network key
-  LOG("%s: Network key \r\n", __FUNCTION__);
-  PrintBytes(paucNetworkKey, 16, false, 0);
-
-  ///////////////////////////////////////////////////
-  // Generate T1 = CMAC(PNK, ConstantNK || 0x01)
-  ///////////////////////////////////////////////////
-  LOG("%s: Generating T1 = CMAC(PNK, ConstantNK || 0x01)\r\n", __FUNCTION__);
-  memcpy(lucMsgExpand, CKDF_CONSTANT_NK, 15);
-  lucMsgExpand[15] = 0x01;
-  luiSize = sizeof(lucT1);
-  liReturnValue = wc_AesCmacGenerate(lucT1, &luiSize,
-                                       lucMsgExpand, sizeof(lucMsgExpand),
-                                       paucNetworkKey, 16);
-  if (liReturnValue != 0 || luiSize != 16)
-  {
-    // Make sure return value is *something* other than 0
-    if (0==liReturnValue) liReturnValue = -1;
-    goto exit;
-  }
-  // If no errors
-  LOG("%s: - T1 \r\n", __FUNCTION__);
-  PrintBytes(lucT1, sizeof(lucT1), false, 0);
-
-  ///////////////////////////////////////////////////
-  // Generate T2 = CMAC(PNK, T1 || ConstantNK || 0x02)
-  ///////////////////////////////////////////////////
-  LOG("%s: Generating T2 = CMAC(PNK, T1 || ConstantNK || 0x02)\r\n", __FUNCTION__);
-  memcpy(lucMsgExpand2,    lucT1,            16);
-  memcpy(lucMsgExpand2+16, CKDF_CONSTANT_NK, 15);
-  lucMsgExpand[31] = 0x02;
-  luiSize = sizeof(lucT2);
-  liReturnValue = wc_AesCmacGenerate(lucT2, &luiSize,
-                                       lucMsgExpand2, sizeof(lucMsgExpand2),
-                                       paucNetworkKey, 16);
-  if (liReturnValue != 0 || luiSize != 16)
-  {
-    // Make sure return value is *something* other than 0
-    if (0==liReturnValue) liReturnValue = -1;
-    goto exit;
-  }
-  // If no errors
-  LOG("%s: - T2 \r\n", __FUNCTION__);
-  PrintBytes(lucT2, sizeof(lucT2), false, 0);
-
-  ///////////////////////////////////////////////////
-  // Generate T3 = CMAC(PNK, T2 || ConstantNK || 0x03)
-  ///////////////////////////////////////////////////
-  LOG("%s: Generating T3 = CMAC(PNK, T2 || ConstantNK || 0x03)\r\n", __FUNCTION__);
-  memcpy(lucMsgExpand2,    lucT2,            16);
-  memcpy(lucMsgExpand2+16, CKDF_CONSTANT_NK, 15);
-  lucMsgExpand[31] = 0x03;
-  luiSize = sizeof(lucT3);
-  liReturnValue = wc_AesCmacGenerate(lucT3, &luiSize,
-                                       lucMsgExpand2, sizeof(lucMsgExpand2),
-                                       paucNetworkKey, 16);
-  if (liReturnValue != 0 || luiSize != 16)
-  {
-    // Make sure return value is *something* other than 0
-    if (0==liReturnValue) liReturnValue = -1;
-    goto exit;
-  }
-  // If no errors
-  LOG("%s: - T3 \r\n", __FUNCTION__);
-  PrintBytes(lucT3, sizeof(lucT3), false, 0);
-
-  ///////////////////////////////////////////////////
-  // Generate T4 = CMAC(PNK, T3 || ConstantNK || 0x04)
-  ///////////////////////////////////////////////////
-  LOG("%s: Generating T4 = CMAC(PNK, T3 || ConstantNK || 0x04)\r\n", __FUNCTION__);
-  memcpy(lucMsgExpand2,    lucT3,            16);
-  memcpy(lucMsgExpand2+16, CKDF_CONSTANT_NK, 15);
-  lucMsgExpand[31] = 0x04;
-  luiSize = sizeof(lucT4);
-  liReturnValue = wc_AesCmacGenerate(lucT4, &luiSize,
-                                       lucMsgExpand2, sizeof(lucMsgExpand2),
-                                       paucNetworkKey, 16);
-  if (liReturnValue != 0 || luiSize != 16)
-  {
-    // Make sure return value is *something* other than 0
-    if (0==liReturnValue) liReturnValue = -1;
-    goto exit;
-  }
-  // If no errors
-  LOG("%s: - T4 \r\n", __FUNCTION__);
-  PrintBytes(lucT4, sizeof(lucT4), false, 0);
-
-  ///////////////////////////////////////////////////
-  // KeyCCM = T1
-  // PersonalizationString = T2 || T3
-  // KeyMPAN = T4
-  ///////////////////////////////////////////////////
-  memcpy(gtNodeConnectionList[aucDSKIndex].KeyCCM, lucT1, 16);
-  LOG("%s: - saved KeyCCM for DSK %d \r\n", __FUNCTION__, aucDSKIndex);
-  PrintBytes(gtNodeConnectionList[aucDSKIndex].KeyCCM, sizeof(lucT1), false, 0);
-
-  memcpy(lucMsgExpand2,    lucT2, 16);
-  memcpy(lucMsgExpand2+16, lucT3, 16);
-  memcpy(gtNodeConnectionList[aucDSKIndex].PersonalizationString, lucMsgExpand2, 32);
-  LOG("%s: - saved PersonalizationString for DSK %d \r\n", __FUNCTION__, aucDSKIndex);
-  PrintBytes(gtNodeConnectionList[aucDSKIndex].PersonalizationString, sizeof(lucMsgExpand2), false, 0);
-
-  memcpy(gtNodeConnectionList[aucDSKIndex].KeyMPAN, lucT4, 16);
-  LOG("%s: - saved KeyMPAN for DSK %d \r\n", __FUNCTION__, aucDSKIndex);
-  PrintBytes(gtNodeConnectionList[aucDSKIndex].KeyMPAN, sizeof(lucT4), false, 0);
-
-
-  exit:
-  if (liReturnValue != 0) LOG("%s: *** WARNING *** return value = %d \r\n", __FUNCTION__, liReturnValue);
-  LOG("%s: END \r\n", __FUNCTION__);
-  return liReturnValue;
-}
-// end ZWave_CKDF_NetworkKeyExpand
 
 /** *****************************************************************************************************************************
   * @brief  Generate controller public/private Curve25519 keys
@@ -5247,6 +5159,247 @@ void ZWave_Identify_Specific_Device_Type(uint8_t aucGenericDeviceType, uint8_t a
 
 }
 // end ZWave_Identify_Specific_Device_Type
+
+/** *****************************************************************************************************************************
+  * @brief  Generate KeyCCM, PersonaliationString and KeyMPAN for given network key
+  * @param  aucDSKIndex - index into the Node Provisioning List and/or Node Connection List for the DSK/NodeID being processed
+  * @param  paucNetworkKey - pointer to selected 16-byte network key
+  * @retval 0 if all OK; nonzero otherwise
+  */
+int ZWave_Network_Key_Expand(uint8_t aucDSKIndex, uint8_t* paucNetworkKey)
+{
+  int liReturnValue = 0;
+  static uint8_t lucT1[16];
+  static uint8_t lucT2[16];
+  static uint8_t lucT3[16];
+  static uint8_t lucT4[16];
+  static uint8_t lucMsgExpand[16];
+  static uint8_t lucMsgExpand2[32];
+  static unsigned int luiSize;
+
+  LOG("%s: START \r\n", __FUNCTION__);
+
+  // Sanity check: display the network key
+  LOG("%s: Network key \r\n", __FUNCTION__);
+  PrintBytes(paucNetworkKey, 16, false, 0);
+
+  ///////////////////////////////////////////////////
+  // Generate T1 = CMAC(PNK, ConstantNK || 0x01)
+  ///////////////////////////////////////////////////
+  LOG("%s: Generating T1 = CMAC(PNK, ConstantNK || 0x01)\r\n", __FUNCTION__);
+  memcpy(lucMsgExpand, CKDF_CONSTANT_NK, 15);
+  lucMsgExpand[15] = 0x01;
+  luiSize = sizeof(lucT1);
+  liReturnValue = wc_AesCmacGenerate(lucT1, &luiSize,
+                                       lucMsgExpand, sizeof(lucMsgExpand),
+                                       paucNetworkKey, 16);
+  if (liReturnValue != 0 || luiSize != 16)
+  {
+    // Make sure return value is *something* other than 0
+    if (0==liReturnValue) liReturnValue = -1;
+    goto exit;
+  }
+  // If no errors
+  LOG("%s: - T1 \r\n", __FUNCTION__);
+  PrintBytes(lucT1, sizeof(lucT1), false, 0);
+
+  ///////////////////////////////////////////////////
+  // Generate T2 = CMAC(PNK, T1 || ConstantNK || 0x02)
+  ///////////////////////////////////////////////////
+  LOG("%s: Generating T2 = CMAC(PNK, T1 || ConstantNK || 0x02)\r\n", __FUNCTION__);
+  memcpy(lucMsgExpand2,    lucT1,            16);
+  memcpy(lucMsgExpand2+16, CKDF_CONSTANT_NK, 15);
+  lucMsgExpand2[31] = 0x02;
+  luiSize = sizeof(lucT2);
+  liReturnValue = wc_AesCmacGenerate(lucT2, &luiSize,
+                                       lucMsgExpand2, sizeof(lucMsgExpand2),
+                                       paucNetworkKey, 16);
+  if (liReturnValue != 0 || luiSize != 16)
+  {
+    // Make sure return value is *something* other than 0
+    if (0==liReturnValue) liReturnValue = -1;
+    goto exit;
+  }
+  // If no errors
+  LOG("%s: - T2 \r\n", __FUNCTION__);
+  PrintBytes(lucT2, sizeof(lucT2), false, 0);
+
+  ///////////////////////////////////////////////////
+  // Generate T3 = CMAC(PNK, T2 || ConstantNK || 0x03)
+  ///////////////////////////////////////////////////
+  LOG("%s: Generating T3 = CMAC(PNK, T2 || ConstantNK || 0x03)\r\n", __FUNCTION__);
+  memcpy(lucMsgExpand2,    lucT2,            16);
+  memcpy(lucMsgExpand2+16, CKDF_CONSTANT_NK, 15);
+  lucMsgExpand2[31] = 0x03;
+  luiSize = sizeof(lucT3);
+  liReturnValue = wc_AesCmacGenerate(lucT3, &luiSize,
+                                       lucMsgExpand2, sizeof(lucMsgExpand2),
+                                       paucNetworkKey, 16);
+  if (liReturnValue != 0 || luiSize != 16)
+  {
+    // Make sure return value is *something* other than 0
+    if (0==liReturnValue) liReturnValue = -1;
+    goto exit;
+  }
+  // If no errors
+  LOG("%s: - T3 \r\n", __FUNCTION__);
+  PrintBytes(lucT3, sizeof(lucT3), false, 0);
+
+  ///////////////////////////////////////////////////
+  // Generate T4 = CMAC(PNK, T3 || ConstantNK || 0x04)
+  ///////////////////////////////////////////////////
+  LOG("%s: Generating T4 = CMAC(PNK, T3 || ConstantNK || 0x04)\r\n", __FUNCTION__);
+  memcpy(lucMsgExpand2,    lucT3,            16);
+  memcpy(lucMsgExpand2+16, CKDF_CONSTANT_NK, 15);
+  lucMsgExpand2[31] = 0x04;
+  luiSize = sizeof(lucT4);
+  liReturnValue = wc_AesCmacGenerate(lucT4, &luiSize,
+                                       lucMsgExpand2, sizeof(lucMsgExpand2),
+                                       paucNetworkKey, 16);
+  if (liReturnValue != 0 || luiSize != 16)
+  {
+    // Make sure return value is *something* other than 0
+    if (0==liReturnValue) liReturnValue = -1;
+    goto exit;
+  }
+  // If no errors
+  LOG("%s: - T4 \r\n", __FUNCTION__);
+  PrintBytes(lucT4, sizeof(lucT4), false, 0);
+
+  ///////////////////////////////////////////////////
+  // KeyCCM = T1
+  // PersonalizationString = T2 || T3
+  // KeyMPAN = T4
+  ///////////////////////////////////////////////////
+  memcpy(gtNodeConnectionList[aucDSKIndex].KeyCCM, lucT1, 16);
+  LOG("%s: - saved KeyCCM for DSK %d \r\n", __FUNCTION__, aucDSKIndex);
+  PrintBytes(gtNodeConnectionList[aucDSKIndex].KeyCCM, sizeof(lucT1), false, 0);
+
+  memcpy(lucMsgExpand2,    lucT2, 16);
+  memcpy(lucMsgExpand2+16, lucT3, 16);
+  memcpy(gtNodeConnectionList[aucDSKIndex].PersonalizationString, lucMsgExpand2, 32);
+  LOG("%s: - saved PersonalizationString for DSK %d \r\n", __FUNCTION__, aucDSKIndex);
+  PrintBytes(gtNodeConnectionList[aucDSKIndex].PersonalizationString, sizeof(lucMsgExpand2), false, 0);
+
+  memcpy(gtNodeConnectionList[aucDSKIndex].KeyMPAN, lucT4, 16);
+  LOG("%s: - saved KeyMPAN for DSK %d \r\n", __FUNCTION__, aucDSKIndex);
+  PrintBytes(gtNodeConnectionList[aucDSKIndex].KeyMPAN, sizeof(lucT4), false, 0);
+
+
+  exit:
+  if (liReturnValue != 0) LOG("%s: *** WARNING *** return value = %d \r\n", __FUNCTION__, liReturnValue);
+  LOG("%s: END \r\n", __FUNCTION__);
+  return liReturnValue;
+}
+// end ZWave_Network_Key_Expand
+
+/** *****************************************************************************************************************************
+  * @brief  Establish SPAN for network key/NodeID
+  * @param  aucDSKIndex - index into the Node Provisioning List and/or Node Connection List for the DSK/NodeID being processed
+  * @retval 0 if all OK; nonzero otherwise
+  */
+int ZWave_Network_SPAN_Establish(uint8_t aucDSKIndex)
+{
+  static int liReturnValue;
+  static unsigned int luiSize;
+  static uint8_t lucMEIExtract[16+16];
+  static uint8_t lucNoncePRK[16];
+  static uint8_t lucMEIExpandBuffer[16+16];
+  static uint8_t lucMEIExpandT0[16];
+  static uint8_t lucMEIExpandT1[16];
+  static uint8_t lucMEIExpandT2[16];
+  static uint8_t lucMEI[16+16];
+
+  //LOG("%s: START \r\n", __FUNCTION__);
+
+  ///////////////////////////////////////////////////////////
+  // CKDF-MEI-Extract: with SEI and REI, generate NoncePRK
+  ///////////////////////////////////////////////////////////
+  LOG("%s: CKDF-MEI-Extract: with SEI and REI of DSK %d, generate NoncePRK \r\n", __FUNCTION__, aucDSKIndex);
+  memcpy(lucMEIExtract   , gtNodeProvisioningList[aucDSKIndex].SEI, 16);
+  memcpy(lucMEIExtract+16, gtNodeProvisioningList[aucDSKIndex].REI, 16);
+  luiSize = 16;
+  liReturnValue = wc_AesCmacGenerate(lucNoncePRK, &luiSize,
+                                       lucMEIExtract, sizeof(lucMEIExtract),
+                                       CKDF_MEI_EXTRACT_C, sizeof(CKDF_MEI_EXTRACT_C));
+  //PrintBytes(lucNoncePRK, sizeof(lucNoncePRK), false, 0);
+  if (liReturnValue != 0 || luiSize != 16)
+  {
+    // Make sure return value is *something* other than 0
+    if (0==liReturnValue) liReturnValue = -1;
+    goto exit;
+  }
+  // If no errors, lucNoncePRK[] has NoncePRK
+
+
+  ///////////////////////////////////////////////////////////
+  // CKDF-MEI-Expand: with NoncePRK, generate MEI
+  ///////////////////////////////////////////////////////////
+  LOG("%s: CKDF-MEI-Expand: with NoncePRK, generate MEI \r\n", __FUNCTION__);
+
+  // T0 = ConstEntropyInput | 0x00
+  // NOTE: ConstEntropyInput exactly the same as CKDF_TEMP_EXPAND_C: 0x88 repeated 15 times
+  LOG("%s: - generating T0 \r\n", __FUNCTION__);
+  memcpy(lucMEIExpandT0, CKDF_TEMP_EXPAND_C, sizeof(CKDF_TEMP_EXPAND_C));
+  lucMEIExpandT0[15] = 0x00;
+  PrintBytes(lucMEIExpandT0, sizeof(lucMEIExpandT0), false, 0);
+
+  // T1 = CMAC(NoncePRK, T0 | ConstEntropyInput | 0x01)
+  LOG("%s: - generating T1 \r\n", __FUNCTION__);
+  memcpy(lucMEIExpandBuffer,    lucMEIExpandT0,     sizeof(lucMEIExpandT0));
+  memcpy(lucMEIExpandBuffer+16, CKDF_TEMP_EXPAND_C, sizeof(CKDF_TEMP_EXPAND_C));
+  lucMEIExpandBuffer[31] = 0x01;
+  luiSize = sizeof(lucMEIExpandT1);
+  liReturnValue = wc_AesCmacGenerate(lucMEIExpandT1, &luiSize,
+                                       lucMEIExpandBuffer, sizeof(lucMEIExpandBuffer),
+                                       lucNoncePRK, sizeof(lucNoncePRK));
+  PrintBytes(lucMEIExpandT1, sizeof(lucMEIExpandT1), false, 0);
+  if (liReturnValue != 0 || luiSize != 16)
+  {
+    // Make sure return value is *something* other than 0
+    if (0==liReturnValue) liReturnValue = -1;
+    goto exit;
+  }
+
+  // T2 = CMAC(NoncePRK, T1 | ConstEntropyInput | 0x02)
+  LOG("%s: - generating T2 \r\n", __FUNCTION__);
+  memcpy(lucMEIExpandBuffer,    lucMEIExpandT1,     sizeof(lucMEIExpandT1));
+  memcpy(lucMEIExpandBuffer+16, CKDF_TEMP_EXPAND_C, sizeof(CKDF_TEMP_EXPAND_C));
+  lucMEIExpandBuffer[31] = 0x02;
+  luiSize = sizeof(lucMEIExpandT2);
+  liReturnValue = wc_AesCmacGenerate(lucMEIExpandT2, &luiSize,
+                                       lucMEIExpandBuffer, sizeof(lucMEIExpandBuffer),
+                                       lucNoncePRK, sizeof(lucNoncePRK));
+  PrintBytes(lucMEIExpandT2, sizeof(lucMEIExpandT2), false, 0);
+  if (liReturnValue != 0 || luiSize != 16)
+  {
+    // Make sure return value is *something* other than 0
+    if (0==liReturnValue) liReturnValue = -1;
+    goto exit;
+  }
+
+  // MEI = T1 | T2
+  LOG("%s: - generating MEI \r\n", __FUNCTION__);
+  memcpy(lucMEI,    lucMEIExpandT1, sizeof(lucMEIExpandT1));
+  memcpy(lucMEI+16, lucMEIExpandT2, sizeof(lucMEIExpandT2));
+  // If no errors, lucMEI[] has MEI
+  PrintBytes(lucMEI, sizeof(lucMEI), false, 0);
+
+
+  /////////////////////////////////////////////////////////////////////////////////////////////////////
+  // CTR_DRBG instantiated with MEI and Personalization_String; inner state InnerSPAN instantiated
+  // - PersonalizationString was established in ZWave_Network_Key_Expand()
+  // - provided_data = lucMEI XOR PersonalizationString
+  /////////////////////////////////////////////////////////////////////////////////////////////////////
+  LOG("%s: Instantiating SPAN for DSK %d \r\n", __FUNCTION__, aucDSKIndex);
+  liReturnValue = CTR_DRBG_Instantiate_SPAN(&gtNodeConnectionList[aucDSKIndex].SPAN, lucMEI, gtNodeConnectionList[aucDSKIndex].PersonalizationString);
+
+exit:
+  if (liReturnValue != 0) LOG("%s: *** WARNING *** return value = %d \r\n", __FUNCTION__, liReturnValue);
+  //LOG("%s: END \r\n", __FUNCTION__);
+  return liReturnValue;
+}
+// end ZWave_Network_SPAN_Establish
 
 /** *****************************************************************************************************************************
   * @brief  Parse received FIFO bytes from Z-Wave controller
@@ -7614,6 +7767,12 @@ void ZWave_Rx_CC_9F_Security_2_V2(void)
           {
             LOG("%s: - saving Sender's Entropy Input (SEI) for DSK %d \r\n", __FUNCTION__, gucProcessingDSK);
             memcpy(gtNodeProvisioningList[gucProcessingDSK].SEI, &pgucCCBuffer[6+lucExtensionOffset], 16);
+
+            // The SPAN extension with the SEI has been received,
+            // may proceed to establish the SPAN
+
+            // But first, zeroize SPAN
+            CTR_DRBG_Zeroize_SPAN(&gtNodeConnectionList[gucProcessingDSK].SPAN);
           }
         }
 
