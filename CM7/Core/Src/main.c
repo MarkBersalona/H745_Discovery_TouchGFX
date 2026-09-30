@@ -378,6 +378,9 @@ SmartStartState geSmartStartState;
 // Node Provisioning list (i.e. DSK and state variables for end nodes)
 pl_entry_t gtNodeProvisioningList[NODE_PROVISIONING_LIST_COUNT];
 
+// Node Connection list (i.e. NodeID and related fields for fully connected end nodes)
+cl_entry_t gtNodeConnectionList[NODE_PROVISIONING_LIST_COUNT];
+
 //
 // Index of DSK currently being processed (may be NO DSK being processed)
 uint8_t gucProcessingDSK = DSK_UNAVAILABLE;
@@ -465,6 +468,12 @@ uint8_t gucS2AuthenticatedKey[16];
 uint8_t gucS2UnauthenticatedKey[16];
 uint8_t gucS0LegacyKey[16];
 
+// For expanding the Networ Key
+static const uint8_t CKDF_CONSTANT_NK[15] = {
+    /* 15 bytes of 0x55 per CKDF-NetworkKeyExpand */
+    0x55,0x55,0x55,0x55,0x55,0x55,0x55,0x55,
+    0x55,0x55,0x55,0x55,0x55,0x55,0x55
+};
 
 
 
@@ -524,6 +533,7 @@ uint16_t Swap_Bytes_uint16(uint16_t auiInputValue);
 uint32_t Swap_Bytes_uint32(uint32_t aulInputValue);
 void XOR_Bytes(uint8_t* paucOutputBuffer, uint8_t* paucBufferA, uint8_t* paucBufferB, uint16_t auiLength);
 BootstrapState ZWave_Bootstrap_StateMachine(BootstrapStateMachineCommand stateMachineCommand);
+int ZWave_CKDF_NetworkKeyExpand(uint8_t aucDSKIndex, uint8_t* paucNetworkKey);
 int ZWave_Controller_Keys_Generate(uint8_t* paucPrivateKey, uint8_t* paucPublicKey);
 void ZWave_Controller_Keys_Zeroize(uint8_t* paucPrivateKey, uint8_t* paucPublicKey);
 uint8_t ZWave_DSK_Extract_NWIAuthHomeID(uint8_t aucDSKIndex, uint8_t* paucNWIAuthHomeIDBuffer);
@@ -2081,7 +2091,7 @@ HAL_StatusTypeDef Set_RTC_from_UNIX(uint32_t aulUNIXTime)
        LOG("%s: *** WARNING *** HAL_RTC_SetDate() failed \r\n", __FUNCTION__);
        ltReturnValue = HAL_ERROR;
      }
-   }
+   } // endif (HAL_OK == ltReturnValue)
 
    return ltReturnValue;
 }
@@ -2903,7 +2913,6 @@ ZWave_Bootstrap_StateMachine
     ELSE IF state is NETWORK_KEY_VERIFY
       IF encrypted message received
       ENDIF
-    ELSE IF state is NETWORK_VERIFY_SPAN
     ELSE IF state is NETWORK_KEY_DONE
     ELSE IF state is COMPLETE
       Do nothing
@@ -2945,6 +2954,7 @@ BootstrapState ZWave_Bootstrap_StateMachine(BootstrapStateMachineCommand stateMa
   static aad_t ltTxAAD;
   static uint8_t lucTxAADLength;
   static int liWolfSSLRngReturn;
+  static uint8_t *plucNetworkKey;
 
 
 
@@ -2983,7 +2993,8 @@ BootstrapState ZWave_Bootstrap_StateMachine(BootstrapStateMachineCommand stateMa
     {
       lulElapsedTime_sec = 0;
       // Set state to ERROR
-      LOG("%s: *** WARNING *** Timeout: transitioning DSK %d Bootstrap state to ERROR\r\n", __FUNCTION__, gucProcessingDSK);
+      LOG("%s: *** WARNING *** Generic Bootstrap timeout\r\n", __FUNCTION__, gucProcessingDSK);
+      LOG("%s: Transitioning DSK %d Bootstrap state to ERROR\r\n", __FUNCTION__, gucProcessingDSK);
       leBootstrapState = BOOTSTRAP_ERROR;
     }
     // ENDIF
@@ -3487,21 +3498,26 @@ BootstrapState ZWave_Bootstrap_StateMachine(BootstrapStateMachineCommand stateMa
           case SECURITY_KEY_S2_ACCESS_BIT:
             LOG("%s: S2 Access Control key requested \r\n", __FUNCTION__);
             memcpy(&lucNetworkKeyReport[3], gucS2AccessKey, 16);
+            plucNetworkKey = gucS2AccessKey;
             break;
           case SECURITY_KEY_S2_AUTHENTICATED_BIT:
             LOG("%s: S2 Authenticated key requested \r\n", __FUNCTION__);
             memcpy(&lucNetworkKeyReport[3], gucS2AuthenticatedKey, 16);
+            plucNetworkKey = gucS2AuthenticatedKey;
             break;
           case SECURITY_KEY_S2_UNAUTHENTICATED_BIT:
             LOG("%s: S2 Unauthenticated key requested \r\n", __FUNCTION__);
             memcpy(&lucNetworkKeyReport[3], gucS2UnauthenticatedKey, 16);
+            plucNetworkKey = gucS2UnauthenticatedKey;
            break;
           case SECURITY_KEY_S0_BIT:
             LOG("%s: S0 Legacy key requested \r\n", __FUNCTION__);
             memcpy(&lucNetworkKeyReport[3], gucS0LegacyKey, 16);
+            plucNetworkKey = gucS0LegacyKey;
             break;
           default:
             LOG("%s: *** WARNING *** unknown key requested \r\n", __FUNCTION__);
+            plucNetworkKey = NULL;
             break;
           } // end switch
           LOG("%s: Plaintext Network Key Report \r\n", __FUNCTION__);
@@ -3549,6 +3565,19 @@ BootstrapState ZWave_Bootstrap_StateMachine(BootstrapStateMachineCommand stateMa
           #if ENABLE_ZWAVE_CONTROLLER_HOST
           ZWave_Send_REQ_CMD_13_Send_Data(gtNodeProvisioningList[gucProcessingDSK].NodeID, lucFrameLength, lucSendDataBuffer, TRANSMIT_OPTION_ACK, gucSessionID);
           #endif
+
+          //////////////////////////////////////////////////////////////////////////////////
+          //// TEST MAB 2026.09.30
+          //// At this point, for the given network key (selected above), need to generate
+          //// the KeyCCM, the PersonalizationString and the KeyMPAN via the
+          //// CKDF_NetworkKeyExpand algorithm
+          //// (see Z-Wave spec 2025.05.05, section 4.2.6.4.13 Key Derivation).
+          //// Similar to section 4.2.6.4.11, CKDF-TempExpand, in Bootstrap state PUBLIC_KEY,
+          //// where ZWave_Temporary_Key_Generate() generates TempKeyCCM in gucTemporarySymmetricKey
+          //// and TempPersonalzationString in gucTempPersonalizationString.
+          //// Proposed: ZWave_CKDF_NetworkKeyExpand(aucDSKIndex, paucNetworkKey)
+          ZWave_CKDF_NetworkKeyExpand(gucProcessingDSK, plucNetworkKey);
+          //////////////////////////////////////////////////////////////////////////////////
 
           // Set state to NETWORK_NONCE_GET
           gucIsNonceGetReceived = FALSE;
@@ -3623,12 +3652,6 @@ BootstrapState ZWave_Bootstrap_StateMachine(BootstrapStateMachineCommand stateMa
     }
 
     //-------------------------------------------------------
-    // ELSE IF state is NETWORK_VERIFY_SPAN
-    else if (BOOTSTRAP_NETWORK_VERIFY_SPAN == leBootstrapState)
-    {
-    }
-
-    //-------------------------------------------------------
     // ELSE IF state is NETWORK_KEY_DONE
     else if (BOOTSTRAP_NETWORK_KEY_DONE == leBootstrapState)
     {
@@ -3675,6 +3698,139 @@ BootstrapState ZWave_Bootstrap_StateMachine(BootstrapStateMachineCommand stateMa
   return leBootstrapState;
 }
 // end ZWave_Bootstrap_StateMachine
+
+/** *****************************************************************************************************************************
+  * @brief  Generate KeyCCM, PersonaliationString and KeyMPAN for given network key
+  * @param  aucDSKIndex - index into the Node Provisioning List and/or Node Connection List for the DSK/NodeID being processed
+  * @param  paucNetworkKey - pointer to selected 16-byte network key
+  * @retval 0 if all OK; nonzero otherwise
+  */
+int ZWave_CKDF_NetworkKeyExpand(uint8_t aucDSKIndex, uint8_t* paucNetworkKey)
+{
+  int liReturnValue = 0;
+  static uint8_t lucT1[16];
+  static uint8_t lucT2[16];
+  static uint8_t lucT3[16];
+  static uint8_t lucT4[16];
+  static uint8_t lucMsgExpand[16];
+  static uint8_t lucMsgExpand2[32];
+  static unsigned int luiSize;
+
+  LOG("%s: START \r\n", __FUNCTION__);
+
+  // Sanity check: display the network key
+  LOG("%s: Network key \r\n", __FUNCTION__);
+  PrintBytes(paucNetworkKey, 16, false, 0);
+
+  ///////////////////////////////////////////////////
+  // Generate T1 = CMAC(PNK, ConstantNK || 0x01)
+  ///////////////////////////////////////////////////
+  LOG("%s: Generating T1 = CMAC(PNK, ConstantNK || 0x01)\r\n", __FUNCTION__);
+  memcpy(lucMsgExpand, CKDF_CONSTANT_NK, 15);
+  lucMsgExpand[15] = 0x01;
+  luiSize = sizeof(lucT1);
+  liReturnValue = wc_AesCmacGenerate(lucT1, &luiSize,
+                                       lucMsgExpand, sizeof(lucMsgExpand),
+                                       paucNetworkKey, 16);
+  if (liReturnValue != 0 || luiSize != 16)
+  {
+    // Make sure return value is *something* other than 0
+    if (0==liReturnValue) liReturnValue = -1;
+    goto exit;
+  }
+  // If no errors
+  LOG("%s: - T1 \r\n", __FUNCTION__);
+  PrintBytes(lucT1, sizeof(lucT1), false, 0);
+
+  ///////////////////////////////////////////////////
+  // Generate T2 = CMAC(PNK, T1 || ConstantNK || 0x02)
+  ///////////////////////////////////////////////////
+  LOG("%s: Generating T2 = CMAC(PNK, T1 || ConstantNK || 0x02)\r\n", __FUNCTION__);
+  memcpy(lucMsgExpand2,    lucT1,            16);
+  memcpy(lucMsgExpand2+16, CKDF_CONSTANT_NK, 15);
+  lucMsgExpand[31] = 0x02;
+  luiSize = sizeof(lucT2);
+  liReturnValue = wc_AesCmacGenerate(lucT2, &luiSize,
+                                       lucMsgExpand2, sizeof(lucMsgExpand2),
+                                       paucNetworkKey, 16);
+  if (liReturnValue != 0 || luiSize != 16)
+  {
+    // Make sure return value is *something* other than 0
+    if (0==liReturnValue) liReturnValue = -1;
+    goto exit;
+  }
+  // If no errors
+  LOG("%s: - T2 \r\n", __FUNCTION__);
+  PrintBytes(lucT2, sizeof(lucT2), false, 0);
+
+  ///////////////////////////////////////////////////
+  // Generate T3 = CMAC(PNK, T2 || ConstantNK || 0x03)
+  ///////////////////////////////////////////////////
+  LOG("%s: Generating T3 = CMAC(PNK, T2 || ConstantNK || 0x03)\r\n", __FUNCTION__);
+  memcpy(lucMsgExpand2,    lucT2,            16);
+  memcpy(lucMsgExpand2+16, CKDF_CONSTANT_NK, 15);
+  lucMsgExpand[31] = 0x03;
+  luiSize = sizeof(lucT3);
+  liReturnValue = wc_AesCmacGenerate(lucT3, &luiSize,
+                                       lucMsgExpand2, sizeof(lucMsgExpand2),
+                                       paucNetworkKey, 16);
+  if (liReturnValue != 0 || luiSize != 16)
+  {
+    // Make sure return value is *something* other than 0
+    if (0==liReturnValue) liReturnValue = -1;
+    goto exit;
+  }
+  // If no errors
+  LOG("%s: - T3 \r\n", __FUNCTION__);
+  PrintBytes(lucT3, sizeof(lucT3), false, 0);
+
+  ///////////////////////////////////////////////////
+  // Generate T4 = CMAC(PNK, T3 || ConstantNK || 0x04)
+  ///////////////////////////////////////////////////
+  LOG("%s: Generating T4 = CMAC(PNK, T3 || ConstantNK || 0x04)\r\n", __FUNCTION__);
+  memcpy(lucMsgExpand2,    lucT3,            16);
+  memcpy(lucMsgExpand2+16, CKDF_CONSTANT_NK, 15);
+  lucMsgExpand[31] = 0x04;
+  luiSize = sizeof(lucT4);
+  liReturnValue = wc_AesCmacGenerate(lucT4, &luiSize,
+                                       lucMsgExpand2, sizeof(lucMsgExpand2),
+                                       paucNetworkKey, 16);
+  if (liReturnValue != 0 || luiSize != 16)
+  {
+    // Make sure return value is *something* other than 0
+    if (0==liReturnValue) liReturnValue = -1;
+    goto exit;
+  }
+  // If no errors
+  LOG("%s: - T4 \r\n", __FUNCTION__);
+  PrintBytes(lucT4, sizeof(lucT4), false, 0);
+
+  ///////////////////////////////////////////////////
+  // KeyCCM = T1
+  // PersonalizationString = T2 || T3
+  // KeyMPAN = T4
+  ///////////////////////////////////////////////////
+  memcpy(gtNodeConnectionList[aucDSKIndex].KeyCCM, lucT1, 16);
+  LOG("%s: - saved KeyCCM for DSK %d \r\n", __FUNCTION__, aucDSKIndex);
+  PrintBytes(gtNodeConnectionList[aucDSKIndex].KeyCCM, sizeof(lucT1), false, 0);
+
+  memcpy(lucMsgExpand2,    lucT2, 16);
+  memcpy(lucMsgExpand2+16, lucT3, 16);
+  memcpy(gtNodeConnectionList[aucDSKIndex].PersonalizationString, lucMsgExpand2, 32);
+  LOG("%s: - saved PersonalizationString for DSK %d \r\n", __FUNCTION__, aucDSKIndex);
+  PrintBytes(gtNodeConnectionList[aucDSKIndex].PersonalizationString, sizeof(lucMsgExpand2), false, 0);
+
+  memcpy(gtNodeConnectionList[aucDSKIndex].KeyMPAN, lucT4, 16);
+  LOG("%s: - saved KeyMPAN for DSK %d \r\n", __FUNCTION__, aucDSKIndex);
+  PrintBytes(gtNodeConnectionList[aucDSKIndex].KeyMPAN, sizeof(lucT4), false, 0);
+
+
+  exit:
+  if (liReturnValue != 0) LOG("%s: *** WARNING *** return value = %d \r\n", __FUNCTION__, liReturnValue);
+  LOG("%s: END \r\n", __FUNCTION__);
+  return liReturnValue;
+}
+// end ZWave_CKDF_NetworkKeyExpand
 
 /** *****************************************************************************************************************************
   * @brief  Generate controller public/private Curve25519 keys
@@ -3850,6 +4006,29 @@ void ZWave_Display_Tx_Report(void)
   LOG("----------------------- Tx report  END  -----------------------\r\n");
 }
 // end ZWave_Display_Tx_Report
+
+/** *****************************************************************************************************************************
+  * @brief  Count the number of nontrivial NodeIDs in the node provisioning list
+  * @param  None
+  * @retval Count of nontrivial NodeIDs in the node provisioning list
+  */
+uint16_t ZWave_DSK_Count_Live_NodeIDs(void)
+{
+  uint16_t luiLiveNodeCount = 0;
+
+  for (uint8_t lucDSKIndex = 0; lucDSKIndex < NODE_PROVISIONING_LIST_COUNT; ++lucDSKIndex)
+  {
+    if (NODE_ID_UNAVAILABLE != gtNodeProvisioningList[lucDSKIndex].NodeID)
+    {
+      ++luiLiveNodeCount;
+    }
+  }
+
+  LOG("%s: Live node count: %04d \r\n", __FUNCTION__, luiLiveNodeCount);
+
+  return luiLiveNodeCount;
+}
+// end ZWave_DSK_Count_Live_NodeIDs
 
 /** *****************************************************************************************************************************
   * @brief  Extract the NWI and Auth HomeID from the specified DSK in the node provisioning list
@@ -6556,8 +6735,8 @@ void ZWave_REQ_CMD_4A_ZW_Add_Node_To_Network(void)
     ///////////////////////////////////////////////////////////////////////////////////////
     //// TEST MAB 2026.09.25
     //// Test ZWave_DSK_Find_NodeID(), success and fail paths
-    ZWave_DSK_Find_NodeID(guiNodeID);
-    ZWave_DSK_Find_NodeID(guiNodeID+1);
+    //ZWave_DSK_Find_NodeID(guiNodeID);
+    //ZWave_DSK_Find_NodeID(guiNodeID+1);
     ///////////////////////////////////////////////////////////////////////////////////////
   }
   LOG("%s: Data length            = 0x%02X\r\n", __FUNCTION__, ZWaveSerialFrame->payload[4]);
@@ -8922,6 +9101,7 @@ SmartStartState ZWave_SmartStart_StateMachine(SmartStartStateMachineCommand stat
       LOG("%s: Transitioning DSK %d from DETECTED to INCLUSION\r\n", __FUNCTION__, gucProcessingDSK);
       leSmartStartState                               = SMARTSTART_INCLUSION;
       gtNodeProvisioningList[gucProcessingDSK].status = SMARTSTART_INCLUSION;
+      ZWave_DSK_Count_Live_NodeIDs();
     }
 
     //-------------------------------------------------------
@@ -8958,6 +9138,7 @@ SmartStartState ZWave_SmartStart_StateMachine(SmartStartStateMachineCommand stat
         gucIsExclusionFailed   = FALSE;
         leSmartStartState                               = SMARTSTART_EXCLUSION;
         gtNodeProvisioningList[gucProcessingDSK].status = SMARTSTART_EXCLUSION;
+        ZWave_DSK_Count_Live_NodeIDs();
       }
       // ELSE IF joining node inclusion has completed
       else if (gucIsInclusionJoiningNodeFinished)
@@ -9000,6 +9181,7 @@ SmartStartState ZWave_SmartStart_StateMachine(SmartStartStateMachineCommand stat
         LOG("%s: Transitioning DSK %d from INCLUSION to BOOTSTRAP\r\n", __FUNCTION__, gucProcessingDSK);
         leSmartStartState                               = SMARTSTART_BOOTSTRAP;
         gtNodeProvisioningList[gucProcessingDSK].status = SMARTSTART_BOOTSTRAP;
+        ZWave_DSK_Count_Live_NodeIDs();
       }
       // ENDIF
     }
@@ -9027,6 +9209,7 @@ SmartStartState ZWave_SmartStart_StateMachine(SmartStartStateMachineCommand stat
         leSmartStartState                               = SMARTSTART_READY;
         gtNodeProvisioningList[gucProcessingDSK].status = SMARTSTART_READY;
         gucProcessingDSK = DSK_UNAVAILABLE;
+        ZWave_DSK_Count_Live_NodeIDs();
       }
       // ENDIf
     }
@@ -9061,6 +9244,9 @@ SmartStartState ZWave_SmartStart_StateMachine(SmartStartStateMachineCommand stat
         LOG("%s: Transitioning DSK %d from BOOTSTRAP to INCLUSION\r\n", __FUNCTION__, gucProcessingDSK);
         leSmartStartState                               = SMARTSTART_INCLUSION;
         gtNodeProvisioningList[gucProcessingDSK].status = SMARTSTART_INCLUSION;
+        ZWave_DSK_Count_Live_NodeIDs();
+        //geBootstrapState = ZWave_Bootstrap_StateMachine(BOOTSTRAP_SM_CMD_INITIALIZE);
+
 //        ///////////////////////////////////////////////////////////////////////////////////////////////////
 //        //// TEST MAB 2026.01.22
 ////        #if ENABLE_ZWAVE_CONTROLLER_HOST
@@ -9104,6 +9290,7 @@ SmartStartState ZWave_SmartStart_StateMachine(SmartStartStateMachineCommand stat
         LOG("%s: Transitioning DSK %d from BOOTSTRAP to ACTIVE\r\n", __FUNCTION__, gucProcessingDSK);
         leSmartStartState                               = SMARTSTART_ACTIVE;
         gtNodeProvisioningList[gucProcessingDSK].status = SMARTSTART_ACTIVE;
+        ZWave_DSK_Count_Live_NodeIDs();
       }
       // ENDIF
     }
@@ -10553,6 +10740,7 @@ void ZWaveTask(void *argument)
     if (ZWave_DSK_IsProcessing())
     {
       geSmartStartState = ZWave_SmartStart_StateMachine(SMARTSTART_SM_CMD_RUN);
+      if (SMARTSTART_DETECTED == geSmartStartState) lucCountdownToUpdateNodeIDList_minutes = 5;
     }
 
 //    ////////////////////////////////////////////////////////////////////////

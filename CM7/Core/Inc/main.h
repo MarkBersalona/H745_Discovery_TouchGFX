@@ -385,6 +385,15 @@ typedef struct {
 
 #define NODE_ID_UNAVAILABLE (0xFFFF)
 
+// Node connection list
+typedef struct {
+  uint16_t NodeID;                      // 2-byte NodeID
+  uint8_t  KeyCCM[16];                  // KeyCCM for the given network key
+  uint8_t  PersonalizationString[32];   // PersonalizationString for the given network key
+  uint8_t  KeyMPAN[16];                 // KeyMPAN for the given network key
+} cl_entry_t;
+
+
 //
 // Bootstrap state machine commands
 //
@@ -408,7 +417,6 @@ typedef enum
   BOOTSTRAP_NETWORK_KEY_GET,        // waiting for KEY Get
   BOOTSTRAP_NETWORK_NONCE_GET,      // waiting for nonce, i.e. SPAN
   BOOTSTRAP_NETWORK_KEY_VERIFY,     // waiting for KEY Verify
-  BOOTSTRAP_NETWORK_VERIFY_SPAN,    // waiting for Nonce Report
   BOOTSTRAP_NETWORK_KEY_DONE,       // waiting for Transfer End
   BOOTSTRAP_COMPLETE,               // S2 Bootstrap completed successfully
   BOOTSTRAP_ERROR,                  // S2 Bootstrap failed or timed out
