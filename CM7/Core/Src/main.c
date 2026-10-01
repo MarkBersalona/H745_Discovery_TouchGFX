@@ -3120,7 +3120,14 @@ BootstrapState ZWave_Bootstrap_StateMachine(BootstrapStateMachineCommand stateMa
         }
        // ENDIF
       }
-      // ENDIF
+      else if (lulElapsedTime_sec >= 10)
+      {
+        LOG("%s: *** WARNING *** TA1 timeout: KEX Report not received \r\n", __FUNCTION__);
+        // Set state to ERROR
+        LOG("%s: Transitioning DSK %d Bootstrap state from KEX to ERROR\r\n", __FUNCTION__, gucProcessingDSK);
+        leBootstrapState = BOOTSTRAP_ERROR;
+      }
+      // ENDIF KEX Report is received
     }
 
     //-------------------------------------------------------
@@ -3198,7 +3205,14 @@ BootstrapState ZWave_Bootstrap_StateMachine(BootstrapStateMachineCommand stateMa
         }
         // ENDIF
       }
-      // ENDIF
+      else if (lulElapsedTime_sec >= 10)
+      {
+        LOG("%s: *** WARNING *** TA2 timeout: Public Key Report not received \r\n", __FUNCTION__);
+        // Set state to ERROR
+        LOG("%s: Transitioning DSK %d Bootstrap state from PUBLIC_KEY to ERROR\r\n", __FUNCTION__, gucProcessingDSK);
+        leBootstrapState = BOOTSTRAP_ERROR;
+      }
+      // ENDIF Public Key Report is received
     }
 
     //-------------------------------------------------------
@@ -3613,7 +3627,14 @@ BootstrapState ZWave_Bootstrap_StateMachine(BootstrapStateMachineCommand stateMa
         }
         // ENDIF successfully decrypted Network Key Get
       }
-      // ENDIF
+      else if (lulElapsedTime_sec >= 10)
+      {
+        LOG("%s: *** WARNING *** TA3 timeout: Network Key Get not received \r\n", __FUNCTION__);
+        // Set state to ERROR
+        LOG("%s: Transitioning DSK %d Bootstrap state from NETWORK_KEY_GET to ERROR\r\n", __FUNCTION__, gucProcessingDSK);
+        leBootstrapState = BOOTSTRAP_ERROR;
+      }
+      // ENDIF encrypted message received
     }
 
     //-------------------------------------------------------
@@ -3761,6 +3782,13 @@ BootstrapState ZWave_Bootstrap_StateMachine(BootstrapStateMachineCommand stateMa
           leBootstrapState = BOOTSTRAP_ERROR;
         }
         // ENDIF (failed decrypting Network Key Verify)
+      }
+      else if (lulElapsedTime_sec >= 10)
+      {
+        LOG("%s: *** WARNING *** TA4 timeout: Network Key Verify not received \r\n", __FUNCTION__);
+        // Set state to ERROR
+        LOG("%s: Transitioning DSK %d Bootstrap state from NETWORK_KEY_VERIFY to ERROR\r\n", __FUNCTION__, gucProcessingDSK);
+        leBootstrapState = BOOTSTRAP_ERROR;
       }
       // ENDIF encrypted message received
     }
