@@ -426,6 +426,7 @@ typedef enum
   BOOTSTRAP_NETWORK_KEY_GET,        // waiting for KEY Get
   BOOTSTRAP_NETWORK_NONCE_GET,      // waiting for nonce, i.e. SPAN
   BOOTSTRAP_NETWORK_KEY_VERIFY,     // waiting for KEY Verify
+  BOOTSTRAP_NETWORK_VERIFY_SPAN,    // waiting for Nonce Report
   BOOTSTRAP_NETWORK_KEY_DONE,       // waiting for Transfer End
   BOOTSTRAP_COMPLETE,               // S2 Bootstrap completed successfully
   BOOTSTRAP_ERROR,                  // S2 Bootstrap failed or timed out
