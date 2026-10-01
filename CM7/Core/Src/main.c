@@ -3772,7 +3772,16 @@ BootstrapState ZWave_Bootstrap_StateMachine(BootstrapStateMachineCommand stateMa
       // IF Nonce Report is received
       if (gucIsNonceReportReceived)
       {
+        // (reset so subsequent retries from end node may be processed also)
+        gucIsNonceReportReceived = FALSE;
+
         // Re-establish Temporary SPAN
+        liTemporarySPANResult = 0;
+        if (FALSE == gtTemporarySPAN.IsActive)
+        {
+          liTemporarySPANResult = ZWave_Temporary_SPAN_Establish();
+          if (0 != liTemporarySPANResult) LOG("%s: *** WARNING *** liTemporarySPANResult = %d \r\n", __FUNCTION__, liTemporarySPANResult);
+        }
 
         // Send the Transfer End message encrypted with the Temporary Key and SPAN
         LOG("%s: Send encrypted Transfer End message encrypted with the Temporary Key and SPAN \r\n", __FUNCTION__);
@@ -3833,7 +3842,7 @@ BootstrapState ZWave_Bootstrap_StateMachine(BootstrapStateMachineCommand stateMa
 
         // (Transmit the encrypted Transfer End)
         #if ENABLE_ZWAVE_CONTROLLER_HOST
-        ZWave_Send_REQ_CMD_13_Send_Data(gtNodeProvisioningList[gucProcessingDSK].NodeID, lucFrameLength, lucSendDataBuffer, TRANSMIT_OPTION_ACK, gucSessionID);
+        //ZWave_Send_REQ_CMD_13_Send_Data(gtNodeProvisioningList[gucProcessingDSK].NodeID, lucFrameLength, lucSendDataBuffer, TRANSMIT_OPTION_ACK, gucSessionID);
         #endif
 
         // Set state to NETWORK_KEY_DONE
@@ -4139,33 +4148,6 @@ uint8_t ZWave_DSK_Extract_NWIAuthHomeID(uint8_t aucDSKIndex, uint8_t* paucNWIAut
   return lucReturnValue;
 }
 // end ZWave_DSK_Extract_NWIAuthHomeID
-
-/** *****************************************************************************************************************************
-  * @brief  Find the DSK with corresponding NodeID
-  * @param  None
-  * @retval Index into the node provisioning list of the DSK with NodeID [0, NODE_PROVISIONING_LIST_COUNT-1]; 0xFF if none available
-  */
-uint8_t ZWave_DSK_Find_NodeID(uint16_t auiNodeID)
-{
-  uint8_t lucReturnValue = DSK_UNAVAILABLE; // Assume no  DSK with corresponding NodeID present until proven otherwise
-
-  for (uint8_t lucDSKIndex = 0; lucDSKIndex < NODE_PROVISIONING_LIST_COUNT; ++lucDSKIndex)
-  {
-    if (gtNodeProvisioningList[lucDSKIndex].NodeID == auiNodeID)
-    {
-      LOG("%s: NodeID %d (0x%04X) detected in DSK %d \r\n", __FUNCTION__, auiNodeID, auiNodeID, lucDSKIndex);
-      lucReturnValue = lucDSKIndex;
-    }
-  }
-
-  if (DSK_UNAVAILABLE == lucReturnValue)
-  {
-    LOG("%s: *** WARNING ***  NodeID %d (0x%04X) not detected in any DSK \r\n", __FUNCTION__, auiNodeID, auiNodeID);
-  }
-
-  return lucReturnValue;
-}
-// end ZWave_DSK_Find_NodeID
 
 /** *****************************************************************************************************************************
   * @brief  Find the first zeroized DSK in the node provisioning list
@@ -7030,12 +7012,6 @@ void ZWave_REQ_CMD_4A_ZW_Add_Node_To_Network(void)
     guiNodeID = (0x100*ZWaveSerialFrame->payload[2]) + ZWaveSerialFrame->payload[3];
     LOG("%s: Saving DSK %d NodeID 0x%04X \r\n", __FUNCTION__, gucProcessingDSK, guiNodeID);
     gtNodeProvisioningList[gucProcessingDSK].NodeID = guiNodeID;
-    ///////////////////////////////////////////////////////////////////////////////////////
-    //// TEST MAB 2026.09.25
-    //// Test ZWave_DSK_Find_NodeID(), success and fail paths
-    //ZWave_DSK_Find_NodeID(guiNodeID);
-    //ZWave_DSK_Find_NodeID(guiNodeID+1);
-    ///////////////////////////////////////////////////////////////////////////////////////
   }
   LOG("%s: Data length            = 0x%02X\r\n", __FUNCTION__, ZWaveSerialFrame->payload[4]);
   if (ZWaveSerialFrame->payload[4])
@@ -7786,6 +7762,8 @@ void ZWave_Rx_CC_9F_Security_2_V2(void)
   //  ------------------- SECURITY_2_NONCE_REPORT_V2 -----------------------------------------
   else if (SECURITY_2_NONCE_REPORT_V2          == pgucCCBuffer[1])
   {
+    gucIsNonceReportReceived = TRUE;
+
     LOG("%s: Sequence number = 0x%02X \r\n", __FUNCTION__, pgucCCBuffer[2]);
     LOG("%s: Sync flags      = 0x%02X \r\n", __FUNCTION__, pgucCCBuffer[3]);
     uint8_t lucSPANOutOfSync;
@@ -7811,6 +7789,34 @@ void ZWave_Rx_CC_9F_Security_2_V2(void)
     {
       LOG("%s: Receiver's Entropy Input (REI) \r\n", __FUNCTION__);
       PrintBytes(&pgucCCBuffer[4], 16, false, 0);
+
+      // MAB 2026.10.01
+      // This is the Receiver's Entropy Input; save it
+      // NOTE: this is either for the Temporary Key or for the Network Key,
+      //       so save appropriately
+      if (BOOTSTRAP_TEMP_NONCE_SET      == geBootstrapState ||
+          BOOTSTRAP_NETWORK_VERIFY_SPAN == geBootstrapState    )
+      {
+        LOG("%s: - saving Receiver's Entropy Input (REI) for TEMPORARY KEY \r\n", __FUNCTION__);
+        memcpy(gucTemporaryREI, &pgucCCBuffer[4], 16);
+
+        // The Nonce Report with the REI has been received,
+        // may proceed to establish the temporary SPAN
+
+        // But first, zeroize temporary SPAN
+        CTR_DRBG_Zeroize_SPAN(&gtTemporarySPAN);
+      }
+      else
+      {
+        LOG("%s: - saving Receiver's Entropy Input (REI) for DSK %d \r\n", __FUNCTION__, gucProcessingDSK);
+        memcpy(gtNodeProvisioningList[gucProcessingDSK].REI, &pgucCCBuffer[4], 16);
+
+        // The Nonce Report with the REI has been received,
+        // may proceed to establish the SPAN
+
+        // But first, zeroize SPAN
+        CTR_DRBG_Zeroize_SPAN(&gtNodeConnectionList[gucProcessingDSK].SPAN);
+      }
     }
   }
 
