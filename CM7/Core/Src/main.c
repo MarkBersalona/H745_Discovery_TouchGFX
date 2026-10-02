@@ -4320,9 +4320,9 @@ uint8_t ZWave_DSK_IsProcessing(void)
   {
     if ( gtNodeProvisioningList[i].status != SMARTSTART_EMPTY  &&
          gtNodeProvisioningList[i].status != SMARTSTART_READY  &&
-         gtNodeProvisioningList[i].status != SMARTSTART_ACTIVE    )
+         gtNodeProvisioningList[i].status != SMARTSTART_CONNECTED    )
     {
-      // A DSK has been found with is neither EMPTY, READY nor ACTIVE
+      // A DSK has been found with is neither EMPTY, READY nor CONNECTED
       // Therefore this DSK is currently being processed
       lucReturnValue = TRUE;
       //LOG("%s: *** WARNING *** DSK %d is currently being processed\r\n", __FUNCTION__, i);
@@ -7035,10 +7035,7 @@ void ZWave_REQ_CMD_49_ZW_Application_Update(void)
 
     LOG("%s: Reserved byte        = 0x%02X\r\n", __FUNCTION__, ZWaveSerialFrame->payload[3]);
     LOG("%s: Rx status            = 0x%02X\r\n", __FUNCTION__, ZWaveSerialFrame->payload[4]);
-    lulNWIHomeID = (0x1000000 * ZWaveSerialFrame->payload[5]) +
-                   (  0x10000 * ZWaveSerialFrame->payload[6]) +
-                   (    0x100 * ZWaveSerialFrame->payload[7]) +
-                   (            ZWaveSerialFrame->payload[8]);
+    lulNWIHomeID = Convert_Bytes_uint32(&ZWaveSerialFrame->payload[5]);
     LOG("%s: NWI HomeID           = 0x%08X\r\n", __FUNCTION__, lulNWIHomeID);
   }
   else
@@ -9454,9 +9451,9 @@ ZWave_SmartStart_StateMachine
         Set state to INCLUSION
       ELSE IF S2 bootstrap has completed
         Resume listening for SmartStart Prime commands, report to host application
-        Set state to ACTIVE
+        Set state to CONNECTED
       ENDIF
-    ELSE IF state is ACTIVE
+    ELSE IF state is CONNECTED
       IF active DSK has been removed
         Set state to REMOVED
       ENDIF
@@ -9729,10 +9726,10 @@ SmartStartState ZWave_SmartStart_StateMachine(SmartStartStateMachineCommand stat
 //        //ZWave_Send_REQ_CMD_4A_Add_Node_to_Network(ADD_NODE_OPTION_NETWORK_WIDE|ADD_NODE_OPTION_LR|ADD_NODE_SMART_START, gucSessionID, NULL);
 //        #endif
 //
-//        // Set state to ACTIVE
-//        LOG("%s: Transitioning DSK %d from BOOTSTRAP to ACTIVE\r\n", __FUNCTION__, gucProcessingDSK);
-//        leSmartStartState                               = SMARTSTART_ACTIVE;
-//        gtNodeProvisioningList[gucProcessingDSK].status = SMARTSTART_ACTIVE;
+//        // Set state to CONNECTED
+//        LOG("%s: Transitioning DSK %d from BOOTSTRAP to CONNECTED\r\n", __FUNCTION__, gucProcessingDSK);
+//        leSmartStartState                               = SMARTSTART_CONNECTED;
+//        gtNodeProvisioningList[gucProcessingDSK].status = SMARTSTART_CONNECTED;
 //        ///////////////////////////////////////////////////////////////////////////////////////////////////
       }
       // ELSE IF S2 bootstrap has completed
@@ -9752,18 +9749,18 @@ SmartStartState ZWave_SmartStart_StateMachine(SmartStartStateMachineCommand stat
         //ZWave_Send_REQ_CMD_4A_Add_Node_to_Network(ADD_NODE_OPTION_NETWORK_WIDE|ADD_NODE_OPTION_LR|ADD_NODE_SMART_START, gucSessionID, NULL);
         #endif
 
-        // Set state to ACTIVE
-        LOG("%s: Transitioning DSK %d from BOOTSTRAP to ACTIVE\r\n", __FUNCTION__, gucProcessingDSK);
-        leSmartStartState                               = SMARTSTART_ACTIVE;
-        gtNodeProvisioningList[gucProcessingDSK].status = SMARTSTART_ACTIVE;
+        // Set state to CONNECTED
+        LOG("%s: Transitioning DSK %d from BOOTSTRAP to CONNECTED\r\n", __FUNCTION__, gucProcessingDSK);
+        leSmartStartState                               = SMARTSTART_CONNECTED;
+        gtNodeProvisioningList[gucProcessingDSK].status = SMARTSTART_CONNECTED;
         ZWave_DSK_Count_Live_NodeIDs();
       }
       // ENDIF
     }
 
     //-------------------------------------------------------
-    // ELSE IF state is ACTIVE
-    else if (SMARTSTART_ACTIVE == leSmartStartState)
+    // ELSE IF state is CONNECTED
+    else if (SMARTSTART_CONNECTED == leSmartStartState)
     {
     }
 
@@ -11363,8 +11360,8 @@ void ZWaveTask(void *argument)
           case SMARTSTART_BOOTSTRAP:
             LOG("%s: - BOOTSTRAP - End node sharing key information \r\n", __FUNCTION__);
             break;
-          case SMARTSTART_ACTIVE:
-            LOG("%s: - ACTIVE - End node fully connected, including security \r\n", __FUNCTION__);
+          case SMARTSTART_CONNECTED:
+            LOG("%s: - CONNECTED - End node fully connected, including security \r\n", __FUNCTION__);
             break;
           case SMARTSTART_REMOVED:
             LOG("%s: - REMOVED - End node being removed from home network; DSK being erased from node provisioning list \r\n", __FUNCTION__);

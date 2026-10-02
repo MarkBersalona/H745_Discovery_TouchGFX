@@ -354,7 +354,7 @@ typedef enum
   SMARTSTART_DETECTED,      // End node with correlated DSK detected
   SMARTSTART_INCLUSION,     // End node joining home network
   SMARTSTART_BOOTSTRAP,     // End node sharing key information
-  SMARTSTART_ACTIVE,        // End node fully connected, including security
+  SMARTSTART_CONNECTED,     // End node fully connected, including security
   SMARTSTART_EXCLUSION,     // End node being removed from home network
   SMARTSTART_REMOVED,       // End node removed from home network; DSK being erased from node provisioning list
 } SmartStartState;
