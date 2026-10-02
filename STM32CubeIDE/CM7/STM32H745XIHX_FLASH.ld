@@ -168,6 +168,25 @@ SECTIONS
     __bss_end__ = _ebss;
   } >RAM_D1
 
+  /* ************************************************************
+   * MAB 2026.10.02
+   * This TouchGFXBuffers section was added by Claude AI to move these
+   * TouchGFX buffers out of FLASH and into RAM_D1
+     ************************************************************ */
+  /* TouchGFX JPEG decoder / DMA buffers: RAM only, no flash image */
+  TouchGFXBuffers (NOLOAD) :
+  {
+    . = ALIGN(32);
+    *(TouchGFX_MCU_Data_OutBuffer0 TouchGFX_MCU_Data_OutBuffer0.*)
+    . = ALIGN(32);
+    *(TouchGFX_MCU_Data_OutBuffer1 TouchGFX_MCU_Data_OutBuffer1.*)
+    . = ALIGN(32);
+    *(TouchGFX_ScratchbufferA TouchGFX_ScratchbufferA.*)
+    . = ALIGN(32);
+    *(TouchGFX_ScratchbufferB TouchGFX_ScratchbufferB.*)
+    . = ALIGN(32);
+  } >RAM_D1
+
   /* User_heap_stack section, used to check that there is enough "RAM" Ram  type memory left */
   ._user_heap_stack :
   {

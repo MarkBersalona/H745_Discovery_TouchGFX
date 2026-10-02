@@ -4225,7 +4225,7 @@ uint8_t ZWave_DSK_Extract_NWIAuthHomeID(uint8_t aucDSKIndex, uint8_t* paucNWIAut
   uint8_t lucReturnValue = TRUE;
 
   // PC Controller uses unmodified DSK bytes instead of spec-compliant bit modifications for NWI and Auth HomeIDs
-  #define USE_PC_CONTROLLER_ID_USAGE 1
+  #define USE_PC_CONTROLLER_ID_USAGE 0
 
   if (0 <= aucDSKIndex && aucDSKIndex < NODE_PROVISIONING_LIST_COUNT)
   {
@@ -8492,20 +8492,38 @@ uint8_t ZWave_Scan_ProvisioningList_For_NWIHomeID(uint32_t aulNWIHomeID)
 {
   uint8_t lucReturnValue = DSK_UNAVAILABLE;
   uint32_t lulCandidateNWIHomeID;
+  uint8_t lucNWIAuthHomeIDBuffer[8];
 
   // NOTE: NWI HomeID is derived from DSK bytes 8-11 (0-indexed),
   //       with 2 most significant bits set and least significant bit cleared
   for (int i = 0; i < NODE_PROVISIONING_LIST_COUNT; ++i)
   {
-    lulCandidateNWIHomeID =  0x1000000 * (gtNodeProvisioningList[i].dsk[8] | 0xC0);
-    lulCandidateNWIHomeID +=   0x10000 * (gtNodeProvisioningList[i].dsk[9]);
-    lulCandidateNWIHomeID +=     0x100 * (gtNodeProvisioningList[i].dsk[10]);
-    lulCandidateNWIHomeID +=             (gtNodeProvisioningList[i].dsk[11] & 0xFE);
+    //////////////////////////////////////////////////////////////////////////////////////////////
+    //// MAB 2026.10.02
+    //// The following worked only for C compiler optimization options
+    //// Optimize for Debug (-Og) or None (-O0).
+    //// Replace with alternative derivation of lulCandidateNWIHomeID
+    //// for more optimization.
+    ////lulCandidateNWIHomeID =  0x1000000 * (gtNodeProvisioningList[i].dsk[8] | 0xC0);
+    ////lulCandidateNWIHomeID +=   0x10000 * (gtNodeProvisioningList[i].dsk[9]);
+    ////lulCandidateNWIHomeID +=     0x100 * (gtNodeProvisioningList[i].dsk[10]);
+    ////lulCandidateNWIHomeID +=             (gtNodeProvisioningList[i].dsk[11] & 0xFE);
+    //////////////////////////////////////////////////////////////////////////////////////////////
+
+    ZWave_DSK_Extract_NWIAuthHomeID(i, lucNWIAuthHomeIDBuffer);
+    lucNWIAuthHomeIDBuffer[0] |= 0xC0;
+    lucNWIAuthHomeIDBuffer[3] &= 0xFE;
+    lulCandidateNWIHomeID  = Convert_Bytes_uint32(&lucNWIAuthHomeIDBuffer[0]);
 
     if (lulCandidateNWIHomeID == aulNWIHomeID)
     {
       lucReturnValue = i;
-      LOG("%s: DSK %d appears to be a match! \r\n", __FUNCTION__, i);
+      //LOG("%s: DSK %d appears to be a match! \r\n", __FUNCTION__, i);
+      LOG("%s: DSK %d 0x%08X is a match for 0x%08X \r\n", __FUNCTION__, i, lulCandidateNWIHomeID, aulNWIHomeID);
+    }
+    else
+    {
+      LOG("%s: DSK %d 0x%08X does not match 0x%08X \r\n", __FUNCTION__, i, lulCandidateNWIHomeID, aulNWIHomeID);
     }
   }
 
@@ -10739,7 +10757,7 @@ void MainTask(void *argument)
       //// As a test of the ZWave serial port, transmit the received
       //// Diagnostic bytes out the ZWave serial port
       //// (ZWave Tx doesn't appear active either)
-      HAL_UART_Transmit(&huart2, (uint8_t *)gucDiagnosticRxBuffer, luiDiagnosticRxCount, luiDiagnosticRxCount);
+      //HAL_UART_Transmit(&huart2, (uint8_t *)gucDiagnosticRxBuffer, luiDiagnosticRxCount, luiDiagnosticRxCount);
       /////////////////////////////////////////////////////////////////////////////////
     }
 
