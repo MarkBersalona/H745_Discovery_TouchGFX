@@ -233,6 +233,17 @@ const osMessageQueueAttr_t DiagnosticRxQueue_attributes = {
   .mq_mem = &DiagnosticRxQueueBuffer,
   .mq_size = sizeof(DiagnosticRxQueueBuffer)
 };
+/* Definitions for ZWaveQueue */
+osMessageQueueId_t ZWaveQueueHandle;
+uint8_t ZWaveQueueBuffer[ 64 * sizeof( uint16_t ) ];
+osStaticMessageQDef_t ZWaveQueueControlBlock;
+const osMessageQueueAttr_t ZWaveQueue_attributes = {
+  .name = "ZWaveQueue",
+  .cb_mem = &ZWaveQueueControlBlock,
+  .cb_size = sizeof(ZWaveQueueControlBlock),
+  .mq_mem = &ZWaveQueueBuffer,
+  .mq_size = sizeof(ZWaveQueueBuffer)
+};
 /* Definitions for DiagnosticMutex */
 osMutexId_t DiagnosticMutexHandle;
 osStaticMutexDef_t DiagnosticMutexControlBlock;
@@ -274,6 +285,8 @@ uint8_t gucIsInclusionFailed   = FALSE;
 
 // Exclusion completed
 uint8_t gucIsExclusionFinished = FALSE;
+uint8_t gucIsExclusionJoiningNodeFinished = FALSE;
+uint8_t gucIsExclusionIncludingNodeFinished = FALSE;
 uint8_t gucIsExclusionFailed   = FALSE;
 
 // S2 bootstrap completed or failed
@@ -393,6 +406,7 @@ uint8_t gucSessionID;
 //
 uint8_t gucLRNodes[MAX_LR_NODEMASK_LENGTH];
 uint16_t guiActiveNodeCount=0;
+uint16_t guiLiveNodeCount=0;
 
 // general usage NodeIDs
 uint16_t guiNodeID;
@@ -602,6 +616,7 @@ void ZWave_Send_REQ_CMD_3F_Remove_Specific_Node_from_Network(uint8_t aucOptions,
 void ZWave_Send_REQ_CMD_41_Get_Node_Protocol_Info(uint16_t auiNodeID);
 void ZWave_Send_REQ_CMD_42_Set_Default(void);
 void ZWave_Send_REQ_CMD_4A_Add_Node_to_Network(uint8_t aucOptions, uint8_t aucSessionID, uint8_t* paucNWIAuthID);
+void ZWave_Send_REQ_CMD_4B_Remove_Node_from_Network(uint8_t aucOptions, uint8_t aucSessionID);
 void ZWave_Send_REQ_CMD_56_Get_SUC_Node_ID(void);
 void ZWave_Send_REQ_CMD_61_Remove_Failed_Node(uint8_t aucSessionID, uint16_t auiNodeID);
 void ZWave_Send_REQ_CMD_62_Is_Node_Failed(uint16_t auiNodeID);
@@ -752,6 +767,9 @@ int main(void)
 
   /* creation of DiagnosticRxQueue */
   DiagnosticRxQueueHandle = osMessageQueueNew (256, sizeof(uint8_t), &DiagnosticRxQueue_attributes);
+
+  /* creation of ZWaveQueue */
+  ZWaveQueueHandle = osMessageQueueNew (64, sizeof(uint16_t), &ZWaveQueue_attributes);
 
   /* USER CODE BEGIN RTOS_QUEUES */
   /* add queues, ... */
@@ -2298,6 +2316,7 @@ void Main_Diagnostic_DisplayMenu(void)
   LOG_NOW("     6  = write application from external flash\r\n");
   LOG_NOW("     B  = write unit's board revision [A:Z]\r\n");
   LOG_NOW("     b  = read  unit's board revision [A:Z]\r\n");
+  LOG_NOW("    E/e = Exclusion mode (delete a node)\r\n");
   LOG_NOW("     F  = SPI Flash test (verbose)\r\n");
   LOG_NOW("     f  = SPI Flash test (brief)\r\n");
   LOG_NOW("    K/k = acknowledge all alarms\r\n");
@@ -2400,12 +2419,19 @@ void Main_Diagnostic_ProcessCommand(uint8_t aucCommandByte)
         LOG("%s: Save board revision DISABLED for now \r\n", __FUNCTION__);
         break;
 
-      // Read board revision
-      case 'b':
-        //lucPcbRevisionChar = getSystemBoardRev();
-        lucPcbRevisionChar = BOARD_REVISION;
-        LOG("%s: Board revision = %c   \r\n", __FUNCTION__, lucPcbRevisionChar);
-        break;
+    // Read board revision
+    case 'b':
+      //lucPcbRevisionChar = getSystemBoardRev();
+      lucPcbRevisionChar = BOARD_REVISION;
+      LOG("%s: Board revision = %c   \r\n", __FUNCTION__, lucPcbRevisionChar);
+      break;
+
+    // Enter Exclusion mode (i.e. delete a node)
+    case 'E':
+    case 'e':
+      luiMessageQueueBuffer = msgid_MAIN_ZWAVE_EXCLUSION;
+      osMessageQueuePut(ZWaveQueueHandle, &luiMessageQueueBuffer, 0, 0);
+      break;
 
     // SPI flash tests
     case 'F':
@@ -3883,7 +3909,7 @@ BootstrapState ZWave_Bootstrap_StateMachine(BootstrapStateMachineCommand stateMa
 
         // (Transmit the encrypted Transfer End)
         #if ENABLE_ZWAVE_CONTROLLER_HOST
-        //// TEST MAB 2026.10.01 ZWave_Send_REQ_CMD_13_Send_Data(gtNodeProvisioningList[gucProcessingDSK].NodeID, lucFrameLength, lucSendDataBuffer, TRANSMIT_OPTION_ACK, gucSessionID);
+        ZWave_Send_REQ_CMD_13_Send_Data(gtNodeProvisioningList[gucProcessingDSK].NodeID, lucFrameLength, lucSendDataBuffer, TRANSMIT_OPTION_ACK, gucSessionID);
         #endif
 
         // Set state to NETWORK_KEY_DONE
@@ -4466,7 +4492,7 @@ void ZWave_DSK_Write(uint8_t aucDSKIndex, uint8_t* paucDSKBuffer)
   // NOTE: This routine can overwrite an existing DSK
   //       Use ZWave_DSK_IsZeroized() to check if a DSK is zeroized before writing to it
 
-  if (0 <= aucDSKIndex && aucDSKIndex < NODE_PROVISIONING_LIST_COUNT)
+  if (aucDSKIndex < NODE_PROVISIONING_LIST_COUNT)
   {
     gtNodeProvisioningList[aucDSKIndex].lr_capable = ZWAVE_NODE_PROVISIONING_LIST_LR_CAPABLE;
     for (int j = 0; j < DSK_LENGTH_BYTES; ++j)
@@ -4602,7 +4628,7 @@ void ZWave_DSK_Write_To_String(uint8_t aucDSKIndex, char* paucDSKBuffer)
   */
 void ZWave_DSK_Zeroize(uint8_t aucDSKIndex)
 {
-  if (0 <= aucDSKIndex && aucDSKIndex < NODE_PROVISIONING_LIST_COUNT)
+  if (aucDSKIndex < NODE_PROVISIONING_LIST_COUNT)
   {
     LOG("%s: Zeroizing DSK %d\r\n", __FUNCTION__, aucDSKIndex);
     gtNodeProvisioningList[aucDSKIndex].lr_capable = ZWAVE_NODE_PROVISIONING_LIST_MESH_ONLY;
@@ -5446,7 +5472,7 @@ int ZWave_Network_Key_Expand(uint8_t aucDSKIndex, uint8_t* paucNetworkKey)
   }
   // If no errors
   LOG("%s: - T1 \r\n", __FUNCTION__);
-  PrintBytes(lucT1, sizeof(lucT1), false, 0);
+  //PrintBytes(lucT1, sizeof(lucT1), false, 0);
 
   ///////////////////////////////////////////////////
   // Generate T2 = CMAC(PNK, T1 || ConstantNK || 0x02)
@@ -5467,7 +5493,7 @@ int ZWave_Network_Key_Expand(uint8_t aucDSKIndex, uint8_t* paucNetworkKey)
   }
   // If no errors
   LOG("%s: - T2 \r\n", __FUNCTION__);
-  PrintBytes(lucT2, sizeof(lucT2), false, 0);
+  //PrintBytes(lucT2, sizeof(lucT2), false, 0);
 
   ///////////////////////////////////////////////////
   // Generate T3 = CMAC(PNK, T2 || ConstantNK || 0x03)
@@ -5488,7 +5514,7 @@ int ZWave_Network_Key_Expand(uint8_t aucDSKIndex, uint8_t* paucNetworkKey)
   }
   // If no errors
   LOG("%s: - T3 \r\n", __FUNCTION__);
-  PrintBytes(lucT3, sizeof(lucT3), false, 0);
+  //PrintBytes(lucT3, sizeof(lucT3), false, 0);
 
   ///////////////////////////////////////////////////
   // Generate T4 = CMAC(PNK, T3 || ConstantNK || 0x04)
@@ -5509,7 +5535,7 @@ int ZWave_Network_Key_Expand(uint8_t aucDSKIndex, uint8_t* paucNetworkKey)
   }
   // If no errors
   LOG("%s: - T4 \r\n", __FUNCTION__);
-  PrintBytes(lucT4, sizeof(lucT4), false, 0);
+  //PrintBytes(lucT4, sizeof(lucT4), false, 0);
 
   ///////////////////////////////////////////////////
   // KeyCCM = T1
@@ -5587,7 +5613,7 @@ int ZWave_Network_SPAN_Establish(uint8_t aucDSKIndex)
   LOG("%s: - generating T0 \r\n", __FUNCTION__);
   memcpy(lucMEIExpandT0, CKDF_TEMP_EXPAND_C, sizeof(CKDF_TEMP_EXPAND_C));
   lucMEIExpandT0[15] = 0x00;
-  PrintBytes(lucMEIExpandT0, sizeof(lucMEIExpandT0), false, 0);
+  //PrintBytes(lucMEIExpandT0, sizeof(lucMEIExpandT0), false, 0);
 
   // T1 = CMAC(NoncePRK, T0 | ConstEntropyInput | 0x01)
   LOG("%s: - generating T1 \r\n", __FUNCTION__);
@@ -5598,7 +5624,7 @@ int ZWave_Network_SPAN_Establish(uint8_t aucDSKIndex)
   liReturnValue = wc_AesCmacGenerate(lucMEIExpandT1, &luiSize,
                                        lucMEIExpandBuffer, sizeof(lucMEIExpandBuffer),
                                        lucNoncePRK, sizeof(lucNoncePRK));
-  PrintBytes(lucMEIExpandT1, sizeof(lucMEIExpandT1), false, 0);
+  //PrintBytes(lucMEIExpandT1, sizeof(lucMEIExpandT1), false, 0);
   if (liReturnValue != 0 || luiSize != 16)
   {
     // Make sure return value is *something* other than 0
@@ -5615,7 +5641,7 @@ int ZWave_Network_SPAN_Establish(uint8_t aucDSKIndex)
   liReturnValue = wc_AesCmacGenerate(lucMEIExpandT2, &luiSize,
                                        lucMEIExpandBuffer, sizeof(lucMEIExpandBuffer),
                                        lucNoncePRK, sizeof(lucNoncePRK));
-  PrintBytes(lucMEIExpandT2, sizeof(lucMEIExpandT2), false, 0);
+  //PrintBytes(lucMEIExpandT2, sizeof(lucMEIExpandT2), false, 0);
   if (liReturnValue != 0 || luiSize != 16)
   {
     // Make sure return value is *something* other than 0
@@ -5628,7 +5654,7 @@ int ZWave_Network_SPAN_Establish(uint8_t aucDSKIndex)
   memcpy(lucMEI,    lucMEIExpandT1, sizeof(lucMEIExpandT1));
   memcpy(lucMEI+16, lucMEIExpandT2, sizeof(lucMEIExpandT2));
   // If no errors, lucMEI[] has MEI
-  PrintBytes(lucMEI, sizeof(lucMEI), false, 0);
+  //PrintBytes(lucMEI, sizeof(lucMEI), false, 0);
 
 
   /////////////////////////////////////////////////////////////////////////////////////////////////////
@@ -7009,7 +7035,10 @@ void ZWave_REQ_CMD_49_ZW_Application_Update(void)
       }
       else
       {
-        LOG("%s: Transitioning DSK %d from READY to DETECTED \r\n", __FUNCTION__, lucCandidateDSKIndex);
+        LOG("%s: - DSK %d is ready to be added via SmartStart as a Long Range end node \r\n", __FUNCTION__, lucCandidateDSKIndex);
+        // For the sake of the ZWave Sentinel Diagnostic tool, make the
+        // SmartStart state transition appear as if from ZWave_SmartStart_StateMachine()
+        LOG("ZWave_SmartStart_StateMachine: Transitioning DSK %d from READY to DETECTED \r\n", lucCandidateDSKIndex);
         gtNodeProvisioningList[lucCandidateDSKIndex].status = SMARTSTART_DETECTED;
         gucProcessingDSK = lucCandidateDSKIndex;
       }
@@ -7058,17 +7087,7 @@ void ZWave_REQ_CMD_49_ZW_Application_Update(void)
 
     LOG("----------------------- Supported Command Class list START -----------------------\r\n");
     PrintBytes(&ZWaveSerialFrame->payload[7], lucCommandClassListLength - 3, false, 0);
-    //PrintBytes(&ZWaveSerialFrame->payload[4], lucCommandClassListLength, false, 0);
     LOG("----------------------- Supported Command Class list  END  -----------------------\r\n");
-
-//    //////////////////////////////////////////////////////////////
-//    //// TEST MAB 2026.01.21
-//    //// Trigger end of BOOTSTRAP
-//    if (lucEvent == UPDATE_STATE_NODE_INFO_RECEIVED)
-//    {
-//      gucIsBootstrapFinished = TRUE;
-//    }
-//    //////////////////////////////////////////////////////////////
   }
 
 }
@@ -7127,6 +7146,7 @@ void ZWave_REQ_CMD_4A_ZW_Add_Node_To_Network(void)
     guiNodeID = (0x100*ZWaveSerialFrame->payload[2]) + ZWaveSerialFrame->payload[3];
     LOG("%s: Saving DSK %d NodeID 0x%04X \r\n", __FUNCTION__, gucProcessingDSK, guiNodeID);
     gtNodeProvisioningList[gucProcessingDSK].NodeID = guiNodeID;
+    guiLiveNodeCount = ZWave_DSK_Count_Live_NodeIDs();
   }
   LOG("%s: Data length            = 0x%02X\r\n", __FUNCTION__, ZWaveSerialFrame->payload[4]);
   if (ZWaveSerialFrame->payload[4])
@@ -7153,10 +7173,18 @@ void ZWave_REQ_CMD_4A_ZW_Add_Node_To_Network(void)
   */
 void ZWave_REQ_CMD_4B_ZW_Remove_Node_From_Network(void)
 {
+  static uint8_t  lucStatus;
+  static uint16_t luiNodeID;
+  static uint8_t  lucDataLength;
+
+  lucStatus = ZWaveSerialFrame->payload[1];
+  luiNodeID = (0x100*ZWaveSerialFrame->payload[2]) + ZWaveSerialFrame->payload[3];
+  lucDataLength = ZWaveSerialFrame->payload[4];
+
   // The host should be receiving the callback (request) data frames
   LOG("%s: Session ID             = 0x%02X\r\n", __FUNCTION__, ZWaveSerialFrame->payload[0]);
-  LOG("%s: Status                 = 0x%02X\r\n", __FUNCTION__, ZWaveSerialFrame->payload[1]);
-  switch (ZWaveSerialFrame->payload[1])
+  LOG("%s: Status                 = 0x%02X\r\n", __FUNCTION__, lucStatus);
+  switch (lucStatus)
   {
   case REMOVE_NODE_STATUS_LEARN_READY:
     LOG("%s: - Network Exclusion started \r\n", __FUNCTION__);
@@ -7172,6 +7200,7 @@ void ZWave_REQ_CMD_4B_ZW_Remove_Node_From_Network(void)
     break;
   case REMOVE_NODE_STATUS_DONE:
     LOG("%s: - Exclusion completed \r\n", __FUNCTION__);
+    gucIsExclusionJoiningNodeFinished = TRUE;
     break;
   case REMOVE_NODE_STATUS_FAILED:
     LOG("%s: - Exclusion FAILED \r\n", __FUNCTION__);
@@ -7184,9 +7213,25 @@ void ZWave_REQ_CMD_4B_ZW_Remove_Node_From_Network(void)
     break;
   }
 
-  LOG("%s: NodeID                 = 0x%04X\r\n", __FUNCTION__, (0x100*ZWaveSerialFrame->payload[2]) + ZWaveSerialFrame->payload[3]);
-  LOG("%s: Data length            = 0x%02X\r\n", __FUNCTION__, ZWaveSerialFrame->payload[4]);
-  if (ZWaveSerialFrame->payload[4])
+  LOG("%s: NodeID                 = 0x%04X\r\n", __FUNCTION__, luiNodeID);
+  if (REMOVE_NODE_STATUS_REMOVING_SLAVE == lucStatus)
+  {
+    // An End node is being excluded. From its NodeID identify and save the DSK index
+    gucProcessingDSK = ZWave_Scan_ProvisioningList_For_NodeID(luiNodeID);
+    if (gucProcessingDSK < NODE_PROVISIONING_LIST_COUNT)
+    {
+      // Set that DSK's SmartStart state to EXCLUSION
+      LOG("%s: Setting DSK %d SmartStart state to EXCLUSION \r\n", __FUNCTION__, gucProcessingDSK);
+      gtNodeProvisioningList[gucProcessingDSK].status = SMARTSTART_EXCLUSION;
+    }
+    else
+    {
+      LOG("%s: *** WARNING *** no matching DSK for NodeID 0x04X\r\n", __FUNCTION__, luiNodeID);
+    }
+  }
+
+  LOG("%s: Data length            = 0x%02X\r\n", __FUNCTION__, lucDataLength);
+  if (lucDataLength)
   {
     LOG("%s: Basic device type      = 0x%02X\r\n", __FUNCTION__, ZWaveSerialFrame->payload[5]);
     ZWave_Identify_Basic_Device_Type(ZWaveSerialFrame->payload[5]);
@@ -7197,7 +7242,7 @@ void ZWave_REQ_CMD_4B_ZW_Remove_Node_From_Network(void)
     LOG("%s: Specific device type   = 0x%02X\r\n", __FUNCTION__, ZWaveSerialFrame->payload[7]);
     ZWave_Identify_Specific_Device_Type(ZWaveSerialFrame->payload[6], ZWaveSerialFrame->payload[7]);
     LOG("-----------------------  Supported Command Classes START -----------------------\r\n");
-    PrintBytes(&ZWaveSerialFrame->payload[8], ZWaveSerialFrame->payload[4] - 3, false, 0);
+    PrintBytes(&ZWaveSerialFrame->payload[8], lucDataLength - 3, false, 0);
     LOG("-----------------------  Supported Command Classes  END  -----------------------\r\n");
   }
 }
@@ -7648,6 +7693,11 @@ void ZWave_RES_CMD_DA_Serial_API_Get_LR_Nodes(void)
   //LOG("%s: Copy of BITMASK_ARRAY: \r\n", __FUNCTION__);
   //PrintBytes(gucLRNodes, MAX_LR_NODEMASK_LENGTH, false, 0);
   ////////////////////////////////////////////////////////////////////////////////////////
+
+  if (guiActiveNodeCount == guiLiveNodeCount)
+  {
+    LOG("%s: Live node count == Active node count: %04d \r\n", __FUNCTION__, guiActiveNodeCount);
+  }
 }
 // end ZWave_RES_CMD_DA_Serial_API_Get_LR_Nodes
 
@@ -8857,6 +8907,25 @@ void ZWave_Send_REQ_CMD_4A_Add_Node_to_Network(uint8_t aucOptions, uint8_t aucSe
 // end ZWave_Send_REQ_CMD_4A_Add_Node_to_Network
 
 /** *****************************************************************************************************************************
+  * @brief  Prepare and send REQ CMD 4B Remove Node from Network
+  * @param  uint8_t aucOptions     - Power | NWI | Protocol | SFLND | Mode (4 bits)
+  * @param  uint8_t aucSessionID   - session ID
+  * @retval None
+  */
+void ZWave_Send_REQ_CMD_4B_Remove_Node_from_Network(uint8_t aucOptions, uint8_t aucSessionID)
+{
+  uint8_t lucBufferLength;
+
+  gucZWaveWorkbuf[0] = aucOptions;
+  gucZWaveWorkbuf[1] = aucSessionID;
+  lucBufferLength = 2;
+
+  ZWave_Enqueue_Request(FUNC_ID_ZW_REMOVE_NODE_FROM_NETWORK, gucZWaveWorkbuf, lucBufferLength);
+  LOG("%s: Sending FUNC_ID_ZW_REMOVE_NODE_FROM_NETWORK\r\n", __FUNCTION__);
+}
+// end ZWave_Send_REQ_CMD_4B_Remove_Node_from_Network
+
+/** *****************************************************************************************************************************
   * @brief  Prepare and send REQ CMD 56 Get SUC Node ID
   * @param  None
   * @retval None
@@ -9414,6 +9483,9 @@ ZWave_SmartStart_StateMachine
     Initialize subordinate state machines
     Set state to EMPTY
 
+  ELSE IF command is SET_STATE
+    Set state to global SmartState state variable
+
   ELSE IF command is RUN
     Update elapsed time
     IF a DSK is being processed
@@ -9503,6 +9575,35 @@ SmartStartState ZWave_SmartStart_StateMachine(SmartStartStateMachineCommand stat
   }
 
   //////////////////////////////////////////////////////////////////////////
+  // ELSE IF command is SET_STATE
+  else if (SMARTSTART_SM_CMD_SET_STATE == stateMachineCommand)
+  {
+    // Set state to global SmartState state variable
+    leSmartStartState = geSmartStartState;
+
+    // (Initialize for EXCLUSION)
+    if (SMARTSTART_EXCLUSION == leSmartStartState)
+    {
+      gucIsExclusionFinished              = FALSE;
+      gucIsExclusionJoiningNodeFinished   = FALSE;
+      gucIsExclusionIncludingNodeFinished = FALSE;
+      gucIsExclusionFailed   = FALSE;
+      lulElapsedTime_Exclusion_msec = 0;
+    }
+
+    // (Initialize for INCLUSION)
+    // (Future case of classic Add Node to mesh network)
+    if (SMARTSTART_INCLUSION == leSmartStartState)
+    {
+      lulElapsedTime_Inclusion_msec = 0;
+      gucIsInclusionFailed                = FALSE;
+      gucIsInclusionJoiningNodeFinished   = FALSE;
+      gucIsInclusionIncludingNodeFinished = FALSE;
+    }
+
+  }
+
+  //////////////////////////////////////////////////////////////////////////
   // ELSE IF command is RUN
   else if (SMARTSTART_SM_CMD_RUN == stateMachineCommand)
   {
@@ -9516,10 +9617,19 @@ SmartStartState ZWave_SmartStart_StateMachine(SmartStartStateMachineCommand stat
     }
 
     // IF a DSK is being processed
-    if (ZWave_DSK_IsProcessing())
+    if ( ZWave_DSK_IsProcessing() && (SMARTSTART_EXCLUSION != leSmartStartState) )
     {
       // Set state to the processing DSK state
       leSmartStartState = gtNodeProvisioningList[gucProcessingDSK].status;
+    }
+    else if (SMARTSTART_EXCLUSION == leSmartStartState)
+    {
+      // Do nothing, let EXCLUSION processing occur
+      // (This is the case at the start of EXCLUSION mode
+      //  when NodeID of the excluding end node has not
+      //  yet been identified. We don't know the DSK yet.)
+      // (Will need similar for INCLUSION for classic Add Node
+      //  to mesh network)
     }
     // ELSE
     else
@@ -9564,7 +9674,7 @@ SmartStartState ZWave_SmartStart_StateMachine(SmartStartStateMachineCommand stat
       LOG("%s: Transitioning DSK %d from DETECTED to INCLUSION\r\n", __FUNCTION__, gucProcessingDSK);
       leSmartStartState                               = SMARTSTART_INCLUSION;
       gtNodeProvisioningList[gucProcessingDSK].status = SMARTSTART_INCLUSION;
-      ZWave_DSK_Count_Live_NodeIDs();
+      guiLiveNodeCount = ZWave_DSK_Count_Live_NodeIDs();
     }
 
     //-------------------------------------------------------
@@ -9583,7 +9693,7 @@ SmartStartState ZWave_SmartStart_StateMachine(SmartStartStateMachineCommand stat
         }
         if (lulElapsedTime_Inclusion_msec > INCLUSION_TIMEOUT_MSEC)
         {
-          LOG("%s: *** WARNING *** Inclusion for DSK %d timed out \r\n", __FUNCTION__, gucProcessingDSK);
+          LOG("%s: *** WARNING *** Inclusion for DSK %d timed out after %d msec \r\n", __FUNCTION__, gucProcessingDSK, lulElapsedTime_Inclusion_msec);
         }
 
         #if ENABLE_ZWAVE_CONTROLLER_HOST
@@ -9597,11 +9707,14 @@ SmartStartState ZWave_SmartStart_StateMachine(SmartStartStateMachineCommand stat
 
         // Set state to EXCLUSION
         LOG("%s: Transitioning DSK %d from INCLUSION to EXCLUSION\r\n", __FUNCTION__, gucProcessingDSK);
-        gucIsExclusionFinished = FALSE;
+        gucIsExclusionFinished              = FALSE;
+        gucIsExclusionJoiningNodeFinished   = FALSE;
+        gucIsExclusionIncludingNodeFinished = FALSE;
         gucIsExclusionFailed   = FALSE;
+        lulElapsedTime_Exclusion_msec = 0;
         leSmartStartState                               = SMARTSTART_EXCLUSION;
         gtNodeProvisioningList[gucProcessingDSK].status = SMARTSTART_EXCLUSION;
-        ZWave_DSK_Count_Live_NodeIDs();
+        guiLiveNodeCount = ZWave_DSK_Count_Live_NodeIDs();
       }
       // ELSE IF joining node inclusion has completed
       else if (gucIsInclusionJoiningNodeFinished)
@@ -9612,10 +9725,6 @@ SmartStartState ZWave_SmartStart_StateMachine(SmartStartStateMachineCommand stat
 
         #if ENABLE_ZWAVE_CONTROLLER_HOST
         // Stop joining node inclusion
-        //////////////////////////////////////
-        /// TEST MAB 2026.01.23
-        //osDelay(5000);
-        //////////////////////////////////////
         LOG("%s: Stopping joining node inclusion \r\n", __FUNCTION__);
         ZWave_Send_REQ_CMD_4A_Add_Node_to_Network(ADD_NODE_STOP, gucSessionID, NULL);
         #endif
@@ -9627,10 +9736,6 @@ SmartStartState ZWave_SmartStart_StateMachine(SmartStartStateMachineCommand stat
 
         #if ENABLE_ZWAVE_CONTROLLER_HOST
         // Stop node inclusion
-        //////////////////////////////////////
-        /// TEST MAB 2026.01.22
-        //osDelay(5000);
-        //////////////////////////////////////
         LOG("%s: Stopping node inclusion \r\n", __FUNCTION__);
         //ZWave_Send_REQ_CMD_4A_Add_Node_to_Network(ADD_NODE_STOP, gucSessionID, NULL);
         ZWave_Send_REQ_CMD_4A_Add_Node_to_Network(ADD_NODE_STOP, 0, NULL);
@@ -9644,7 +9749,7 @@ SmartStartState ZWave_SmartStart_StateMachine(SmartStartStateMachineCommand stat
         LOG("%s: Transitioning DSK %d from INCLUSION to BOOTSTRAP\r\n", __FUNCTION__, gucProcessingDSK);
         leSmartStartState                               = SMARTSTART_BOOTSTRAP;
         gtNodeProvisioningList[gucProcessingDSK].status = SMARTSTART_BOOTSTRAP;
-        ZWave_DSK_Count_Live_NodeIDs();
+        guiLiveNodeCount = ZWave_DSK_Count_Live_NodeIDs();
       }
       // ENDIF
     }
@@ -9657,22 +9762,56 @@ SmartStartState ZWave_SmartStart_StateMachine(SmartStartStateMachineCommand stat
       lulElapsedTime_Exclusion_msec += ZWAVE_TASK_PERIOD;
 
       // IF node exclusion completed, failed OR timed out
-      if (gucIsExclusionFinished || gucIsExclusionFailed || lulElapsedTime_Exclusion_msec > EXCLUSION_TIMEOUT_MSEC)
+      if (gucIsExclusionFinished || gucIsExclusionIncludingNodeFinished || gucIsExclusionFailed || lulElapsedTime_Exclusion_msec > EXCLUSION_TIMEOUT_MSEC)
       {
+        if (lulElapsedTime_Exclusion_msec > EXCLUSION_TIMEOUT_MSEC)
+        {
+          LOG("%s: *** WARNING *** Exclusion mode timeout after %d msec \r\n", __FUNCTION__, lulElapsedTime_Exclusion_msec);
+        }
+        if (gucIsExclusionFailed)
+        {
+          LOG("%s: *** WARNING *** Exclusion FAILED after %d msec \r\n", __FUNCTION__, lulElapsedTime_Exclusion_msec);
+        }
+
+        #if ENABLE_ZWAVE_CONTROLLER_HOST
+        // Stop joining node exclusion
+        LOG("%s: Stopping joining node exclusion \r\n", __FUNCTION__);
+        //ZWave_Send_REQ_CMD_4B_Remove_Node_from_Network(REMOVE_NODE_STOP, gucSessionID);
+        ZWave_Send_REQ_CMD_4B_Remove_Node_from_Network(REMOVE_NODE_STOP, 0);
+        #endif
+
         #if ENABLE_ZWAVE_CONTROLLER_HOST
         // Resume listening for SmartStart Prime commands, report to host application
         LOG("%s: Resume listening for SmartStart Prime commands, report to host application \r\n", __FUNCTION__);
         gucSessionID = ZWave_SessionID_Update(gucSessionID);
-        ZWave_Send_REQ_CMD_4A_Add_Node_to_Network(ADD_NODE_OPTION_NETWORK_WIDE|ADD_NODE_SMART_START, gucSessionID, NULL);
-        //ZWave_Send_REQ_CMD_4A_Add_Node_to_Network(ADD_NODE_OPTION_NETWORK_WIDE|ADD_NODE_OPTION_LR|ADD_NODE_SMART_START, gucSessionID, NULL);
+        //ZWave_Send_REQ_CMD_4A_Add_Node_to_Network(ADD_NODE_OPTION_NETWORK_WIDE|ADD_NODE_SMART_START, gucSessionID, NULL);
+        ZWave_Send_REQ_CMD_4A_Add_Node_to_Network(ADD_NODE_OPTION_NETWORK_WIDE|ADD_NODE_OPTION_LR|ADD_NODE_SMART_START, gucSessionID, NULL);
         #endif
 
         // Set state to READY
+        geBootstrapState = ZWave_Bootstrap_StateMachine(BOOTSTRAP_SM_CMD_INITIALIZE);
         LOG("%s: Transitioning DSK %d from EXCLUSION to READY\r\n", __FUNCTION__, gucProcessingDSK);
         leSmartStartState                               = SMARTSTART_READY;
         gtNodeProvisioningList[gucProcessingDSK].status = SMARTSTART_READY;
         gucProcessingDSK = DSK_UNAVAILABLE;
-        ZWave_DSK_Count_Live_NodeIDs();
+        guiLiveNodeCount = ZWave_DSK_Count_Live_NodeIDs();
+      }
+      // ELSE IF joining node exclusion has completed
+      else if (gucIsExclusionJoiningNodeFinished)
+      {
+        LOG("%s: Joining node exclusion for DSK %d completed in %d msec \r\n", __FUNCTION__, gucProcessingDSK, lulElapsedTime_Exclusion_msec);
+        gucIsExclusionJoiningNodeFinished = FALSE;
+        lulElapsedTime_Exclusion_msec = 0;
+        gtNodeProvisioningList[gucProcessingDSK].NodeID = NODE_ID_UNAVAILABLE;
+        guiLiveNodeCount = ZWave_DSK_Count_Live_NodeIDs();
+
+        #if ENABLE_ZWAVE_CONTROLLER_HOST
+        // Stop joining node exclusion
+        LOG("%s: Stopping joining node exclusion \r\n", __FUNCTION__);
+        //ZWave_Send_REQ_CMD_4B_Remove_Node_from_Network(REMOVE_NODE_STOP, gucSessionID);
+        ZWave_Send_REQ_CMD_4B_Remove_Node_from_Network(REMOVE_NODE_STOP, 0);
+        #endif
+        gucIsExclusionIncludingNodeFinished = TRUE;
       }
       // ENDIf
     }
@@ -9707,39 +9846,16 @@ SmartStartState ZWave_SmartStart_StateMachine(SmartStartStateMachineCommand stat
         LOG("%s: Transitioning DSK %d from BOOTSTRAP to INCLUSION\r\n", __FUNCTION__, gucProcessingDSK);
         leSmartStartState                               = SMARTSTART_INCLUSION;
         gtNodeProvisioningList[gucProcessingDSK].status = SMARTSTART_INCLUSION;
-        ZWave_DSK_Count_Live_NodeIDs();
-        //geBootstrapState = ZWave_Bootstrap_StateMachine(BOOTSTRAP_SM_CMD_INITIALIZE);
-
-//        ///////////////////////////////////////////////////////////////////////////////////////////////////
-//        //// TEST MAB 2026.01.22
-////        #if ENABLE_ZWAVE_CONTROLLER_HOST
-////        // Stop node inclusion
-////        LOG("%s: Stopping node inclusion \r\n", __FUNCTION__);
-////        ZWave_Send_REQ_CMD_4A_Add_Node_to_Network(ADD_NODE_STOP, gucSessionID, NULL);
-////        #endif
-//
-//        #if ENABLE_ZWAVE_CONTROLLER_HOST
-//        // Resume listening for SmartStart Prime commands, report to host application
-//        LOG("%s: Resume listening for SmartStart Prime commands, report to host application \r\n", __FUNCTION__);
-//        gucSessionID = ZWave_SessionID_Update(gucSessionID);
-//        ZWave_Send_REQ_CMD_4A_Add_Node_to_Network(ADD_NODE_OPTION_NETWORK_WIDE|ADD_NODE_SMART_START, gucSessionID, NULL);
-//        //ZWave_Send_REQ_CMD_4A_Add_Node_to_Network(ADD_NODE_OPTION_NETWORK_WIDE|ADD_NODE_OPTION_LR|ADD_NODE_SMART_START, gucSessionID, NULL);
-//        #endif
-//
-//        // Set state to CONNECTED
-//        LOG("%s: Transitioning DSK %d from BOOTSTRAP to CONNECTED\r\n", __FUNCTION__, gucProcessingDSK);
-//        leSmartStartState                               = SMARTSTART_CONNECTED;
-//        gtNodeProvisioningList[gucProcessingDSK].status = SMARTSTART_CONNECTED;
-//        ///////////////////////////////////////////////////////////////////////////////////////////////////
+        guiLiveNodeCount = ZWave_DSK_Count_Live_NodeIDs();
       }
       // ELSE IF S2 bootstrap has completed
       else if (gucIsBootstrapFinished)
       {
-//        #if ENABLE_ZWAVE_CONTROLLER_HOST
-//        // Stop node inclusion
-//        LOG("%s: Stopping node inclusion \r\n", __FUNCTION__);
-//        ZWave_Send_REQ_CMD_4A_Add_Node_to_Network(ADD_NODE_STOP, gucSessionID, NULL);
-//        #endif
+        #if ENABLE_ZWAVE_CONTROLLER_HOST
+        // Stop node inclusion
+        LOG("%s: Stopping node inclusion \r\n", __FUNCTION__);
+        ZWave_Send_REQ_CMD_4A_Add_Node_to_Network(ADD_NODE_STOP, gucSessionID, NULL);
+        #endif
 
         #if ENABLE_ZWAVE_CONTROLLER_HOST
         // Resume listening for SmartStart Prime commands, report to host application
@@ -9753,7 +9869,7 @@ SmartStartState ZWave_SmartStart_StateMachine(SmartStartStateMachineCommand stat
         LOG("%s: Transitioning DSK %d from BOOTSTRAP to CONNECTED\r\n", __FUNCTION__, gucProcessingDSK);
         leSmartStartState                               = SMARTSTART_CONNECTED;
         gtNodeProvisioningList[gucProcessingDSK].status = SMARTSTART_CONNECTED;
-        ZWave_DSK_Count_Live_NodeIDs();
+        guiLiveNodeCount = ZWave_DSK_Count_Live_NodeIDs();
       }
       // ENDIF
     }
@@ -9872,7 +9988,7 @@ int ZWave_Temporary_Key_Generate(void)
   #endif
   if (liReturnValue != 0 || luiSharedLen != SS_LEN) goto exit;
   // If no errors, lucECDHSharedSecret[] has the ECDH Shared Secret
-  PrintBytes(lucECDHSharedSecret, sizeof(lucECDHSharedSecret), false, 0);
+  //PrintBytes(lucECDHSharedSecret, sizeof(lucECDHSharedSecret), false, 0);
 
 
   /////////////////////////////////////////////////
@@ -9883,7 +9999,7 @@ int ZWave_Temporary_Key_Generate(void)
   memcpy(lucMsgExtract+32, gucControllerPublicKey,                                 32);
   memcpy(lucMsgExtract+64, gtNodeProvisioningList[gucProcessingDSK].ECDHPublicKey, 32);
   LOG("%s: - G||PubA||PubB \r\n", __FUNCTION__);
-  PrintBytes(lucMsgExtract, 96, false, 0);
+  //PrintBytes(lucMsgExtract, 96, false, 0);
   luiSize = sizeof(lucPRK);
   liReturnValue = wc_AesCmacGenerate(lucPRK, &luiSize,
                                      lucMsgExtract, sizeof(lucMsgExtract),
@@ -9918,7 +10034,7 @@ int ZWave_Temporary_Key_Generate(void)
   }
   // If no errors, gucTemporarySymmetricKey[] has the Temporary Symmetric Key
   LOG("%s: - Temporary Symmetric Key \r\n", __FUNCTION__);
-  PrintBytes(gucTemporarySymmetricKey, sizeof(gucTemporarySymmetricKey), false, 0);
+  //PrintBytes(gucTemporarySymmetricKey, sizeof(gucTemporarySymmetricKey), false, 0);
 
   /////////////////////////////////////////////////
   // TempExpand:
@@ -11031,12 +11147,13 @@ void ZWaveTask(void *argument)
   if (lucAvailableDSKIndex != DSK_UNAVAILABLE)
   {
     gtNodeProvisioningList[lucAvailableDSKIndex].NodeID = NODE_ID_UNAVAILABLE; // initialize NodeID
-    ZWave_DSK_Write_From_String(lucAvailableDSKIndex, "24029-51463-32284-28566-56116-04955-48167-26889");
+    ZWave_DSK_Write_From_String(lucAvailableDSKIndex, "14243-27274-60778-20660-35863-37075-18465-14419");
     memset(lucDSKString, 0x00, sizeof(lucDSKString));
     ZWave_DSK_Write_To_String(lucAvailableDSKIndex, lucDSKString);
     LOG("%s: DSK %d: %s\r\n", __FUNCTION__, lucAvailableDSKIndex, lucDSKString);
   }
   LOG("%s: --------- END Initializing Node Provisioning list ---------\r\n", __FUNCTION__);
+  guiLiveNodeCount = ZWave_DSK_Count_Live_NodeIDs();
 
   ///////////////////////////////////////////////////////////////////////////////////////////////////////
   //// TEST MAB 2025.12.30
@@ -11191,6 +11308,50 @@ void ZWaveTask(void *argument)
 
     //////////////////////////////////////////////
     //
+    // Pull messages from the queue and process
+    //
+    //////////////////////////////////////////////
+    uint8_t lucZWaveQueueCount = osMessageQueueGetCount(ZWaveQueueHandle);
+    uint16_t luiZWaveQueueEventID;
+    //uint16_t luiZWaveQueuePayload;
+    if (lucZWaveQueueCount > 0)
+    {
+      osStatus_t ltZWaveQueueStatus = osMessageQueueGet(ZWaveQueueHandle, &luiZWaveQueueEventID, NULL, 0);
+      if (ltZWaveQueueStatus  != osOK) LOG("%s: Message queue osMessageQueueGet() returned = %d\r\n", __FUNCTION__, ltZWaveQueueStatus);
+
+      switch (luiZWaveQueueEventID)
+      {
+        case msgid_MAIN_ZWAVE_EXCLUSION:
+          LOG("%s: Entering Exclusion mode (deleting a node)\r\n", __FUNCTION__);
+          #if ENABLE_ZWAVE_CONTROLLER_HOST
+          // Start exclusion mode
+          ZWave_Send_REQ_CMD_4B_Remove_Node_from_Network(REMOVE_NODE_ANY, gucSessionID);
+          #endif
+          // Set SmartStart state to EXCLUSION
+          geSmartStartState = SMARTSTART_EXCLUSION;
+          ZWave_SmartStart_StateMachine(SMARTSTART_SM_CMD_SET_STATE);
+          // For the sake of the ZWave Sentinel Diagnostic tool, make the
+          // SmartStart state transition appear as if from ZWave_SmartStart_StateMachine()
+          LOG("ZWave_SmartStart_StateMachine: Transitioning to EXCLUSION\r\n");
+          break;
+
+
+        default:
+          if (luiZWaveQueueEventID == msgid_NOP)
+          {
+            // do nothing
+          }
+          else
+          {
+            LOG("%s: ***ERROR*** Invalid command %d\r\n", __FUNCTION__, luiZWaveQueueEventID)
+          }
+          break;
+      }
+      // end switch ZWaveQueueEvent
+    }
+
+    //////////////////////////////////////////////
+    //
     // Run the Z-Wave state machine
     //
     //////////////////////////////////////////////
@@ -11201,7 +11362,7 @@ void ZWaveTask(void *argument)
     // Run the SmartStart state machine
     //
     //////////////////////////////////////////////
-    if (ZWave_DSK_IsProcessing())
+    if (ZWave_DSK_IsProcessing() || SMARTSTART_EXCLUSION==geSmartStartState)
     {
       geSmartStartState = ZWave_SmartStart_StateMachine(SMARTSTART_SM_CMD_RUN);
       if (SMARTSTART_DETECTED == geSmartStartState) lucCountdownToUpdateNodeIDList_minutes = 5;
@@ -11271,7 +11432,7 @@ void ZWaveTask(void *argument)
     uint32_t lulAuthHomeID;
     if (lucCountdownToNodeProvisioningListStatus_minutes == 0)
     {
-      lucCountdownToNodeProvisioningListStatus_minutes = NODE_PL_DISPLAY_INTERVAL_MINUTES;
+      lucCountdownToNodeProvisioningListStatus_minutes = ZWave_DSK_Count_Live_NodeIDs() ? NODE_PL_DISPLAY_INTERVAL_MINUTES : 60;
 
       for (int i = 0; i < NODE_PROVISIONING_LIST_COUNT; ++i)
       {
@@ -11401,6 +11562,7 @@ void ZWaveTask(void *argument)
     if (0 == lucCountdownToUpdateNodeIDList_minutes)
     {
       lucCountdownToUpdateNodeIDList_minutes = 60;
+      //// TEST MAB 2026.10.06 lucCountdownToUpdateNodeIDList_minutes = 10;
 
       #if ENABLE_ZWAVE_CONTROLLER_HOST
       // Fetch latest LR node list
@@ -11416,15 +11578,14 @@ void ZWaveTask(void *argument)
     static uint16_t luiAbandonedNodeID = 0;
     static uint8_t lucSendDataBuffer[10];
     static uint8_t lucIsAbandonedNodeIDSearchActive;
-    //if (0 == lulCountdownToCheckAbandonedNodeID_seconds)
-    if (0 == lulCountdownToCheckAbandonedNodeID_seconds && guiActiveNodeCount)
+    if ( (0 == lulCountdownToCheckAbandonedNodeID_seconds) && (guiActiveNodeCount != guiLiveNodeCount) )
     {
       //lulCountdownToCheckAbandonedNodeID_seconds = 300 + RandomValue()%60; // 5-6 minutes
       lulCountdownToCheckAbandonedNodeID_seconds = 60 + RandomValue()%60; // 1-2 minutes
       //lulCountdownToCheckAbandonedNodeID_seconds = 30 + RandomValue()%10; // 30-40 seconds
       //lulCountdownToCheckAbandonedNodeID_seconds = 10 + RandomValue()%10; // 10-20 seconds
 
-      // Look for a NodeID in the node list that IS NOT an active NodeID
+      // Look for a NodeID in the node list that IS NOT a live NodeID
       // IF such a NodeID is found, assume it's a "failed" node and
       // delete it from the node list
       lucIsAbandonedNodeIDSearchActive = TRUE;
@@ -11438,7 +11599,7 @@ void ZWaveTask(void *argument)
         }
         else
         {
-          // Check if candidate NodeID is actually an active one
+          // Check if candidate NodeID is actually a live one (i.e. in the node provisioning list)
           if ( DSK_UNAVAILABLE == ZWave_Scan_ProvisioningList_For_NodeID(luiAbandonedNodeID) )
           {
             // Candidate NodeID is NOT in the node provisioning list, so consider it failed. Search is done
@@ -11482,7 +11643,7 @@ void ZWaveTask(void *argument)
       // will need to update the local copy of the NodeID list more frequently.
       // In the final deliverable firmware probably don't need this ELSE case,
       // can rely on the separate periodic update of the local copy of the NodeID list.
-      else if (guiActiveNodeCount)
+      else if (guiActiveNodeCount || (guiActiveNodeCount != guiLiveNodeCount) )
       {
         // (no more NodeIDs to check in the current LR node list)
         // Fetch latest LR node list

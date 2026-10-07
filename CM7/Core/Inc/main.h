@@ -144,6 +144,7 @@ typedef enum Intertask_messages
   msgid_MAIN_FLASH_APP_CRC,           // no payload
   msgid_MAIN_FLASH_ERASE,             // no payload
   msgid_MAIN_REBOOT,                  // no payload
+  msgid_MAIN_ZWAVE_EXCLUSION,         // no payload
   msgid_NETWORK_MAIN_ONLINE_STATE,      // 1 payload: online state
   msgid_NETWORK_OUTPUT_ONLINE_STATE,    // 1 payload: online state
   msgid_NETWORK_OUTPUT_CONNECTION_ERROR,// 1 payload: network connection error code
@@ -340,6 +341,7 @@ typedef enum {
 typedef enum SmartStart_state_machine_commands
 {
   SMARTSTART_SM_CMD_INITIALIZE,
+  SMARTSTART_SM_CMD_SET_STATE,
   SMARTSTART_SM_CMD_RUN,
   SMARTSTART_SM_CMD_STATE,
 } SmartStartStateMachineCommand;
