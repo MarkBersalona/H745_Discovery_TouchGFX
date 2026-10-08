@@ -113,6 +113,7 @@ typedef enum Intertask_messages
 
   // for Z-Wave Sentinel
   msgid_EXTI_MAIN_MAINS_POWER_TRIGGERED,  // no payload
+  msgid_MAIN_DISPLAY_RTC,             // no payload
   msgid_MAIN_PRINT_ELAPSED_TIME,      // no payload
   msgid_MAIN_INPUT_START_CALIBRATION, // no payload
   msgid_MAIN_INPUT_ENABLE_ALARM_CHECKS,// no payload

@@ -7659,6 +7659,8 @@ void ZWave_RES_CMD_A9_ZW_Send_Data_Bridge(void)
   */
 void ZWave_RES_CMD_DA_Serial_API_Get_LR_Nodes(void)
 {
+  static uint16_t luiMessageQueueBuffer;
+
   LOG("%s: MORE_NODES      = 0x%02X\r\n", __FUNCTION__, ZWaveSerialFrame->payload[0]);
   LOG("%s: BITMASK_OFFSET  = 0x%02X\r\n", __FUNCTION__, ZWaveSerialFrame->payload[1]);
   LOG("%s: BITMASK_LEN     = 0x%02X\r\n", __FUNCTION__, ZWaveSerialFrame->payload[2]);
@@ -7698,6 +7700,10 @@ void ZWave_RES_CMD_DA_Serial_API_Get_LR_Nodes(void)
   {
     LOG("%s: Live node count == Active node count: %04d \r\n", __FUNCTION__, guiActiveNodeCount);
   }
+
+  // Display RTC in debug output
+  luiMessageQueueBuffer = msgid_MAIN_DISPLAY_RTC;
+  osMessageQueuePut(MainQueueHandle, &luiMessageQueueBuffer, 0, 1);
 }
 // end ZWave_RES_CMD_DA_Serial_API_Get_LR_Nodes
 
@@ -9553,10 +9559,11 @@ SmartStartState ZWave_SmartStart_StateMachine(SmartStartStateMachineCommand stat
   static uint32_t lulElapsedTime_Inclusion_msec;
   static uint32_t lulElapsedTime_Exclusion_msec;
   static uint32_t lulElapsedTime_Bootstrap_msec;
-  #define INCLUSION_TIMEOUT_MSEC (30000)
-  #define EXCLUSION_TIMEOUT_MSEC (30000)
-  #define BOOTSTRAP_TIMEOUT_MSEC (350000)
+  #define INCLUSION_TIMEOUT_MSEC (10000)
+  #define EXCLUSION_TIMEOUT_MSEC (10000)
+  #define BOOTSTRAP_TIMEOUT_MSEC (20000)
   static uint8_t lucNWIAuthHomeIDBuffer[8];
+  static uint16_t luiMessageQueueBuffer;
 
   //////////////////////////////////////////////////////////////////////////
   // IF command is INITIALIZE
@@ -9675,6 +9682,10 @@ SmartStartState ZWave_SmartStart_StateMachine(SmartStartStateMachineCommand stat
       leSmartStartState                               = SMARTSTART_INCLUSION;
       gtNodeProvisioningList[gucProcessingDSK].status = SMARTSTART_INCLUSION;
       guiLiveNodeCount = ZWave_DSK_Count_Live_NodeIDs();
+
+      // Display RTC in debug output
+      luiMessageQueueBuffer = msgid_MAIN_DISPLAY_RTC;
+      osMessageQueuePut(MainQueueHandle, &luiMessageQueueBuffer, 0, 1);
     }
 
     //-------------------------------------------------------
@@ -9715,6 +9726,10 @@ SmartStartState ZWave_SmartStart_StateMachine(SmartStartStateMachineCommand stat
         leSmartStartState                               = SMARTSTART_EXCLUSION;
         gtNodeProvisioningList[gucProcessingDSK].status = SMARTSTART_EXCLUSION;
         guiLiveNodeCount = ZWave_DSK_Count_Live_NodeIDs();
+
+        // Display RTC in debug output
+        luiMessageQueueBuffer = msgid_MAIN_DISPLAY_RTC;
+        osMessageQueuePut(MainQueueHandle, &luiMessageQueueBuffer, 0, 1);
       }
       // ELSE IF joining node inclusion has completed
       else if (gucIsInclusionJoiningNodeFinished)
@@ -9750,6 +9765,10 @@ SmartStartState ZWave_SmartStart_StateMachine(SmartStartStateMachineCommand stat
         leSmartStartState                               = SMARTSTART_BOOTSTRAP;
         gtNodeProvisioningList[gucProcessingDSK].status = SMARTSTART_BOOTSTRAP;
         guiLiveNodeCount = ZWave_DSK_Count_Live_NodeIDs();
+
+        // Display RTC in debug output
+        luiMessageQueueBuffer = msgid_MAIN_DISPLAY_RTC;
+        osMessageQueuePut(MainQueueHandle, &luiMessageQueueBuffer, 0, 1);
       }
       // ENDIF
     }
@@ -9795,6 +9814,10 @@ SmartStartState ZWave_SmartStart_StateMachine(SmartStartStateMachineCommand stat
         gtNodeProvisioningList[gucProcessingDSK].status = SMARTSTART_READY;
         gucProcessingDSK = DSK_UNAVAILABLE;
         guiLiveNodeCount = ZWave_DSK_Count_Live_NodeIDs();
+
+        // Display RTC in debug output
+        luiMessageQueueBuffer = msgid_MAIN_DISPLAY_RTC;
+        osMessageQueuePut(MainQueueHandle, &luiMessageQueueBuffer, 0, 1);
       }
       // ELSE IF joining node exclusion has completed
       else if (gucIsExclusionJoiningNodeFinished)
@@ -9847,6 +9870,10 @@ SmartStartState ZWave_SmartStart_StateMachine(SmartStartStateMachineCommand stat
         leSmartStartState                               = SMARTSTART_INCLUSION;
         gtNodeProvisioningList[gucProcessingDSK].status = SMARTSTART_INCLUSION;
         guiLiveNodeCount = ZWave_DSK_Count_Live_NodeIDs();
+
+        // Display RTC in debug output
+        luiMessageQueueBuffer = msgid_MAIN_DISPLAY_RTC;
+        osMessageQueuePut(MainQueueHandle, &luiMessageQueueBuffer, 0, 1);
       }
       // ELSE IF S2 bootstrap has completed
       else if (gucIsBootstrapFinished)
@@ -9870,6 +9897,10 @@ SmartStartState ZWave_SmartStart_StateMachine(SmartStartStateMachineCommand stat
         leSmartStartState                               = SMARTSTART_CONNECTED;
         gtNodeProvisioningList[gucProcessingDSK].status = SMARTSTART_CONNECTED;
         guiLiveNodeCount = ZWave_DSK_Count_Live_NodeIDs();
+
+        // Display RTC in debug output
+        luiMessageQueueBuffer = msgid_MAIN_DISPLAY_RTC;
+        osMessageQueuePut(MainQueueHandle, &luiMessageQueueBuffer, 0, 1);
       }
       // ENDIF
     }
@@ -10670,15 +10701,9 @@ void MainTask(void *argument)
     {
       lucOldMinute = sMainRTCTime.Minutes;
 
-//      LOG("%s: ............... RTC is 20%02d.%02d.%02d %02d:%02d:%02d UTC ...............\r\n",
-//          __FUNCTION__,
-//          sMainRTCDate.Year,  sMainRTCDate.Month,   sMainRTCDate.Date,
-//          sMainRTCTime.Hours, sMainRTCTime.Minutes, sMainRTCTime.Seconds);
-      LOG("%s: ............... RTC is 20%02d.%02d.%02d %02d:%02d:%02d UTC; runtime %d seconds ...............\r\n",
-          __FUNCTION__,
-          sMainRTCDate.Year,  sMainRTCDate.Month,   sMainRTCDate.Date,
-          sMainRTCTime.Hours, sMainRTCTime.Minutes, sMainRTCTime.Seconds,
-          gulElapsedTime_Runtime_sec);
+      // Display RTC every minute in debug output
+      luiMessageQueueBuffer = msgid_MAIN_DISPLAY_RTC;
+      osMessageQueuePut(MainQueueHandle, &luiMessageQueueBuffer, 0, 1);
 
 //      // Display UNTIMED Standby state if active
 //      luiStandbyState = getSystemStandbyState();
@@ -10836,6 +10861,14 @@ void MainTask(void *argument)
           //hiwdg.Init.Prescaler = IWDG_PRESCALER_4;
           //hiwdg.Init.Reload = 0;
           //HAL_IWDG_Init(&hiwdg);
+          break;
+
+        case msgid_MAIN_DISPLAY_RTC:
+          LOG("%s: ............... RTC is 20%02d.%02d.%02d %02d:%02d:%02d UTC; runtime %d seconds ...............\r\n",
+              __FUNCTION__,
+              sMainRTCDate.Year,  sMainRTCDate.Month,   sMainRTCDate.Date,
+              sMainRTCTime.Hours, sMainRTCTime.Minutes, sMainRTCTime.Seconds,
+              gulElapsedTime_Runtime_sec);
           break;
 
         default:
