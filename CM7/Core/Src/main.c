@@ -73,7 +73,7 @@ typedef StaticSemaphore_t osStaticMutexDef_t;
 
 // Enable host control of Z-Wave controller
 // 0 = disable host control of Z-Wave controller (let PC Controller take control)
-// 1 = enable  host control of Z-Wave controller
+// 1 = enable  host control of Z-Wave controller (STM32H7 takes control)
 #define ENABLE_ZWAVE_CONTROLLER_HOST 1
 
 /* USER CODE END PD */
@@ -1789,7 +1789,7 @@ uint16_t Diagnostic_Receive_Response(uint8_t* aucReceiveBuffer)
   luiDiagnosticRxCount = osMessageQueueGetCount(DiagnosticRxQueueHandle);
   if (luiDiagnosticRxCount > 0)
   {
-    LOG("%s: Initial luiDiagnosticRxCount = %d\r\n", __FUNCTION__, luiDiagnosticRxCount);
+    //LOG("%s: Initial luiDiagnosticRxCount = %d\r\n", __FUNCTION__, luiDiagnosticRxCount);
     // Read bytes from Diagnostic RX queue into RX buffer
     for (i = 0; osMessageQueueGetCount(DiagnosticRxQueueHandle) > 0 && i < SERIAL_BUFFER_SIZE-2; ++i)
     {
@@ -1802,7 +1802,7 @@ uint16_t Diagnostic_Receive_Response(uint8_t* aucReceiveBuffer)
     }
     luiDiagnosticRxCount = i;
     //aucReceiveBuffer[i+1] = 0;
-    LOG("%s:   FINAL luiDiagnosticRxCount = %d\r\n", __FUNCTION__, luiDiagnosticRxCount);
+    //LOG("%s:   FINAL luiDiagnosticRxCount = %d\r\n", __FUNCTION__, luiDiagnosticRxCount);
   }
 //  else
 //  {
@@ -3593,6 +3593,7 @@ BootstrapState ZWave_Bootstrap_StateMachine(BootstrapStateMachineCommand stateMa
             plucNetworkKey = NULL;
             break;
           } // end switch
+          //// MAB 2026.10.08 Do NOT PrintBytes() the Network Key in production!!!
           LOG("%s: Plaintext Network Key Report \r\n", __FUNCTION__);
           PrintBytes(lucNetworkKeyReport, sizeof(lucNetworkKeyReport), false, 0);
 
@@ -4333,6 +4334,32 @@ uint8_t ZWave_DSK_Find_Zeroized(void)
 // end ZWave_DSK_Find_Zeroized
 
 /** *****************************************************************************************************************************
+  * @brief  Test if a specified DSK in the node provisioning list is SmartStart CONNECTED
+  * @param  uint8_t  aucDSKIndex - index into node provisioning list  [0, NODE_PROVISIONING_LIST_COUNT-1]
+  * @retval TRUE if specified DSK is CONNECTED; FALSE otherwise
+  */
+uint8_t ZWave_DSK_IsConnected(uint8_t aucDSKIndex)
+{
+  uint8_t lucIsDSKConnected = FALSE;  // Assume this given DSK is not connected until proven otherwise
+
+  if (aucDSKIndex < NODE_PROVISIONING_LIST_COUNT)
+  {
+    if (SMARTSTART_CONNECTED == gtNodeProvisioningList[aucDSKIndex].status)
+    {
+      lucIsDSKConnected = TRUE;
+    }
+  }
+  else
+  {
+    LOG("%s: *** WARNING *** invalid DSK index %d, assume DSK is NOT connected \r\n", __FUNCTION__, aucDSKIndex);
+    lucIsDSKConnected = FALSE;
+  }
+
+  return lucIsDSKConnected;
+}
+// end ZWave_DSK_IsConnected
+
+/** *****************************************************************************************************************************
   * @brief  Check if any DSK is currently being processed
   * @param  None
   * @retval TRUE if any DSK is currently being processed; FALSE otherwise
@@ -4641,6 +4668,13 @@ void ZWave_DSK_Zeroize(uint8_t aucDSKIndex)
     memset(gtNodeProvisioningList[aucDSKIndex].ECDHPublicKey, 0x00, 32); // zeroize ECDH public key
     memset(gtNodeProvisioningList[aucDSKIndex].REI, 0x00, 16); // zeroize Receiver Entropy Input (REI)
     memset(gtNodeProvisioningList[aucDSKIndex].SEI, 0x00, 16); // zeroize Sender   Entropy Input (SEI)
+
+    gtNodeProvisioningList[aucDSKIndex].basic_device_type = 0;
+    gtNodeProvisioningList[aucDSKIndex].generic_device_type = 0;
+    gtNodeProvisioningList[aucDSKIndex].specific_device_type = 0;
+
+    gtNodeProvisioningList[aucDSKIndex].CC_list_length = 0;
+    memset(gtNodeProvisioningList[aucDSKIndex].CC_list_buffer, 0x00, sizeof(gtNodeProvisioningList[aucDSKIndex].CC_list_buffer));
   }
   else
   {
@@ -7018,6 +7052,7 @@ void ZWave_REQ_CMD_49_ZW_Application_Update(void)
     // SmartStart Prime data frame
 
     lucFrameLength = ZWaveSerialFrame->payload[3];
+    LOG("%s: Frame length         = 0x%02X\r\n", __FUNCTION__, lucFrameLength);
     lulNWIHomeID = Convert_Bytes_uint32( &ZWaveSerialFrame->payload[4] );
     lucCommandClassListLength = ZWaveSerialFrame->payload[8];
     lucBasicDeviceType        = ZWaveSerialFrame->payload[9];
@@ -7043,7 +7078,6 @@ void ZWave_REQ_CMD_49_ZW_Application_Update(void)
         gucProcessingDSK = lucCandidateDSKIndex;
       }
     }
-    LOG("%s: Frame length         = 0x%02X\r\n", __FUNCTION__, lucFrameLength);
     LOG("%s: Basic device type    = 0x%02X\r\n", __FUNCTION__, lucBasicDeviceType);
     ZWave_Identify_Basic_Device_Type(lucBasicDeviceType);
 
@@ -7057,7 +7091,31 @@ void ZWave_REQ_CMD_49_ZW_Application_Update(void)
     LOG("----------------------- Supported Command Class list START -----------------------\r\n");
     PrintBytes(&ZWaveSerialFrame->payload[12], lucCommandClassListLength, false, 0);
     LOG("----------------------- Supported Command Class list  END  -----------------------\r\n");
-  }
+
+    ////////////////////////////////////////////////////////////////////////////////
+    //// TEST MAB 2026.10.08
+    //// If the joining node was matched to a DSK in the node provisioning list,
+    //// copy the device info to the DSK entry in the provisioning list
+    if (SMARTSTART_DETECTED == gtNodeProvisioningList[lucCandidateDSKIndex].status)
+    {
+      // Save Basic device type
+      gtNodeProvisioningList[lucCandidateDSKIndex].basic_device_type = lucBasicDeviceType;
+
+      // Save Generic device type
+      gtNodeProvisioningList[lucCandidateDSKIndex].generic_device_type = lucGenericDeviceType;
+
+      // Save Specific device type
+      gtNodeProvisioningList[lucCandidateDSKIndex].specific_device_type = lucSpecificDeviceType;
+
+      // Save Command Class list length
+      gtNodeProvisioningList[lucCandidateDSKIndex].CC_list_length = lucCommandClassListLength;
+
+      // Save Command Class list
+      memcpy(gtNodeProvisioningList[lucCandidateDSKIndex].CC_list_buffer, &ZWaveSerialFrame->payload[12], lucCommandClassListLength);
+    }
+    ////////////////////////////////////////////////////////////////////////////////
+
+  } // endif SmartStart Prime data frame
   else if (lucEvent == UPDATE_STATE_INCLUDED_NODE_INFO_RECEIVED)
   {
     // SmartStart INIF data frame
@@ -8072,7 +8130,7 @@ void ZWave_Rx_CC_9F_Security_2_V2(void)
         // This is the Sender's Entropy Input; save it (if 16 bytes)
         // NOTE: this is either for the Temporary Key or for the Network Key,
         //       so save appropriately
-        if ( 16 == (lucExtensionLength - 2) )
+        if ( (16 == (lucExtensionLength - 2)) && (0x01 ==(lucExtensionOptions & 0x3F)) )
         {
           if (BOOTSTRAP_TEMP_NONCE_SET == geBootstrapState)
           {
@@ -11044,6 +11102,7 @@ void ZWaveTask(void *argument)
   static uint8_t lucCountdownToNodeProvisioningListStatus_minutes = NODE_PL_DISPLAY_INTERVAL_MINUTES;
   static uint32_t lulCountdownToCheckAbandonedNodeID_seconds = 120;
   static uint8_t lucCountdownToUpdateNodeIDList_minutes = 60;
+  static uint32_t lulCountdownToConnectedActivity_seconds = 0;
 
   LOG("%s: initializing...\r\n", __FUNCTION__);
 
@@ -11282,6 +11341,7 @@ void ZWaveTask(void *argument)
       lucOldSecond = sMainRTCTime.Seconds;
 
       if (lulCountdownToCheckAbandonedNodeID_seconds) --lulCountdownToCheckAbandonedNodeID_seconds;
+      if (lulCountdownToConnectedActivity_seconds) --lulCountdownToConnectedActivity_seconds;
 
     } // updates on seconds
     ///////////////////////////////
@@ -11395,11 +11455,17 @@ void ZWaveTask(void *argument)
     // Run the SmartStart state machine
     //
     //////////////////////////////////////////////
+    #if ENABLE_ZWAVE_CONTROLLER_HOST
     if (ZWave_DSK_IsProcessing() || SMARTSTART_EXCLUSION==geSmartStartState)
     {
       geSmartStartState = ZWave_SmartStart_StateMachine(SMARTSTART_SM_CMD_RUN);
-      if (SMARTSTART_DETECTED == geSmartStartState) lucCountdownToUpdateNodeIDList_minutes = 5;
+      if (SMARTSTART_DETECTED == geSmartStartState)
+      {
+        lucCountdownToUpdateNodeIDList_minutes = 5;
+        lucCountdownToNodeProvisioningListStatus_minutes = 1;
+      }
     }
+    #endif
 
 //    ////////////////////////////////////////////////////////////////////////
 //    //// TEST MAB 2025.11.14
@@ -11455,6 +11521,7 @@ void ZWaveTask(void *argument)
 //    }
 //    ////////////////////////////////////////////////////////////////////////
 
+    #if ENABLE_ZWAVE_CONTROLLER_HOST
     //////////////////////////////////////////////////////////////////////////////
     //// TEST MAB 2025.12.29
     //// Every N minutes display the node provisioning list
@@ -11569,6 +11636,21 @@ void ZWaveTask(void *argument)
           // Display NodeID (may be 0x0000)
           LOG("%s: - NodeID: 0x%04X \r\n", __FUNCTION__, gtNodeProvisioningList[i].NodeID);
           // END Display NodeID
+
+          if (gtNodeProvisioningList[i].CC_list_length && NODE_ID_UNAVAILABLE!=gtNodeProvisioningList[i].NodeID)
+          {
+            // Display basic, generic and specific device types
+            ZWave_Identify_Basic_Device_Type(gtNodeProvisioningList[i].basic_device_type);
+            ZWave_Identify_Generic_Device_Type(gtNodeProvisioningList[i].generic_device_type);
+            ZWave_Identify_Specific_Device_Type(gtNodeProvisioningList[i].generic_device_type, gtNodeProvisioningList[i].specific_device_type);
+            // END Display basic, generic and specific device types
+
+            // Display supported Command Classes
+            LOG("----------------------- Supported Command Class list START -----------------------\r\n");
+            PrintBytes(gtNodeProvisioningList[i].CC_list_buffer, gtNodeProvisioningList[i].CC_list_length, false, 0);
+            LOG("----------------------- Supported Command Class list  END  -----------------------\r\n");
+            // END Display supported Command Classes
+          }
         }
         // END not zeroized DSK
       }
@@ -11588,6 +11670,7 @@ void ZWaveTask(void *argument)
     }
     // END display the node provisioning list
     //////////////////////////////////////////////////////////////////////////////
+    #endif
 
     //////////////////////////////////////////////////////////////////////////////
     //// TEST MAB 2026.01.08
@@ -11604,6 +11687,7 @@ void ZWaveTask(void *argument)
     }
     //////////////////////////////////////////////////////////////////////////////
 
+    #if ENABLE_ZWAVE_CONTROLLER_HOST
     //////////////////////////////////////////////////////////////////////////////
     //// TEST MAB 2026.01.07
     //// Periodically check the next active NodeID if it is abandoned and if so,
@@ -11689,6 +11773,27 @@ void ZWaveTask(void *argument)
     } // endif time to check for abandoned NodeIDs
 
     //////////////////////////////////////////////////////////////////////////////
+    #endif
+
+
+    #if ENABLE_ZWAVE_CONTROLLER_HOST
+    //////////////////////////////////////////////////////////////////////////////
+    //// TEST MAB 2026.10.09
+    //// Every N seconds, CONNECTED end nodes are triggered to... do something
+    if (0 == lulCountdownToConnectedActivity_seconds)
+    {
+      lulCountdownToConnectedActivity_seconds = 1*60;
+
+      for (int lucDSKIndex = 0; lucDSKIndex < NODE_PROVISIONING_LIST_COUNT; ++lucDSKIndex)
+      {
+        if (ZWave_DSK_IsConnected(lucDSKIndex))
+        {
+          LOG("%s: >>>>> DSK %d is CONNECTED <<<<<\r\n", __FUNCTION__, lucDSKIndex);
+        }
+      }
+    }
+    //////////////////////////////////////////////////////////////////////////////
+    #endif
 
     //////////////////////////////////////////////
     //

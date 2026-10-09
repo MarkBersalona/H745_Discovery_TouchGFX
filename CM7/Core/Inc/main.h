@@ -388,6 +388,11 @@ typedef struct {
     uint8_t  REI[16];          // Receiver's Entropy Input
     uint8_t  SEI[16];          // Sender's Entropy Input
     // optional more fields
+    uint8_t  basic_device_type;
+    uint8_t  generic_device_type;
+    uint8_t  specific_device_type;
+    uint8_t  CC_list_length;          // Command Class list size/count
+    uint8_t  CC_list_buffer[32];      // Command Class list (of supported CCs)
 } pl_entry_t;
 #define NODE_PROVISIONING_LIST_COUNT (5)
 // WARNING - DSK_UNAVAILABLE and DSK_UNKNOWN must be values greater than NODE_PROVISIONING_LIST_COUNT
