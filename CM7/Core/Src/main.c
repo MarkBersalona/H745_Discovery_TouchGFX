@@ -601,6 +601,7 @@ void ZWave_Rx_CC_XX_Unsupported(void);
 uint8_t ZWave_Scan_ProvisioningList_For_DSK(uint8_t* paucDSKBuffer, uint8_t aucNeedExactMatch);
 uint8_t ZWave_Scan_ProvisioningList_For_NodeID(uint16_t auiNodeID);
 uint8_t ZWave_Scan_ProvisioningList_For_NWIHomeID(uint32_t aulNWIHomeID);
+void ZWave_Send_Nonce_Report(uint16_t auiNodeID);
 #if ENABLE_ZWAVE_CONTROLLER_HOST
 void ZWave_Send_REQ_CMD_02_Serial_API_Get_Init_Data(void);
 void ZWave_Send_REQ_CMD_03_Serial_API_Application_Node_Information(void);
@@ -2696,6 +2697,7 @@ DiagnosticState Main_Diagnostic_StateMachine(DiagnosticStateMachineCommand state
   static uint8_t lucDiagnosticReceiveBuffer[100];
   static uint16_t luiDiagnosticRxCount;
   static char *plcATCommandDetected, *plcMenuDetected;
+  static uint16_t luiMessageQueueBuffer;
 
   /////////////////////////////////////////////////////////////////////////////////
   // IF command is INITIALIZE
@@ -2797,7 +2799,11 @@ DiagnosticState Main_Diagnostic_StateMachine(DiagnosticStateMachineCommand state
               LOG("%s: Converted UNIX timestamp = %d\r\n", __FUNCTION__, lulUNIXTimestamp);
               HAL_StatusTypeDef ltSetRTCResult = Set_RTC_from_UNIX(lulUNIXTimestamp);
               if (HAL_OK != ltSetRTCResult) LOG("%s: *** WARNING *** RTC failed to set correctly \r\n", __FUNCTION__);
-            }
+
+              // Display RTC in debug output
+              luiMessageQueueBuffer = msgid_MAIN_DISPLAY_RTC;
+              osMessageQueuePut(MainQueueHandle, &luiMessageQueueBuffer, 0, 1);
+           }
           }
           else
           {
@@ -3169,6 +3175,8 @@ BootstrapState ZWave_Bootstrap_StateMachine(BootstrapStateMachineCommand stateMa
       // IF Public Key Report is received
       if (gucIsPublicKeyReportReceived)
       {
+        gucIsPublicKeyReportReceived = FALSE;
+
         // IF Including Node bit was set
         if (gucIsIncludingNode)
         {
@@ -3254,37 +3262,13 @@ BootstrapState ZWave_Bootstrap_StateMachine(BootstrapStateMachineCommand stateMa
       // IF Nonce Get is received
       if (gucIsNonceGetReceived)
       {
+        gucIsNonceGetReceived = FALSE;
+
         // Reset elapsed time for next state
         lulElapsedTime_sec = 0;
 
         // Send Nonce Report, with REI
-        LOG("%s: Send Nonce Report, with REI \r\n", __FUNCTION__);
-        //gucSessionID = ZWave_SessionID_Randomize();
-        gucSessionID = ZWave_SessionID_Update(gucSessionID);
-        memset(lucSendDataBuffer, 0x00, sizeof(lucSendDataBuffer));
-        lucSendDataBuffer[0] = COMMAND_CLASS_SECURITY_2_V2;
-        lucSendDataBuffer[1] = SECURITY_2_NONCE_REPORT_V2;
-        lucSendDataBuffer[2] = gucSessionID;
-        lucSendDataBuffer[3] = SECURITY_2_NONCE_REPORT_PROPERTIES1_SOS_BIT_MASK_V2; // set SOS bit, so must include REI bytes
-
-        // (Generate 16 bytes of random data as Receiver's Entropy Input (REI); save it)
-        //   wc_InitRng() is a blocking operation, so use it sparingly
-        //   see https://www.wolfssl.com/documentation/manuals/wolfssl/group__Random.html#function-wc_initrng
-        LOG("%s: - generating 16 bytes of random data as Receiver's Entropy Input (REI) \r\n", __FUNCTION__);
-        liWolfSSLRngReturn = wc_InitRng(&gtWolfSSLRng);
-        if (liWolfSSLRngReturn) LOG("%s: *** WARNING *** wc_InitRng() return value was %d \r\n", __FUNCTION__, liWolfSSLRngReturn);
-        liWolfSSLRngReturn = wc_RNG_GenerateBlock(&gtWolfSSLRng, gucTemporaryREI, 16);
-        if (liWolfSSLRngReturn) LOG("%s: *** WARNING *** wc_RNG_GenerateBlock() return value was %d \r\n", __FUNCTION__, liWolfSSLRngReturn);
-        LOG("%s: - saving Receiver's Entropy Input (REI) for TEMPORARY KEY \r\n", __FUNCTION__);
-        memcpy(&lucSendDataBuffer[4], gucTemporaryREI, 16);
-        liWolfSSLRngReturn = wc_FreeRng(&gtWolfSSLRng);
-        if (liWolfSSLRngReturn) LOG("%s: *** WARNING *** wc_FreeRng() return value was %d \r\n", __FUNCTION__, liWolfSSLRngReturn);
-        LOG("%s: TEMP_NONCE_GET randomized Receiver's Entropy Input (REI) \r\n", __FUNCTION__);
-        PrintBytes(gucTemporaryREI, 16, FALSE, 0);
-
-        #if ENABLE_ZWAVE_CONTROLLER_HOST
-        ZWave_Send_REQ_CMD_13_Send_Data(gtNodeProvisioningList[gucProcessingDSK].NodeID, 4+16, lucSendDataBuffer, TRANSMIT_OPTION_ACK, gucSessionID);
-        #endif
+        ZWave_Send_Nonce_Report(NODE_ID_TEMPORARY_KEY);
 
         // Set state to TEMP_NONCE_SET
         gucIsEncryptedMsgReceived = FALSE;
@@ -3677,36 +3661,13 @@ BootstrapState ZWave_Bootstrap_StateMachine(BootstrapStateMachineCommand stateMa
       // IF Nonce Get is received
       if (gucIsNonceGetReceived)
       {
+        gucIsNonceGetReceived = FALSE;
+
         // Reset elapsed time for next state
         lulElapsedTime_sec = 0;
 
         // Send Nonce Report, with REI
-        LOG("%s: Send Nonce Report, with REI \r\n", __FUNCTION__);
-        gucSessionID = ZWave_SessionID_Update(gucSessionID);
-        memset(lucSendDataBuffer, 0x00, sizeof(lucSendDataBuffer));
-        lucSendDataBuffer[0] = COMMAND_CLASS_SECURITY_2_V2;
-        lucSendDataBuffer[1] = SECURITY_2_NONCE_REPORT_V2;
-        lucSendDataBuffer[2] = gucSessionID;
-        lucSendDataBuffer[3] = SECURITY_2_NONCE_REPORT_PROPERTIES1_SOS_BIT_MASK_V2; // set SOS bit, so must include REI bytes
-
-        // (Generate 16 bytes of random data as Receiver's Entropy Input (REI); save it)
-        //   wc_InitRng() is a blocking operation, so use it sparingly
-        //   see https://www.wolfssl.com/documentation/manuals/wolfssl/group__Random.html#function-wc_initrng
-        LOG("%s: - generating 16 bytes of random data as Receiver's Entropy Input (REI) \r\n", __FUNCTION__);
-        liWolfSSLRngReturn = wc_InitRng(&gtWolfSSLRng);
-        if (liWolfSSLRngReturn) LOG("%s: *** WARNING *** wc_InitRng() return value was %d \r\n", __FUNCTION__, liWolfSSLRngReturn);
-        liWolfSSLRngReturn = wc_RNG_GenerateBlock(&gtWolfSSLRng, gtNodeProvisioningList[gucProcessingDSK].REI, 16);
-        if (liWolfSSLRngReturn) LOG("%s: *** WARNING *** wc_RNG_GenerateBlock() return value was %d \r\n", __FUNCTION__, liWolfSSLRngReturn);
-        LOG("%s: - saving Receiver's Entropy Input (REI) for DSK %d \r\n", __FUNCTION__, gucProcessingDSK);
-        memcpy(&lucSendDataBuffer[4], gtNodeProvisioningList[gucProcessingDSK].REI, 16);
-        liWolfSSLRngReturn = wc_FreeRng(&gtWolfSSLRng);
-        if (liWolfSSLRngReturn) LOG("%s: *** WARNING *** wc_FreeRng() return value was %d \r\n", __FUNCTION__, liWolfSSLRngReturn);
-        //LOG("%s: TEMP_NONCE_GET randomized Receiver's Entropy Input (REI) \r\n", __FUNCTION__);
-        //PrintBytes(gtNodeProvisioningList[gucProcessingDSK].REI, 16, FALSE, 0);
-
-        #if ENABLE_ZWAVE_CONTROLLER_HOST
-        ZWave_Send_REQ_CMD_13_Send_Data(gtNodeProvisioningList[gucProcessingDSK].NodeID, 4+16, lucSendDataBuffer, TRANSMIT_OPTION_ACK, gucSessionID);
-        #endif
+        ZWave_Send_Nonce_Report(gtNodeProvisioningList[gucProcessingDSK].NodeID);
 
         // Set state to NETWORK_KEY_VERIFY
         gucIsEncryptedMsgReceived = FALSE;
@@ -3784,7 +3745,7 @@ BootstrapState ZWave_Bootstrap_StateMachine(BootstrapStateMachineCommand stateMa
 
 
           // Send Nonce Get
-          LOG("%s: Send Send Nonce Get \r\n", __FUNCTION__);
+          LOG("%s: Send Nonce Get \r\n", __FUNCTION__);
           gucSessionID = ZWave_SessionID_Update(gucSessionID);
           memset(lucSendDataBuffer, 0x00, sizeof(lucSendDataBuffer));
           lucSendDataBuffer[0] = COMMAND_CLASS_SECURITY_2_V2;
@@ -7746,13 +7707,11 @@ void ZWave_RES_CMD_DA_Serial_API_Get_LR_Nodes(void)
   if (!lucIsAnyNodeActive) LOG("%s: No nodes active \r\n", __FUNCTION__);
   LOG("%s: -------------------------------------- \r\n", __FUNCTION__);
   LOG("%s: Active node count: %04d \r\n", __FUNCTION__, guiActiveNodeCount);
-  ////////////////////////////////////////////////////////////////////////////////////////
-  //// TEST MAB 2026.01.07
-  //// Save the LR nodes bitmask array
+
+  // Save the LR nodes bitmask array
   memcpy(gucLRNodes, &ZWaveSerialFrame->payload[3], MAX_LR_NODEMASK_LENGTH);
   //LOG("%s: Copy of BITMASK_ARRAY: \r\n", __FUNCTION__);
   //PrintBytes(gucLRNodes, MAX_LR_NODEMASK_LENGTH, false, 0);
-  ////////////////////////////////////////////////////////////////////////////////////////
 
   if (guiActiveNodeCount == guiLiveNodeCount)
   {
@@ -7984,8 +7943,23 @@ void ZWave_Rx_CC_9F_Security_2_V2(void)
   //  ------------------- SECURITY_2_NONCE_GET_V2 -----------------------------------------
   if (SECURITY_2_NONCE_GET_V2             == pgucCCBuffer[1])
   {
-    gucIsNonceGetReceived = TRUE;
     LOG("%s: Sequence number = 0x%02X \r\n", __FUNCTION__, pgucCCBuffer[2]);
+
+    //////////////////////////////////////////////////////////////////////////////////////////////////////
+    //// TEST MAB 2026.10.12
+    //// Set this flag only under the following conditions
+    ////   SmartStart state in BOOTSTRAP; Bootstrap atate either TEMP_NONCE_GET or NETWORK_NONCE_GET
+    ////   SmartStart state in CONNECTED
+    if ( (SMARTSTART_BOOTSTRAP == geSmartStartState && (BOOTSTRAP_TEMP_NONCE_GET==geBootstrapState || BOOTSTRAP_NETWORK_NONCE_GET==geBootstrapState)) ||
+         (SMARTSTART_CONNECTED == geSmartStartState)                                                                                                       )
+    {
+      gucIsNonceGetReceived = TRUE;
+    }
+    else
+    {
+      LOG("%s: *** WARNING *** a Nonce Get has been received but is being ignored \r\n", __FUNCTION__);
+    }
+    //////////////////////////////////////////////////////////////////////////////////////////////////////
   }
 
   //  ------------------- SECURITY_2_NONCE_REPORT_V2 -----------------------------------------
@@ -8643,6 +8617,78 @@ uint8_t ZWave_Scan_ProvisioningList_For_NWIHomeID(uint32_t aulNWIHomeID)
 // end ZWave_Scan_ProvisioningList_For_NWIHomeID
 
 #if ENABLE_ZWAVE_CONTROLLER_HOST
+
+/** *****************************************************************************************************************************
+  * @brief  Prepare and send Nonce Report
+  * @param  uint16_t auiNodeID - 2-byte NodeID to search in provisioning list (or 0xFFFF for Temporary REI)
+  * @retval None
+  */
+void ZWave_Send_Nonce_Report(uint16_t auiNodeID)
+{
+  static uint8_t lucDSKIndex;
+  static uint8_t lucSendDataBuffer[80];
+  static int liWolfSSLRngReturn;
+
+  if (NODE_ID_UNAVAILABLE == auiNodeID)
+  {
+    lucDSKIndex = DSK_UNAVAILABLE;
+  }
+  else
+  {
+    lucDSKIndex = ZWave_Scan_ProvisioningList_For_NodeID(auiNodeID);
+    // In the event the NodeID is NOT in the provisioning list,
+    // the DSK index will still be DSK_UNAVAILABLE
+  }
+
+  // Send Nonce Report, with REI
+  LOG("%s: Send Nonce Report, with REI \r\n", __FUNCTION__);
+  gucSessionID = ZWave_SessionID_Update(gucSessionID);
+  memset(lucSendDataBuffer, 0x00, sizeof(lucSendDataBuffer));
+  lucSendDataBuffer[0] = COMMAND_CLASS_SECURITY_2_V2;
+  lucSendDataBuffer[1] = SECURITY_2_NONCE_REPORT_V2;
+  lucSendDataBuffer[2] = gucSessionID;
+  lucSendDataBuffer[3] = SECURITY_2_NONCE_REPORT_PROPERTIES1_SOS_BIT_MASK_V2; // set SOS bit, so must include REI bytes
+
+  // (Generate 16 bytes of random data as Receiver's Entropy Input (REI); save it)
+  //   wc_InitRng() is a blocking operation, so use it sparingly
+  //   see https://www.wolfssl.com/documentation/manuals/wolfssl/group__Random.html#function-wc_initrng
+  LOG("%s: - generating 16 bytes of random data as Receiver's Entropy Input (REI) \r\n", __FUNCTION__);
+  liWolfSSLRngReturn = wc_InitRng(&gtWolfSSLRng);
+  if (liWolfSSLRngReturn) LOG("%s: *** WARNING *** wc_InitRng() return value was %d \r\n", __FUNCTION__, liWolfSSLRngReturn);
+
+  if (DSK_UNAVAILABLE == lucDSKIndex)
+  {
+    LOG("%s: DSK unavailable or invalid - generating Nonce Report for Temporary REI \r\n", __FUNCTION__);
+
+    liWolfSSLRngReturn = wc_RNG_GenerateBlock(&gtWolfSSLRng, gucTemporaryREI, 16);
+    if (liWolfSSLRngReturn) LOG("%s: *** WARNING *** wc_RNG_GenerateBlock() return value was %d \r\n", __FUNCTION__, liWolfSSLRngReturn);
+    LOG("%s: - saving Receiver's Entropy Input (REI) for TEMPORARY KEY \r\n", __FUNCTION__);
+    memcpy(&lucSendDataBuffer[4], gucTemporaryREI, 16);
+    //LOG("%s: Randomized Receiver's Entropy Input (REI) \r\n", __FUNCTION__);
+    //PrintBytes(gucTemporaryREI, 16, FALSE, 0);
+  }
+  else
+  {
+    LOG("%s: Generating Nonce Report for NodeID 0x%04X/DSK %d \r\n", __FUNCTION__, auiNodeID, lucDSKIndex);
+
+    liWolfSSLRngReturn = wc_RNG_GenerateBlock(&gtWolfSSLRng, gtNodeProvisioningList[lucDSKIndex].REI, 16);
+    if (liWolfSSLRngReturn) LOG("%s: *** WARNING *** wc_RNG_GenerateBlock() return value was %d \r\n", __FUNCTION__, liWolfSSLRngReturn);
+    LOG("%s: - saving Receiver's Entropy Input (REI) for DSK %d \r\n", __FUNCTION__, lucDSKIndex);
+    memcpy(&lucSendDataBuffer[4], gtNodeProvisioningList[lucDSKIndex].REI, 16);
+    //LOG("%s: Randomized Receiver's Entropy Input (REI) \r\n", __FUNCTION__);
+    //PrintBytes(gtNodeProvisioningList[gucProcessingDSK].REI, 16, FALSE, 0);
+  }
+
+  liWolfSSLRngReturn = wc_FreeRng(&gtWolfSSLRng);
+  if (liWolfSSLRngReturn) LOG("%s: *** WARNING *** wc_FreeRng() return value was %d \r\n", __FUNCTION__, liWolfSSLRngReturn);
+
+  #if ENABLE_ZWAVE_CONTROLLER_HOST
+  // (Transmit Nonce Report)
+  ZWave_Send_REQ_CMD_13_Send_Data(gtNodeProvisioningList[gucProcessingDSK].NodeID, 4+16, lucSendDataBuffer, TRANSMIT_OPTION_ACK, gucSessionID);
+  #endif
+
+}
+// end ZWave_Send_Nonce_Report
 
 /** *****************************************************************************************************************************
   * @brief  Prepare and send REQ CMD 02 Serial API Get Init Data
@@ -9959,6 +10005,13 @@ SmartStartState ZWave_SmartStart_StateMachine(SmartStartStateMachineCommand stat
         // Display RTC in debug output
         luiMessageQueueBuffer = msgid_MAIN_DISPLAY_RTC;
         osMessageQueuePut(MainQueueHandle, &luiMessageQueueBuffer, 0, 1);
+
+        // Node is connected now, save its NodeID to the connection list
+        gtNodeConnectionList[gucProcessingDSK].NodeID = gtNodeProvisioningList[gucProcessingDSK].NodeID;
+
+        // Node is connected now, clear global "pointers" to it
+        guiSourceNodeID = NODE_ID_UNAVAILABLE;
+        gucProcessingDSK = DSK_UNAVAILABLE;
       }
       // ENDIF
     }
@@ -11794,6 +11847,28 @@ void ZWaveTask(void *argument)
     }
     //////////////////////////////////////////////////////////////////////////////
     #endif
+
+    //////////////////////////////////////////////////////////////////////////////
+    //// TEST MAB 2026.10.09
+    //// Detect received Nonce Get
+    uint8_t lucDSKIndex;
+    if (gucIsNonceGetReceived)
+    {
+      LOG("%s: Received Nonce Get detected; guiSourceNodeID = 0x%04X \r\n", __FUNCTION__, guiSourceNodeID);
+//        lucDSKIndex = ZWave_Scan_ProvisioningList_For_NodeID(guiSourceNodeID);
+//        LOG("%s: - NodeID 0x%04X associated with DSK %d\r\n", __FUNCTION__, guiSourceNodeID, lucDSKIndex);
+//        if (SMARTSTART_CONNECTED != gtNodeProvisioningList[lucDSKIndex].status)
+//        {
+//          LOG("%s: - node is not yet connected, so no further processing is needed \r\n", __FUNCTION__);
+//        }
+//        else
+//        {
+//          LOG("%s: - node is already CONNECTED, further processing is needed (send Nonce Report with new REI) \r\n", __FUNCTION__);
+//          ZWave_Send_Nonce_Report(guiSourceNodeID);
+//        }
+    }
+    //////////////////////////////////////////////////////////////////////////////
+
 
     //////////////////////////////////////////////
     //

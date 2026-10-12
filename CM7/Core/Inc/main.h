@@ -400,6 +400,7 @@ typedef struct {
 #define DSK_UNKNOWN     (0xFE)
 
 #define NODE_ID_UNAVAILABLE (0xFFFF)
+#define NODE_ID_TEMPORARY_KEY (NODE_ID_UNAVAILABLE)
 
 // Node connection list
 typedef struct {
@@ -408,6 +409,7 @@ typedef struct {
   uint8_t  PersonalizationString[32];   // PersonalizationString for the given network key
   uint8_t  KeyMPAN[16];                 // KeyMPAN for the given network key
   inner_span_t SPAN;                    // SPAN for the given network key
+  uint8_t  isSEIPending;                // TRUE = need new SEI
 } cl_entry_t;
 
 
