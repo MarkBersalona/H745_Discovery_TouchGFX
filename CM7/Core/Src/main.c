@@ -550,6 +550,7 @@ void XOR_Bytes(uint8_t* paucOutputBuffer, uint8_t* paucBufferA, uint8_t* paucBuf
 BootstrapState ZWave_Bootstrap_StateMachine(BootstrapStateMachineCommand stateMachineCommand);
 int ZWave_Controller_Keys_Generate(uint8_t* paucPrivateKey, uint8_t* paucPublicKey);
 void ZWave_Controller_Keys_Zeroize(uint8_t* paucPrivateKey, uint8_t* paucPublicKey);
+uint8_t ZWave_Decrypt_Received_Data(uint16_t auiNodeID, uint8_t* paucDecryptBuffer);
 uint8_t ZWave_DSK_Extract_NWIAuthHomeID(uint8_t aucDSKIndex, uint8_t* paucNWIAuthHomeIDBuffer);
 uint8_t ZWave_DSK_Find_Zeroized(void);
 uint8_t ZWave_DSK_IsProcessing(void);
@@ -2997,7 +2998,7 @@ BootstrapState ZWave_Bootstrap_StateMachine(BootstrapStateMachineCommand stateMa
   static uint32_t lulElapsedTime_sec = 0;
   static uint8_t lucOldSecond = 100; // Nonsense initial value guarantees update when RTC first read
   static uint8_t lucSendDataBuffer[80];
-  static int liTemporarySPANResult;
+  static int liSPANResult;
   static int liNextNonceResult;
   static int liAesInitResult;
   static int liAesSetKeyResult;
@@ -3290,11 +3291,11 @@ BootstrapState ZWave_Bootstrap_StateMachine(BootstrapStateMachineCommand stateMa
         gucIsEncryptedMsgReceived = FALSE;
 
         // Establish Temporary SPAN (if needed)
-        liTemporarySPANResult = 0;
+        liSPANResult = 0;
         if (FALSE == gtTemporarySPAN.IsActive)
         {
-          liTemporarySPANResult = ZWave_Temporary_SPAN_Establish();
-          if (0 != liTemporarySPANResult) LOG("%s: *** WARNING *** liTemporarySPANResult = %d \r\n", __FUNCTION__, liTemporarySPANResult);
+          liSPANResult = ZWave_Temporary_SPAN_Establish();
+          if (0 != liSPANResult) LOG("%s: *** WARNING *** liSPANResult = %d \r\n", __FUNCTION__, liSPANResult);
         }
 
         // LOOP WHILE (KEX Set not decrypted AND retries available)
@@ -3304,42 +3305,9 @@ BootstrapState ZWave_Bootstrap_StateMachine(BootstrapStateMachineCommand stateMa
         {
           --lucKEXSetDecryptAttempts;
 
-          // Generate NextNonce
-          liNextNonceResult = CTR_DRBG_Generate_16_Random_Bytes(&gtTemporarySPAN, gtTemporarySPAN.Nonce);
-          if (0 != liNextNonceResult) LOG("%s: *** WARNING *** liNextNonceResult = %d \r\n", __FUNCTION__, liNextNonceResult);
-          //LOG("%s: FULL 16-bytes of gtTemporarySPAN.Nonce \r\n", __FUNCTION__);
-          //PrintBytes(gtTemporarySPAN.Nonce, 16, false, 0);
-
-          // Decrypt received message
-          liAesInitResult = wc_AesInit(&aes, NULL, INVALID_DEVID);
-          if (0!=liAesInitResult) LOG("%s: *** WARNING *** liAesInitResult = %d \r\n", __FUNCTION__, liAesInitResult);
-          liAesSetKeyResult = wc_AesCcmSetKey(&aes, gucTemporarySymmetricKey, 16);
-          if (0!=liAesSetKeyResult) LOG("%s: *** WARNING *** liAesSetKeyResult = %d \r\n", __FUNCTION__, liAesSetKeyResult);
-          LOG("%s: gucReceivedCiphertext \r\n", __FUNCTION__);
-          PrintBytes(gucReceivedCiphertext, gucReceivedCiphertextLength, false, 0);
-          LOG("%s: gucReceivedCiphertextLength = 0x%02X \r\n", __FUNCTION__, gucReceivedCiphertextLength);
-          //LOG("%s: gtTemporarySPAN.Nonce \r\n", __FUNCTION__);
-          //PrintBytes(gtTemporarySPAN.Nonce, 13, false, 0);
-          //LOG("%s: gucReceivedAuthTag \r\n", __FUNCTION__);
-          //PrintBytes(gucReceivedAuthTag, gucReceivedAuthTagLength, false, 0);
-          LOG("%s: gucReceivedAuthTagLength    = 0x%02X \r\n", __FUNCTION__, gucReceivedAuthTagLength);
-          //LOG("%s: gtTemporaryAAD \r\n", __FUNCTION__);
-          //PrintBytes((uint8_t *)&gtTemporaryAAD, gucTemporaryAADLength, false, 0);
-          LOG("%s: gucTemporaryAADLength       = 0x%02X \r\n", __FUNCTION__, gucTemporaryAADLength);
-          memset(lucKexSet, 0x00, sizeof(lucKexSet));
-          liDecryptKEXSetResult = wc_AesCcmDecrypt(&aes,
-                                                          lucKexSet,
-                                                          gucReceivedCiphertext, gucReceivedCiphertextLength,
-                                                          gtTemporarySPAN.Nonce, 13,
-                                                          gucReceivedAuthTag, gucReceivedAuthTagLength,
-                                                          (const byte *)&gtTemporaryAAD, gucTemporaryAADLength);
-          if (0!=liDecryptKEXSetResult) LOG("%s: *** WARNING *** liDecryptKEXSetResult = %d \r\n", __FUNCTION__, liDecryptKEXSetResult);
-          LOG("%s: Decrypted received KEX Set (9F 06... I hope; all 00 if failed)(%d attempts remaining): \r\n", __FUNCTION__, lucKEXSetDecryptAttempts);
-          PrintBytes(lucKexSet, gucReceivedCiphertextLength, false, 0);
-          wc_AesFree(&aes);
+          liDecryptKEXSetSuccessful = ZWave_Decrypt_Received_Data(NODE_ID_TEMPORARY_KEY, lucKexSet);
 
           // IF successfully decrypted KEX Set
-          liDecryptKEXSetSuccessful = !liAesInitResult && !liAesSetKeyResult && !liDecryptKEXSetResult;
           if (liDecryptKEXSetSuccessful)
           {
             LOG("-----------------------  KEX Set START -----------------------\r\n");
@@ -3463,51 +3431,9 @@ BootstrapState ZWave_Bootstrap_StateMachine(BootstrapStateMachineCommand stateMa
         // (reset so subsequent retries from end node may be processed also)
         gucIsEncryptedMsgReceived = FALSE;
 
-        // Generate NextNonce
-        liNextNonceResult = CTR_DRBG_Generate_16_Random_Bytes(&gtTemporarySPAN, gtTemporarySPAN.Nonce);
-        if (0 != liNextNonceResult) LOG("%s: *** WARNING *** liNextNonceResult = %d \r\n", __FUNCTION__, liNextNonceResult);
-        //LOG("%s: FULL 16-bytes of gtTemporarySPAN.Nonce \r\n", __FUNCTION__);
-        //PrintBytes(gtTemporarySPAN.Nonce, 16, false, 0);
-
-        // Decrypt received message
-        liAesInitResult = wc_AesInit(&aes, NULL, INVALID_DEVID);
-        if (0!=liAesInitResult) LOG("%s: *** WARNING *** liAesInitResult = %d \r\n", __FUNCTION__, liAesInitResult);
-        liAesSetKeyResult = wc_AesCcmSetKey(&aes, gucTemporarySymmetricKey, 16);
-        if (0!=liAesSetKeyResult) LOG("%s: *** WARNING *** liAesSetKeyResult = %d \r\n", __FUNCTION__, liAesSetKeyResult);
-        LOG("%s: gucReceivedCiphertext \r\n", __FUNCTION__);
-        PrintBytes(gucReceivedCiphertext, gucReceivedCiphertextLength, false, 0);
-        LOG("%s: gucReceivedCiphertextLength = 0x%02X \r\n", __FUNCTION__, gucReceivedCiphertextLength);
-        //LOG("%s: gtTemporarySPAN.Nonce \r\n", __FUNCTION__);
-        //PrintBytes(gtTemporarySPAN.Nonce, 13, false, 0);
-        //LOG("%s: gucReceivedAuthTag \r\n", __FUNCTION__);
-        //PrintBytes(gucReceivedAuthTag, gucReceivedAuthTagLength, false, 0);
-        LOG("%s: gucReceivedAuthTagLength    = 0x%02X \r\n", __FUNCTION__, gucReceivedAuthTagLength);
-        //LOG("%s: gtTemporaryAAD \r\n", __FUNCTION__);
-        //PrintBytes((uint8_t *)&gtTemporaryAAD, gucTemporaryAADLength, false, 0);
-        LOG("%s: gucTemporaryAADLength       = 0x%02X \r\n", __FUNCTION__, gucTemporaryAADLength);
-        memset(lucNetworkKeyGet, 0x00, sizeof(lucNetworkKeyGet));
-        if (gucReceivedCiphertextLength == sizeof(lucNetworkKeyGet))
-        {
-          liDecryptNetworkKeyGetResult = wc_AesCcmDecrypt(&aes,
-                                                          lucNetworkKeyGet,
-                                                          gucReceivedCiphertext, gucReceivedCiphertextLength,
-                                                          gtTemporarySPAN.Nonce, 13,
-                                                          gucReceivedAuthTag, gucReceivedAuthTagLength,
-                                                          (const byte *)&gtTemporaryAAD, gucTemporaryAADLength);
-          if (0!=liDecryptNetworkKeyGetResult) LOG("%s: *** WARNING *** liDecryptNetworkKeyGetResult = %d \r\n", __FUNCTION__, liDecryptNetworkKeyGetResult);
-          LOG("%s: Decrypted received Network Key Get (9F 09... I hope; all 00 if failed): \r\n", __FUNCTION__);
-          PrintBytes(lucNetworkKeyGet, gucReceivedCiphertextLength, false, 0);
-        }
-        else
-        {
-          LOG("%s: *** WARNING *** gucReceivedCiphertextLength = %d, not %d: skip decryption, it's already bad \r\n",
-              gucReceivedCiphertextLength, sizeof(lucNetworkKeyGet));
-          liDecryptNetworkKeyGetResult = FALSE;
-        }
-        wc_AesFree(&aes);
+        liDecryptNetworkKeyGetSuccessful = ZWave_Decrypt_Received_Data(NODE_ID_TEMPORARY_KEY, lucNetworkKeyGet);
 
         // IF successfully decrypted Network Key Get
-        liDecryptNetworkKeyGetSuccessful = !liAesInitResult && !liAesSetKeyResult && !liDecryptNetworkKeyGetResult;
         if (liDecryptNetworkKeyGetSuccessful)
         {
           // Reset elapsed time for next state
@@ -3689,49 +3615,17 @@ BootstrapState ZWave_Bootstrap_StateMachine(BootstrapStateMachineCommand stateMa
         gucIsEncryptedMsgReceived = FALSE;
 
         // Establish SPAN for this DSK/NodeID
-        liTemporarySPANResult = 0;
+        liSPANResult = 0;
         if (FALSE == gtNodeConnectionList[gucProcessingDSK].SPAN.IsActive)
         {
-          liTemporarySPANResult = ZWave_Network_SPAN_Establish(gucProcessingDSK);
-          if (0 != liTemporarySPANResult) LOG("%s: *** WARNING *** liTemporarySPANResult for DSK %d = %d \r\n", __FUNCTION__, gucProcessingDSK, liTemporarySPANResult);
+          liSPANResult = ZWave_Network_SPAN_Establish(gucProcessingDSK);
+          if (0 != liSPANResult) LOG("%s: *** WARNING *** liSPANResult for DSK %d = %d \r\n", __FUNCTION__, gucProcessingDSK, liSPANResult);
         }
 
-        // Generate NextNonce
-        liNextNonceResult = CTR_DRBG_Generate_16_Random_Bytes(&gtNodeConnectionList[gucProcessingDSK].SPAN, gtNodeConnectionList[gucProcessingDSK].SPAN.Nonce);
-        if (0 != liNextNonceResult) LOG("%s: *** WARNING *** liNextNonceResult = %d \r\n", __FUNCTION__, liNextNonceResult);
-        //LOG("%s: FULL 16-bytes of gtNodeConnectionList[%d].SPAN.Nonce \r\n", __FUNCTION__, gucProcessingDSK);
-        //PrintBytes(gtNodeConnectionList[gucProcessingDSK].SPAN.Nonce, 16, false, 0);
+        liDecryptNetworkKeyVerifySuccessful = ZWave_Decrypt_Received_Data(gtNodeProvisioningList[gucProcessingDSK].NodeID, lucNetworkKeyVerify);
 
-        // Decrypt received message with Network Key and SPAN
-        liAesInitResult = wc_AesInit(&aes, NULL, INVALID_DEVID);
-        if (0!=liAesInitResult) LOG("%s: *** WARNING *** liAesInitResult = %d \r\n", __FUNCTION__, liAesInitResult);
-        liAesSetKeyResult = wc_AesCcmSetKey(&aes, gtNodeConnectionList[gucProcessingDSK].KeyCCM, 16);
-        if (0!=liAesSetKeyResult) LOG("%s: *** WARNING *** liAesSetKeyResult = %d \r\n", __FUNCTION__, liAesSetKeyResult);
-        LOG("%s: gucReceivedCiphertext \r\n", __FUNCTION__);
-        PrintBytes(gucReceivedCiphertext, gucReceivedCiphertextLength, false, 0);
-        LOG("%s: gucReceivedCiphertextLength = 0x%02X \r\n", __FUNCTION__, gucReceivedCiphertextLength);
-        //LOG("%s: gtNodeConnectionList[%d].SPAN.Nonce \r\n", __FUNCTION__, gucProcessingDSK);
-        //PrintBytes(gtNodeConnectionList[gucProcessingDSK].SPAN.Nonce, 13, false, 0);
-        //LOG("%s: gucReceivedAuthTag \r\n", __FUNCTION__);
-        //PrintBytes(gucReceivedAuthTag, gucReceivedAuthTagLength, false, 0);
-        LOG("%s: gucReceivedAuthTagLength    = 0x%02X \r\n", __FUNCTION__, gucReceivedAuthTagLength);
-        //LOG("%s: gtTemporaryAAD \r\n", __FUNCTION__);
-        //PrintBytes((uint8_t *)&gtTemporaryAAD, gucTemporaryAADLength, false, 0);
-        LOG("%s: gucTemporaryAADLength       = 0x%02X \r\n", __FUNCTION__, gucTemporaryAADLength);
-        memset(lucNetworkKeyVerify, 0x00, sizeof(lucNetworkKeyVerify));
-        liDecryptNetworkKeyVerifyResult = wc_AesCcmDecrypt(&aes,
-                                                        lucNetworkKeyVerify,
-                                                        gucReceivedCiphertext, gucReceivedCiphertextLength,
-                                                        gtNodeConnectionList[gucProcessingDSK].SPAN.Nonce, 13,
-                                                        gucReceivedAuthTag, gucReceivedAuthTagLength,
-                                                        (const byte *)&gtTemporaryAAD, gucTemporaryAADLength);
-        if (0!=liDecryptNetworkKeyVerifyResult) LOG("%s: *** WARNING *** liDecryptNetworkKeyVerifyResult = %d \r\n", __FUNCTION__, liDecryptNetworkKeyVerifyResult);
-        LOG("%s: Decrypted received Network Key Verify (9F 0B I hope; all 00 if failed): \r\n", __FUNCTION__);
-        PrintBytes(lucNetworkKeyVerify, gucReceivedCiphertextLength, false, 0);
-        wc_AesFree(&aes);
 
         // IF successfully decrypted Network Key Verify
-        liDecryptNetworkKeyVerifySuccessful = !liAesInitResult && !liAesSetKeyResult && !liDecryptNetworkKeyVerifyResult;
         if (liDecryptNetworkKeyVerifySuccessful)
         {
           // Reset elapsed time for next state
@@ -3806,8 +3700,8 @@ BootstrapState ZWave_Bootstrap_StateMachine(BootstrapStateMachineCommand stateMa
         if (liWolfSSLRngReturn) LOG("%s: *** WARNING *** SEI RNG failed \r\n", __FUNCTION__);
 
         CTR_DRBG_Zeroize_SPAN(&gtTemporarySPAN);          // force re-establish
-        liTemporarySPANResult = ZWave_Temporary_SPAN_Establish();   // MEI = f(SEI=ours, REI=node's)
-        if (0 != liTemporarySPANResult) LOG("%s: *** WARNING *** liTemporarySPANResult = %d \r\n", __FUNCTION__, liTemporarySPANResult);
+        liSPANResult = ZWave_Temporary_SPAN_Establish();   // MEI = f(SEI=ours, REI=node's)
+        if (0 != liSPANResult) LOG("%s: *** WARNING *** liSPANResult = %d \r\n", __FUNCTION__, liSPANResult);
 
         // Send the Transfer End message encrypted with the Temporary Key and SPAN
         LOG("%s: Send encrypted Transfer End message encrypted with the Temporary Key and SPAN \r\n", __FUNCTION__);
@@ -3892,51 +3786,10 @@ BootstrapState ZWave_Bootstrap_StateMachine(BootstrapStateMachineCommand stateMa
         // (reset so subsequent retries from end node may be processed also)
         gucIsEncryptedMsgReceived = FALSE;
 
-        // Generate NextNonce
-        liNextNonceResult = CTR_DRBG_Generate_16_Random_Bytes(&gtTemporarySPAN, gtTemporarySPAN.Nonce);
-        if (0 != liNextNonceResult) LOG("%s: *** WARNING *** liNextNonceResult = %d \r\n", __FUNCTION__, liNextNonceResult);
-        //LOG("%s: FULL 16-bytes of gtTemporarySPAN.Nonce \r\n", __FUNCTION__);
-        //PrintBytes(gtTemporarySPAN.Nonce, 16, false, 0);
+        liDecryptTransferEndSuccessful = ZWave_Decrypt_Received_Data(NODE_ID_TEMPORARY_KEY, lucTransferEnd);
 
-        // Decrypt received message
-        liAesInitResult = wc_AesInit(&aes, NULL, INVALID_DEVID);
-        if (0!=liAesInitResult) LOG("%s: *** WARNING *** liAesInitResult = %d \r\n", __FUNCTION__, liAesInitResult);
-        liAesSetKeyResult = wc_AesCcmSetKey(&aes, gucTemporarySymmetricKey, 16);
-        if (0!=liAesSetKeyResult) LOG("%s: *** WARNING *** liAesSetKeyResult = %d \r\n", __FUNCTION__, liAesSetKeyResult);
-        LOG("%s: gucReceivedCiphertext \r\n", __FUNCTION__);
-        PrintBytes(gucReceivedCiphertext, gucReceivedCiphertextLength, false, 0);
-        LOG("%s: gucReceivedCiphertextLength = 0x%02X \r\n", __FUNCTION__, gucReceivedCiphertextLength);
-        //LOG("%s: gtTemporarySPAN.Nonce \r\n", __FUNCTION__);
-        //PrintBytes(gtTemporarySPAN.Nonce, 13, false, 0);
-        //LOG("%s: gucReceivedAuthTag \r\n", __FUNCTION__);
-        //PrintBytes(gucReceivedAuthTag, gucReceivedAuthTagLength, false, 0);
-        LOG("%s: gucReceivedAuthTagLength    = 0x%02X \r\n", __FUNCTION__, gucReceivedAuthTagLength);
-        //LOG("%s: gtTemporaryAAD \r\n", __FUNCTION__);
-        //PrintBytes((uint8_t *)&gtTemporaryAAD, gucTemporaryAADLength, false, 0);
-        LOG("%s: gucTemporaryAADLength       = 0x%02X \r\n", __FUNCTION__, gucTemporaryAADLength);
-        memset(lucTransferEnd, 0x00, sizeof(lucTransferEnd));
-        if (gucReceivedCiphertextLength == sizeof(lucTransferEnd))
-        {
-          liDecryptTransferEndResult = wc_AesCcmDecrypt(&aes,
-                                                          lucTransferEnd,
-                                                          gucReceivedCiphertext, gucReceivedCiphertextLength,
-                                                          gtTemporarySPAN.Nonce, 13,
-                                                          gucReceivedAuthTag, gucReceivedAuthTagLength,
-                                                          (const byte *)&gtTemporaryAAD, gucTemporaryAADLength);
-          if (0!=liDecryptTransferEndResult) LOG("%s: *** WARNING *** liDecryptTransferEndResult = %d \r\n", __FUNCTION__, liDecryptTransferEndResult);
-          LOG("%s: Decrypted received Transfer End (9F 0C... I hope; all 00 if failed): \r\n", __FUNCTION__);
-          PrintBytes(lucTransferEnd, gucReceivedCiphertextLength, false, 0);
-        }
-        else
-        {
-          LOG("%s: *** WARNING *** gucReceivedCiphertextLength = %d, not %d: skip decryption, it's already bad \r\n",
-              gucReceivedCiphertextLength, sizeof(lucTransferEnd));
-          liDecryptTransferEndResult = FALSE;
-        }
-        wc_AesFree(&aes);
 
         // IF successfully decrypted Transfer End
-        liDecryptTransferEndSuccessful = !liAesInitResult && !liAesSetKeyResult && !liDecryptTransferEndResult;
         if (liDecryptTransferEndSuccessful)
         {
           LOG("-----------------------  Transfer End START -----------------------\r\n");
@@ -4075,6 +3928,118 @@ void ZWave_Controller_Keys_Zeroize(uint8_t* paucPrivateKey, uint8_t* paucPublicK
   memset(paucPublicKey,  0x00, 32);
 }
 // end ZWave_Controller_Keys_Zeroize
+
+/** *****************************************************************************************************************************
+  * @brief  Decrypt received data
+  * @param  uint16_t auiNodeID - 2-byte NodeID to search in provisioning list (or 0xFFFF for Temporary Key)
+  * @param  uint8_t* paucDecryptBuffer - pointer to buffer into which decrypted bytes will be copied
+  * @retval TRUE if successful; FALSE otherwise
+  */
+uint8_t ZWave_Decrypt_Received_Data(uint16_t auiNodeID, uint8_t* paucDecryptBuffer)
+{
+  uint8_t lucDSKIndex;
+  int liNextNonceResult;
+  int liAesInitResult;
+  int liAesSetKeyResult;
+  int liDecryptResult;
+  Aes aes;
+  uint8_t lucDecryptSuccessful;
+
+  /////////////////////////////////////////////////////////////////////////////////////////////////////////
+  // This routine assumes gucReceivedCiphertext and gucReceivedCiphertextLength are properly assigned
+  /////////////////////////////////////////////////////////////////////////////////////////////////////////
+
+  if (NODE_ID_UNAVAILABLE == auiNodeID)
+  {
+    lucDSKIndex = DSK_UNAVAILABLE;
+  }
+  else
+  {
+    lucDSKIndex = ZWave_Scan_ProvisioningList_For_NodeID(auiNodeID);
+    // In the event the NodeID is NOT in the provisioning list,
+    // the DSK index will still be DSK_UNAVAILABLE/NODE_ID_TEMPORARY_KEY
+  }
+  LOG("%s: NodeID 0x%04X \t DSK %d \r\n", __FUNCTION__, auiNodeID, lucDSKIndex);
+
+  if (NODE_ID_TEMPORARY_KEY == auiNodeID)
+  {
+    //////////////////////////////////////////
+    // Decrypt using temporary key and SPAN
+    //////////////////////////////////////////
+    // Generate NextNonce
+    liNextNonceResult = CTR_DRBG_Generate_16_Random_Bytes(&gtTemporarySPAN, gtTemporarySPAN.Nonce);
+    if (0 != liNextNonceResult) LOG("%s: *** WARNING *** liNextNonceResult = %d \r\n", __FUNCTION__, liNextNonceResult);
+    //LOG("%s: FULL 16-bytes of gtTemporarySPAN.Nonce \r\n", __FUNCTION__);
+    //PrintBytes(gtTemporarySPAN.Nonce, 16, false, 0);
+
+    // Decrypt received message
+    liAesInitResult = wc_AesInit(&aes, NULL, INVALID_DEVID);
+    if (0!=liAesInitResult) LOG("%s: *** WARNING *** liAesInitResult = %d \r\n", __FUNCTION__, liAesInitResult);
+    liAesSetKeyResult = wc_AesCcmSetKey(&aes, gucTemporarySymmetricKey, 16);
+    if (0!=liAesSetKeyResult) LOG("%s: *** WARNING *** liAesSetKeyResult = %d \r\n", __FUNCTION__, liAesSetKeyResult);
+    LOG("%s: gucReceivedCiphertext \r\n", __FUNCTION__);
+    PrintBytes(gucReceivedCiphertext, gucReceivedCiphertextLength, false, 0);
+    LOG("%s: gucReceivedCiphertextLength = 0x%02X \r\n", __FUNCTION__, gucReceivedCiphertextLength);
+    //LOG("%s: gtTemporarySPAN.Nonce \r\n", __FUNCTION__);
+    //PrintBytes(gtTemporarySPAN.Nonce, 13, false, 0);
+    //LOG("%s: gucReceivedAuthTag \r\n", __FUNCTION__);
+    //PrintBytes(gucReceivedAuthTag, gucReceivedAuthTagLength, false, 0);
+    LOG("%s: gucReceivedAuthTagLength    = 0x%02X \r\n", __FUNCTION__, gucReceivedAuthTagLength);
+    //LOG("%s: gtTemporaryAAD \r\n", __FUNCTION__);
+    //PrintBytes((uint8_t *)&gtTemporaryAAD, gucTemporaryAADLength, false, 0);
+    LOG("%s: gucTemporaryAADLength       = 0x%02X \r\n", __FUNCTION__, gucTemporaryAADLength);
+    liDecryptResult = wc_AesCcmDecrypt(&aes,
+                                                    paucDecryptBuffer,
+                                                    gucReceivedCiphertext, gucReceivedCiphertextLength,
+                                                    gtTemporarySPAN.Nonce, 13,
+                                                    gucReceivedAuthTag, gucReceivedAuthTagLength,
+                                                    (const byte *)&gtTemporaryAAD, gucTemporaryAADLength);
+  }
+  else
+  {
+    //////////////////////////////////////////
+    // Decrypt using network key and SPAN
+    //////////////////////////////////////////
+    // Generate NextNonce
+    liNextNonceResult = CTR_DRBG_Generate_16_Random_Bytes(&gtNodeConnectionList[lucDSKIndex].SPAN, gtNodeConnectionList[lucDSKIndex].SPAN.Nonce);
+    if (0 != liNextNonceResult) LOG("%s: *** WARNING *** liNextNonceResult = %d \r\n", __FUNCTION__, liNextNonceResult);
+    //LOG("%s: FULL 16-bytes of gtNodeConnectionList[%d].SPAN.Nonce \r\n", __FUNCTION__, gucProcessingDSK);
+    //PrintBytes(gtNodeConnectionList[gucProcessingDSK].SPAN.Nonce, 16, false, 0);
+
+    // Decrypt received message with Network Key and SPAN
+    liAesInitResult = wc_AesInit(&aes, NULL, INVALID_DEVID);
+    if (0!=liAesInitResult) LOG("%s: *** WARNING *** liAesInitResult = %d \r\n", __FUNCTION__, liAesInitResult);
+    liAesSetKeyResult = wc_AesCcmSetKey(&aes, gtNodeConnectionList[lucDSKIndex].KeyCCM, 16);
+    if (0!=liAesSetKeyResult) LOG("%s: *** WARNING *** liAesSetKeyResult = %d \r\n", __FUNCTION__, liAesSetKeyResult);
+    LOG("%s: gucReceivedCiphertext \r\n", __FUNCTION__);
+    PrintBytes(gucReceivedCiphertext, gucReceivedCiphertextLength, false, 0);
+    LOG("%s: gucReceivedCiphertextLength = 0x%02X \r\n", __FUNCTION__, gucReceivedCiphertextLength);
+    //LOG("%s: gtNodeConnectionList[%d].SPAN.Nonce \r\n", __FUNCTION__, lucDSKIndex);
+    //PrintBytes(gtNodeConnectionList[lucDSKIndex].SPAN.Nonce, 13, false, 0);
+    //LOG("%s: gucReceivedAuthTag \r\n", __FUNCTION__);
+    //PrintBytes(gucReceivedAuthTag, gucReceivedAuthTagLength, false, 0);
+    LOG("%s: gucReceivedAuthTagLength    = 0x%02X \r\n", __FUNCTION__, gucReceivedAuthTagLength);
+    //LOG("%s: gtTemporaryAAD \r\n", __FUNCTION__);
+    //PrintBytes((uint8_t *)&gtTemporaryAAD, gucTemporaryAADLength, false, 0);
+    LOG("%s: gucTemporaryAADLength       = 0x%02X \r\n", __FUNCTION__, gucTemporaryAADLength);
+    liDecryptResult = wc_AesCcmDecrypt(&aes,
+                                                    paucDecryptBuffer,
+                                                    gucReceivedCiphertext, gucReceivedCiphertextLength,
+                                                    gtNodeConnectionList[lucDSKIndex].SPAN.Nonce, 13,
+                                                    gucReceivedAuthTag, gucReceivedAuthTagLength,
+                                                    (const byte *)&gtTemporaryAAD, gucTemporaryAADLength);
+  }
+
+  if (0!=liDecryptResult) LOG("%s: *** WARNING *** liDecryptResult = %d \r\n", __FUNCTION__, liDecryptResult);
+  LOG("%s: Decrypted data: \r\n", __FUNCTION__);
+  PrintBytes(paucDecryptBuffer, gucReceivedCiphertextLength, false, 0);
+  wc_AesFree(&aes);
+
+  lucDecryptSuccessful = !liNextNonceResult && !liAesInitResult && !liDecryptResult;
+
+  return lucDecryptSuccessful;
+}
+// end ZWave_Decrypt_Received_Data
 
 /** *****************************************************************************************************************************
   * @brief  Display received frame data (to debug port)
