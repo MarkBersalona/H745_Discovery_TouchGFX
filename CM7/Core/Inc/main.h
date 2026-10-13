@@ -402,6 +402,8 @@ typedef struct {
 #define NODE_ID_UNAVAILABLE (0xFFFF)
 #define NODE_ID_TEMPORARY_KEY (NODE_ID_UNAVAILABLE)
 
+#define S2_MAX_PLAINTEXT_LENGTH  (50)    // 80-byte tx buffer - 22 (header + SPAN ext) - 8 (tag)
+#define S2_RESEND_WINDOW_MS      (3000)  // a Nonce Report later than this isn't tied to our send
 // Node connection list
 typedef struct {
   uint16_t NodeID;                      // 2-byte NodeID
@@ -410,6 +412,12 @@ typedef struct {
   uint8_t  KeyMPAN[16];                 // KeyMPAN for the given network key
   inner_span_t SPAN;                    // SPAN for the given network key
   uint8_t  isSEIPending;                // TRUE = need new SEI
+  // Last encrypted command, kept for ONE re-send after a Nonce Report (SOS)
+  uint8_t  LastPlaintext[S2_MAX_PLAINTEXT_LENGTH];
+  uint8_t  LastPlaintextLength;    // 0 = nothing cached
+  uint32_t LastTxTick;             // HAL_GetTick() at send TODO: change this to elapsed msec
+  uint8_t  isResendAllowed;        // TRUE until the one re-send is used
+  uint8_t  isResendRequested;      // set by the Nonce Report handler, consumed by ZWaveTask
 } cl_entry_t;
 
 

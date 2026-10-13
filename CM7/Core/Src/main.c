@@ -598,6 +598,7 @@ void ZWave_RES_CMD_XX_Unsupported(void);
 void ZWave_Rx_CC_26_Switch_Multilevel_V4(void);
 void ZWave_Rx_CC_9F_Security_2_V2(void);
 void ZWave_Rx_CC_XX_Unsupported(void);
+static void ZWave_S2_Encapsulate_And_Send(uint8_t aucDSKIndex, const uint8_t* paucPlaintext, uint8_t aucLength);
 uint8_t ZWave_Scan_ProvisioningList_For_DSK(uint8_t* paucDSKBuffer, uint8_t aucNeedExactMatch);
 uint8_t ZWave_Scan_ProvisioningList_For_NodeID(uint16_t auiNodeID);
 uint8_t ZWave_Scan_ProvisioningList_For_NWIHomeID(uint32_t aulNWIHomeID);
@@ -7803,14 +7804,14 @@ void ZWave_Rx_CC_26_Switch_Multilevel_V4(void)
   LOG("%s: Command         = 0x%02X \r\n", __FUNCTION__, pgucCCBuffer[1]);
   switch (pgucCCBuffer[1])
   {
-  case SWITCH_MULTILEVEL_SET:
+  case SWITCH_MULTILEVEL_SET_V2:
     LOG("%s: - SWITCH_MULTILEVEL_SET \r\n", __FUNCTION__);
     break;
   case SWITCH_MULTILEVEL_GET:
     LOG("%s: - SWITCH_MULTILEVEL_GET \r\n", __FUNCTION__);
     break;
-  case SWITCH_MULTILEVEL_REPORT:
-    LOG("%s: - SWITCH_MULTILEVEL_REPORT \r\n", __FUNCTION__);
+  case SWITCH_MULTILEVEL_REPORT_V4:
+    LOG("%s: - SWITCH_MULTILEVEL_REPORT_V4 \r\n", __FUNCTION__);
     break;
   case SWITCH_MULTILEVEL_START_LEVEL_CHANGE:
     LOG("%s: - SWITCH_MULTILEVEL_START_LEVEL_CHANGE \r\n", __FUNCTION__);
@@ -7818,17 +7819,40 @@ void ZWave_Rx_CC_26_Switch_Multilevel_V4(void)
   case SWITCH_MULTILEVEL_STOP_LEVEL_CHANGE:
     LOG("%s: - SWITCH_MULTILEVEL_STOP_LEVEL_CHANGE \r\n", __FUNCTION__);
     break;
+  case SWITCH_MULTILEVEL_SUPPORTED_GET_V4:
+    LOG("%s: - SWITCH_MULTILEVEL_SUPPORTED_GET_V4 \r\n", __FUNCTION__);
+    break;
+  case SWITCH_MULTILEVEL_SUPPORTED_REPORT_V4:
+    LOG("%s: - SWITCH_MULTILEVEL_SUPPORTED_REPORT_V4 \r\n", __FUNCTION__);
+    break;
   default:
     LOG("%s: - *** WARNING *** Switch Multilevel command UNKNOWN \r\n", __FUNCTION__);
     break;
   }
 
-  if ( SWITCH_MULTILEVEL_SET    == pgucCCBuffer[1] )
+  if ( SWITCH_MULTILEVEL_SET_V2    == pgucCCBuffer[1] )
   {
     LOG("%s: Value           = 0x%02X \r\n", __FUNCTION__, pgucCCBuffer[2]);
+    if (0x00 == pgucCCBuffer[2])
+    {
+      LOG("%s: - OFF \r\n", __FUNCTION__)
+    }
+    else if (0x01 <= pgucCCBuffer[2] && pgucCCBuffer[2] <= 0x63)
+    {
+      LOG("%s: - ON, %02d %% \r\n", __FUNCTION__, pgucCCBuffer[2])
+    }
+    else if (0xFF == pgucCCBuffer[2])
+    {
+      LOG("%s: - ON; restored to most recent level \r\n", __FUNCTION__)
+    }
+    else
+    {
+      LOG("%s: - *** WARNING *** reserved value \r\n", __FUNCTION__);
+    }
+    LOG("%s: Duration        = 0x%02X \r\n", __FUNCTION__, pgucCCBuffer[3]);
   }
 
-  if ( SWITCH_MULTILEVEL_REPORT    == pgucCCBuffer[1] )
+  if ( SWITCH_MULTILEVEL_REPORT_V4    == pgucCCBuffer[1] )
   {
     LOG("%s: Current Value   = 0x%02X \r\n", __FUNCTION__, pgucCCBuffer[2]);
     if (0x00 == pgucCCBuffer[2])
@@ -8017,6 +8041,16 @@ void ZWave_Rx_CC_9F_Security_2_V2(void)
           LOG("%s: - saving Receiver's Entropy Input (REI) for DSK %d \r\n", __FUNCTION__, gucProcessingDSK);
           memcpy(gtNodeProvisioningList[gucProcessingDSK].REI, &pgucCCBuffer[4], 16);
           gtNodeConnectionList[gucProcessingDSK].isSEIPending = TRUE;
+          /////////////////////////////////////////////////////////////////////////
+          //// TEST MAB 2026.10.13
+          //// Per Claude AI, flag for possible retransmit
+          cl_entry_t* ptConn = &gtNodeConnectionList[gucProcessingDSK];
+          if (ptConn->isResendAllowed && ptConn->LastPlaintextLength &&
+              (HAL_GetTick() - ptConn->LastTxTick) < S2_RESEND_WINDOW_MS)
+          {
+            ptConn->isResendRequested = TRUE;
+          }
+          /////////////////////////////////////////////////////////////////////////
 
           // The Nonce Report with the REI has been received,
           // may proceed to establish the SPAN
@@ -8502,6 +8536,150 @@ void ZWave_RES_CMD_XX_Unsupported(void)
 // end ZWave_RES_CMD_XX_Unsupported
 
 /** *****************************************************************************************************************************
+  * @brief  Resend encrypted plaintext
+  * @param  uint8_t  aucDSKIndex - index into node provisioning list [0, NODE_PROVISIONING_LIST_COUNT-1]
+  * @retval None
+  */
+void ZWave_Resend_Encrypted_Data(uint8_t aucDSKIndex)
+{
+  LOG("%s: Resending last encrypted plaintext \r\n", __FUNCTION__);
+  cl_entry_t* ptConn = &gtNodeConnectionList[aucDSKIndex];
+
+  ptConn->isResendRequested = FALSE;
+
+  if (ptConn->isResendAllowed && ptConn->LastPlaintextLength)
+  {
+    ptConn->LastTxTick      = HAL_GetTick();  // restart window, so cleanup waits for this attempt
+    // isSEIPending is already TRUE from the Nonce Report, so this frame gets a new SEI + SPAN ext
+    LOG("-----------------------  Command Class START -----------------------\r\n");
+    // Invoke the command class handler
+    pgucCCBuffer = ptConn->LastPlaintext;
+    gucCCBufferLength = ptConn->LastPlaintextLength;
+    gtZWave_CC_Handler[pgucCCBuffer[0]]();
+    LOG("-----------------------  Command Class  END  -----------------------\r\n");
+    ZWave_S2_Encapsulate_And_Send(aucDSKIndex, ptConn->LastPlaintext, ptConn->LastPlaintextLength);
+  }
+  ptConn->isResendAllowed = FALSE;          // one shot
+}
+// end ZWave_Resend_Encrypted_Data
+
+/** *****************************************************************************************************************************
+  * @brief  Encapsulate and send encrypted plaintext
+  * @param  uint8_t  aucDSKIndex - index into node provisioning list [0, NODE_PROVISIONING_LIST_COUNT-1]
+  * @param  uint8_t* paucPlaintextBuffer - pointer to plaintext to be encrypted and transmitted
+  * @param  uint8_t aucPlaintextLength   - length of plaintext
+  * @retval None
+  */
+static void ZWave_S2_Encapsulate_And_Send(uint8_t aucDSKIndex, const uint8_t* paucPlaintextBuffer, uint8_t aucPlaintextLength)
+{
+  static uint8_t lucSendDataBuffer[80];
+  uint8_t lucFrameLength;
+  int liNextNonceResult;
+  int liAesInitResult;
+  int liAesSetKeyResult;
+  int liEncryptResult;
+  aad_t ltTxAAD;
+  int lucHeaderLength;
+  int lucTxAADLength;
+  Aes aes;
+  int liWolfSSLRngReturn;
+  int liSPANResult;
+
+  LOG("%s: DSK %d \t NodeID 0x%04X \t Plaintext length %d \r\n", __FUNCTION__, aucDSKIndex, gtNodeProvisioningList[aucDSKIndex].NodeID, aucPlaintextLength);
+  memset(lucSendDataBuffer, 0x00, sizeof(lucSendDataBuffer));
+
+  if (gtNodeConnectionList[aucDSKIndex].isSEIPending)
+  {
+    gtNodeConnectionList[aucDSKIndex].isSEIPending = FALSE;
+
+    // Re-establish Network SPAN
+    // (WE are the sender now: generate our own SEI, combine with node's fresh REI)
+    liWolfSSLRngReturn = wc_InitRng(&gtWolfSSLRng);
+    liWolfSSLRngReturn |= wc_RNG_GenerateBlock(&gtWolfSSLRng, gtNodeProvisioningList[aucDSKIndex].SEI, 16);
+    wc_FreeRng(&gtWolfSSLRng);
+    if (liWolfSSLRngReturn) LOG("%s: *** WARNING *** SEI RNG failed \r\n", __FUNCTION__);
+
+    liSPANResult = 0;
+    if (FALSE == gtNodeConnectionList[aucDSKIndex].SPAN.IsActive)
+    {
+      liSPANResult = ZWave_Network_SPAN_Establish(aucDSKIndex);
+      if (0 != liSPANResult) LOG("%s: *** WARNING *** liSPANResult for DSK %d = %d \r\n", __FUNCTION__, aucDSKIndex, liSPANResult);
+    }
+
+    // (Prep the frame header and update session ID)
+    gucSessionID = ZWave_SessionID_Update(gucSessionID);
+    memset(lucSendDataBuffer, 0x00, sizeof(lucSendDataBuffer));
+    lucSendDataBuffer[0] = COMMAND_CLASS_SECURITY_2_V2;
+    lucSendDataBuffer[1] = SECURITY_2_MESSAGE_ENCAPSULATION_V2;
+    lucSendDataBuffer[2] = gucSessionID;
+    lucSendDataBuffer[3] = SECURITY_2_MESSAGE_ENCAPSULATION_PROPERTIES1_EXTENSION_BIT_MASK_V2; // 0x01
+    lucSendDataBuffer[4] = 2 + 16;   // ext length = 0x12
+    lucSendDataBuffer[5] = 0x41;     // type SPAN (0x01) | Critical (0x40), no "more to follow"
+    memcpy(&lucSendDataBuffer[6], gtNodeProvisioningList[aucDSKIndex].SEI, 16);
+    lucHeaderLength = 4 + 18;        // 22: ciphertext starts after the extension
+    lucFrameLength = aucPlaintextLength + lucHeaderLength + AUTH_TAG_LENGTH;
+  }
+  else
+  {
+    // (Prep the frame header and update session ID)
+    gucSessionID = ZWave_SessionID_Update(gucSessionID);
+    memset(lucSendDataBuffer, 0x00, sizeof(lucSendDataBuffer));
+    lucSendDataBuffer[0] = COMMAND_CLASS_SECURITY_2_V2;
+    lucSendDataBuffer[1] = SECURITY_2_MESSAGE_ENCAPSULATION_V2;
+    lucSendDataBuffer[2] = gucSessionID;
+    lucSendDataBuffer[3] = 0; // no non-encrypted nor encrypted extensions
+    lucHeaderLength = 4; // 9F 03 ID 00
+    lucFrameLength = aucPlaintextLength + lucHeaderLength + AUTH_TAG_LENGTH;
+  }
+
+
+  // (Generate NextNonce)
+  liNextNonceResult = CTR_DRBG_Generate_16_Random_Bytes(&gtNodeConnectionList[aucDSKIndex].SPAN, gtNodeConnectionList[aucDSKIndex].SPAN.Nonce);
+  if (0 != liNextNonceResult) LOG("%s: *** WARNING *** liNextNonceResult = %d \r\n", __FUNCTION__, liNextNonceResult);
+  //LOG("%s: FULL 16-bytes of gtNodeConnectionList[%d].SPAN.Nonce \r\n", __FUNCTION__, aucDSKIndex);
+  //PrintBytes(gtNodeConnectionList[aucDSKIndex].SPAN.Nonce, 16, false, 0);
+
+  // (AAD for the OUTGOING frame)
+  memset(&ltTxAAD, 0x00, sizeof(ltTxAAD));
+  ltTxAAD.SenderNodeID      = Swap_Bytes_uint16(guiDestinationNodeID);  // us (dest of KEX Set)
+  ltTxAAD.DestinationNodeID = Swap_Bytes_uint16(gtNodeProvisioningList[aucDSKIndex].NodeID);
+  ltTxAAD.HomeID            = Swap_Bytes_uint32(gulZWaveHomeID);
+  ltTxAAD.MessageLength     = Swap_Bytes_uint16(lucFrameLength);
+  ltTxAAD.SequenceNumber    = lucSendDataBuffer[2];
+  ltTxAAD.ExtensionOptions  = lucSendDataBuffer[3];
+  lucTxAADLength    = 12;
+  // (copy any extensions if present)
+  if (lucSendDataBuffer[3] & SECURITY_2_MESSAGE_ENCAPSULATION_PROPERTIES1_EXTENSION_BIT_MASK_V2)
+  {
+    memcpy(ltTxAAD.ExtensionData, &lucSendDataBuffer[4], 18);
+    lucTxAADLength += 18;
+  }
+  // (AES-CCM encrypt
+  liAesInitResult   = wc_AesInit(&aes, NULL, INVALID_DEVID);
+  liAesSetKeyResult = wc_AesCcmSetKey(&aes, gtNodeConnectionList[aucDSKIndex].KeyCCM, 16);
+  liEncryptResult = wc_AesCcmEncrypt(&aes,
+          &lucSendDataBuffer[lucHeaderLength],                       // out: ciphertext
+          paucPlaintextBuffer, aucPlaintextLength,                   // in:  plaintext
+          gtNodeConnectionList[aucDSKIndex].SPAN.Nonce, 13,
+          &lucSendDataBuffer[lucHeaderLength + aucPlaintextLength],  // out: auth tag
+          AUTH_TAG_LENGTH,
+          (const byte *)&ltTxAAD, lucTxAADLength);
+  wc_AesFree(&aes);
+
+  if (liAesInitResult || liAesSetKeyResult || liEncryptResult)
+  {
+    LOG("%s: *** WARNING *** Encrypt failed (%d/%d/%d) \r\n", __FUNCTION__,
+        liAesInitResult, liAesSetKeyResult, liEncryptResult);
+  }
+
+  // (Transmit the encrypted data)
+  #if ENABLE_ZWAVE_CONTROLLER_HOST
+  ZWave_Send_REQ_CMD_13_Send_Data(gtNodeProvisioningList[aucDSKIndex].NodeID, lucFrameLength, lucSendDataBuffer, TRANSMIT_OPTION_ACK, gucSessionID);
+  #endif
+}
+// end ZWave_S2_Encapsulate_And_Send
+
+/** *****************************************************************************************************************************
   * @brief  Scan Node Provisioning List for matching DSK
   * @param  uint8_t* paucDSKBuffer - pointer to a byte buffer containing the 16-byte DSK
   * @param  uint8_t  aucNeedExactMatch - TRUE for exact 16-byte DSK match required; FALSE for "close enough" match
@@ -8636,20 +8814,8 @@ uint8_t ZWave_Scan_ProvisioningList_For_NWIHomeID(uint32_t aulNWIHomeID)
   */
 void ZWave_Send_Encrypted_Data(uint16_t auiNodeID, uint8_t* paucPlaintextBuffer, uint8_t aucPlaintextLength)
 {
-  static uint8_t lucSendDataBuffer[80];
-  uint8_t lucFrameLength;
-  int liNextNonceResult;
-  int liAesInitResult;
-  int liAesSetKeyResult;
-  int liEncryptResult;
-  aad_t ltTxAAD;
-  int lucHeaderLength;
-  int lucTxAADLength;
-  Aes aes;
-  uint8_t lucDSKIndex;
-  int liWolfSSLRngReturn;
-  int liSPANResult;
   uint8_t lucIsValidNodeIDandDSK = TRUE;
+  uint8_t lucDSKIndex;
 
   ///////////////////////////////////////////////////////////////////////////////////////////
   //// WARNING - This routine is only to be used for fully-connected end nodes, i.e. with
@@ -8669,102 +8835,25 @@ void ZWave_Send_Encrypted_Data(uint16_t auiNodeID, uint8_t* paucPlaintextBuffer,
     LOG("%s: *** ERROR *** invalid DSK index \r\n", __FUNCTION__);
     lucIsValidNodeIDandDSK = FALSE;
   }
+  if (aucPlaintextLength > S2_MAX_PLAINTEXT_LENGTH)
+  {
+    LOG("%s: *** ERROR *** plaintext too long (%d) \r\n", __FUNCTION__, aucPlaintextLength);
+    lucIsValidNodeIDandDSK = FALSE;
+  }
   LOG("%s: NodeID 0x%04X \t DSK %d \r\n", __FUNCTION__, auiNodeID, lucDSKIndex);
 
 
   // IF valid NodeID and DSK index
   if (lucIsValidNodeIDandDSK)
   {
-    memset(lucSendDataBuffer, 0x00, sizeof(lucSendDataBuffer));
+    cl_entry_t* ptConn = &gtNodeConnectionList[lucDSKIndex];
+    memcpy(ptConn->LastPlaintext, paucPlaintextBuffer, aucPlaintextLength);
+    ptConn->LastPlaintextLength = aucPlaintextLength;
+    ptConn->LastTxTick          = HAL_GetTick(); // TODO: change this to elapsed msec
+    ptConn->isResendAllowed     = TRUE;
+    ptConn->isResendRequested   = FALSE;
 
-    if (gtNodeConnectionList[lucDSKIndex].isSEIPending)
-    {
-      gtNodeConnectionList[lucDSKIndex].isSEIPending = FALSE;
-
-      // Re-establish Network SPAN
-      // (WE are the sender now: generate our own SEI, combine with node's fresh REI)
-      liWolfSSLRngReturn = wc_InitRng(&gtWolfSSLRng);
-      liWolfSSLRngReturn |= wc_RNG_GenerateBlock(&gtWolfSSLRng, gtNodeProvisioningList[lucDSKIndex].SEI, 16);
-      wc_FreeRng(&gtWolfSSLRng);
-      if (liWolfSSLRngReturn) LOG("%s: *** WARNING *** SEI RNG failed \r\n", __FUNCTION__);
-
-      liSPANResult = 0;
-      if (FALSE == gtNodeConnectionList[lucDSKIndex].SPAN.IsActive)
-      {
-        liSPANResult = ZWave_Network_SPAN_Establish(lucDSKIndex);
-        if (0 != liSPANResult) LOG("%s: *** WARNING *** liSPANResult for DSK %d = %d \r\n", __FUNCTION__, lucDSKIndex, liSPANResult);
-      }
-
-      // (Prep the frame header and update session ID)
-      gucSessionID = ZWave_SessionID_Update(gucSessionID);
-      memset(lucSendDataBuffer, 0x00, sizeof(lucSendDataBuffer));
-      lucSendDataBuffer[0] = COMMAND_CLASS_SECURITY_2_V2;
-      lucSendDataBuffer[1] = SECURITY_2_MESSAGE_ENCAPSULATION_V2;
-      lucSendDataBuffer[2] = gucSessionID;
-      lucSendDataBuffer[3] = SECURITY_2_MESSAGE_ENCAPSULATION_PROPERTIES1_EXTENSION_BIT_MASK_V2; // 0x01
-      lucSendDataBuffer[4] = 2 + 16;   // ext length = 0x12
-      lucSendDataBuffer[5] = 0x41;     // type SPAN (0x01) | Critical (0x40), no "more to follow"
-      memcpy(&lucSendDataBuffer[6], gtNodeProvisioningList[lucDSKIndex].SEI, 16);
-      lucHeaderLength = 4 + 18;        // 22: ciphertext starts after the extension
-      lucFrameLength = aucPlaintextLength + lucHeaderLength + AUTH_TAG_LENGTH;
-    }
-    else
-    {
-      // (Prep the frame header and update session ID)
-      gucSessionID = ZWave_SessionID_Update(gucSessionID);
-      memset(lucSendDataBuffer, 0x00, sizeof(lucSendDataBuffer));
-      lucSendDataBuffer[0] = COMMAND_CLASS_SECURITY_2_V2;
-      lucSendDataBuffer[1] = SECURITY_2_MESSAGE_ENCAPSULATION_V2;
-      lucSendDataBuffer[2] = gucSessionID;
-      lucSendDataBuffer[3] = 0; // no non-encrypted nor encrypted extensions
-      lucHeaderLength = 4; // 9F 03 ID 00
-      lucFrameLength = aucPlaintextLength + lucHeaderLength + AUTH_TAG_LENGTH;
-    }
-
-
-    // (Generate NextNonce)
-    liNextNonceResult = CTR_DRBG_Generate_16_Random_Bytes(&gtNodeConnectionList[lucDSKIndex].SPAN, gtNodeConnectionList[lucDSKIndex].SPAN.Nonce);
-    if (0 != liNextNonceResult) LOG("%s: *** WARNING *** liNextNonceResult = %d \r\n", __FUNCTION__, liNextNonceResult);
-    //LOG("%s: FULL 16-bytes of gtNodeConnectionList[%d].SPAN.Nonce \r\n", __FUNCTION__, gucProcessingDSK);
-    //PrintBytes(gtNodeConnectionList[gucProcessingDSK].SPAN.Nonce, 16, false, 0);
-
-    // (AAD for the OUTGOING frame)
-    memset(&ltTxAAD, 0x00, sizeof(ltTxAAD));
-    ltTxAAD.SenderNodeID      = Swap_Bytes_uint16(guiDestinationNodeID);  // us (dest of KEX Set)
-    ltTxAAD.DestinationNodeID = Swap_Bytes_uint16(gtNodeProvisioningList[lucDSKIndex].NodeID);
-    ltTxAAD.HomeID            = Swap_Bytes_uint32(gulZWaveHomeID);
-    ltTxAAD.MessageLength     = Swap_Bytes_uint16(lucFrameLength);
-    ltTxAAD.SequenceNumber    = lucSendDataBuffer[2];
-    ltTxAAD.ExtensionOptions  = lucSendDataBuffer[3];
-    lucTxAADLength    = 12;
-    // (copy any extensions if present)
-    if (lucSendDataBuffer[3] & SECURITY_2_MESSAGE_ENCAPSULATION_PROPERTIES1_EXTENSION_BIT_MASK_V2)
-    {
-      memcpy(ltTxAAD.ExtensionData, &lucSendDataBuffer[4], 18);
-      lucTxAADLength += 18;
-    }
-    // (AES-CCM encrypt
-    liAesInitResult   = wc_AesInit(&aes, NULL, INVALID_DEVID);
-    liAesSetKeyResult = wc_AesCcmSetKey(&aes, gtNodeConnectionList[lucDSKIndex].KeyCCM, 16);
-    liEncryptResult = wc_AesCcmEncrypt(&aes,
-            &lucSendDataBuffer[lucHeaderLength],                       // out: ciphertext
-            paucPlaintextBuffer, aucPlaintextLength,                   // in:  plaintext
-            gtNodeConnectionList[lucDSKIndex].SPAN.Nonce, 13,
-            &lucSendDataBuffer[lucHeaderLength + aucPlaintextLength],  // out: auth tag
-            AUTH_TAG_LENGTH,
-            (const byte *)&ltTxAAD, lucTxAADLength);
-    wc_AesFree(&aes);
-
-    if (liAesInitResult || liAesSetKeyResult || liEncryptResult)
-    {
-      LOG("%s: *** WARNING *** Encrypt failed (%d/%d/%d) \r\n", __FUNCTION__,
-          liAesInitResult, liAesSetKeyResult, liEncryptResult);
-    }
-
-    // (Transmit the encrypted data)
-    #if ENABLE_ZWAVE_CONTROLLER_HOST
-    ZWave_Send_REQ_CMD_13_Send_Data(gtNodeProvisioningList[lucDSKIndex].NodeID, lucFrameLength, lucSendDataBuffer, TRANSMIT_OPTION_ACK, gucSessionID);
-    #endif
+    ZWave_S2_Encapsulate_And_Send(lucDSKIndex, paucPlaintextBuffer, aucPlaintextLength);
   }
   // endif valid NodeID and DSK index
 
@@ -8837,11 +8926,50 @@ void ZWave_Send_Nonce_Report(uint16_t auiNodeID)
 
   #if ENABLE_ZWAVE_CONTROLLER_HOST
   // (Transmit Nonce Report)
-  ZWave_Send_REQ_CMD_13_Send_Data(auiNodeID, 4+16, lucSendDataBuffer, TRANSMIT_OPTION_ACK, gucSessionID);
+  ZWave_Send_REQ_CMD_13_Send_Data(gtNodeProvisioningList[gucProcessingDSK].NodeID, 4+16, lucSendDataBuffer, TRANSMIT_OPTION_ACK, gucSessionID);
   #endif
 
 }
 // end ZWave_Send_Nonce_Report
+
+/** *****************************************************************************************************************************
+  * @brief  Prepare and send Switch Multilevel Get
+  * @param  uint16_t auiNodeID - 2-byte NodeID to search in provisioning list
+  * @retval None
+  */
+void ZWave_Send_Switch_Multilevel_Get(uint16_t auiNodeID)
+{
+  uint8_t lucSwitchMultilevelGet[2];
+  uint8_t lucDSKIndex;
+
+  lucDSKIndex = ZWave_Scan_ProvisioningList_For_NodeID(auiNodeID);
+  if (lucDSKIndex >= NODE_PROVISIONING_LIST_COUNT )
+  {
+    LOG("%s: *** ERROR *** invalid DSK index \r\n", __FUNCTION__);
+  }
+  else
+  {
+    //LOG("%s: NodeID 0x%04X \t DSK %d \r\n", __FUNCTION__, auiNodeID, lucDSKIndex);
+
+    // Send encrypted Switch Multilevel Get
+    LOG("%s: Send encrypted Switch Multilevel Get \r\n", __FUNCTION__);
+
+    // (Prep the Switch Multilevel Get)
+    lucSwitchMultilevelGet[0] = COMMAND_CLASS_SWITCH_MULTILEVEL;
+    lucSwitchMultilevelGet[1] = SWITCH_MULTILEVEL_GET;
+    LOG("-----------------------  Switch Multilevel Get START -----------------------\r\n");
+    // Invoke the command class handler
+    pgucCCBuffer = lucSwitchMultilevelGet;
+    gucCCBufferLength = sizeof(lucSwitchMultilevelGet);
+    gtZWave_CC_Handler[pgucCCBuffer[0]]();
+    LOG("-----------------------  Switch Multilevel Get  END  -----------------------\r\n");
+
+
+    ZWave_Send_Encrypted_Data(auiNodeID, lucSwitchMultilevelGet, sizeof(lucSwitchMultilevelGet));
+  }
+
+}
+// end ZWave_Send_Switch_Multilevel_Get
 
 /** *****************************************************************************************************************************
   * @brief  Prepare and send Switch Multilevel Set
@@ -8871,6 +8999,13 @@ void ZWave_Send_Switch_Multilevel_Set(uint16_t auiNodeID, uint8_t aucSwitchLevel
     lucSwitchMultilevelSet[1] = SWITCH_MULTILEVEL_SET_V2;
     lucSwitchMultilevelSet[2] = aucSwitchLevelState;
     lucSwitchMultilevelSet[3] = SWITCH_BINARY_SET_DEFAULT_V2;
+    LOG("-----------------------  Switch Multilevel Set START -----------------------\r\n");
+    // Invoke the command class handler
+    pgucCCBuffer = lucSwitchMultilevelSet;
+    gucCCBufferLength = sizeof(lucSwitchMultilevelSet);
+    gtZWave_CC_Handler[pgucCCBuffer[0]]();
+    LOG("-----------------------  Switch Multilevel Set  END  -----------------------\r\n");
+
 
     ZWave_Send_Encrypted_Data(auiNodeID, lucSwitchMultilevelSet, sizeof(lucSwitchMultilevelSet));
   }
@@ -10878,7 +11013,7 @@ void MainTask(void *argument)
 
   // For the sake of the Sensaphone ZWave Sentinel Diagnostic tool,
   // display the firmware version
-  LOG("%s() ZWave Sentinel firmware version is v%s.%s.%s\r\n", __FUNCTION__, VERSION_A,VERSION_B,VERSION_C);
+  LOG("%s: ZWave Sentinel firmware version is v%s.%s.%s\r\n", __FUNCTION__, VERSION_A,VERSION_B,VERSION_C);
 
   /* ************************************************** Infinite loop ************************************************** */
   for(;;)
@@ -11343,6 +11478,7 @@ void ZWaveTask(void *argument)
   static uint32_t lulCountdownToCheckAbandonedNodeID_seconds = 120;
   static uint8_t lucCountdownToUpdateNodeIDList_minutes = 60;
   static uint32_t lulCountdownToConnectedActivity_seconds = 0;
+  static uint8_t lucCountdownToSwitchMultilevelSet_minutes = 0;
 
   LOG("%s: initializing...\r\n", __FUNCTION__);
 
@@ -11593,6 +11729,7 @@ void ZWaveTask(void *argument)
       if (lucCountdownToRepeatedZWaveCommands_minutes) --lucCountdownToRepeatedZWaveCommands_minutes;
       if (lucCountdownToNodeProvisioningListStatus_minutes) --lucCountdownToNodeProvisioningListStatus_minutes;
       if (lucCountdownToUpdateNodeIDList_minutes) --lucCountdownToUpdateNodeIDList_minutes;
+      if (lucCountdownToSwitchMultilevelSet_minutes) --lucCountdownToSwitchMultilevelSet_minutes;
 
     } // updates on minutes
     ///////////////////////////////
@@ -12022,6 +12159,7 @@ void ZWaveTask(void *argument)
     //// Every N seconds, CONNECTED end nodes are triggered to... do something
     if (0 == lulCountdownToConnectedActivity_seconds)
     {
+      //lulCountdownToConnectedActivity_seconds = 2*60;
       //lulCountdownToConnectedActivity_seconds = 1*60;
       lulCountdownToConnectedActivity_seconds = 10;
 
@@ -12031,26 +12169,33 @@ void ZWaveTask(void *argument)
         {
           LOG("%s: >>>>> DSK %d is CONNECTED <<<<<\r\n", __FUNCTION__, lucDSKIndex);
 
-          // IF node is multiswitch, toggle its output
+          // IF node is multiswitch, toggle its output, read its state
           if (GENERIC_TYPE_SWITCH_MULTILEVEL == gtNodeProvisioningList[lucDSKIndex].generic_device_type)
           {
             static uint8_t lucSwitchLevelState = 0;
-            if (lucSwitchLevelState)
+            if (0 == lucCountdownToSwitchMultilevelSet_minutes)
             {
-              // Switch to OFF
-              LOG("%s: Switch to OFF \r\n", __FUNCTION__);
-              lucSwitchLevelState = 0;
-            }
-            else
-            {
-              // Switch to ON
-              LOG("%s: Switch to ON \r\n", __FUNCTION__);
-              lucSwitchLevelState = 99;
-            }
+              //lucCountdownToSwitchMultilevelSet_minutes = 5;
 
-            // Send COMMAND_CLASS_SWITCH_MULTILEVEL, SWITCH_MULTILEVEL_SET, value, duration to NodeID
-            ZWave_Send_Switch_Multilevel_Set(gtNodeProvisioningList[lucDSKIndex].NodeID, lucSwitchLevelState);
+              if (lucSwitchLevelState)
+              {
+                // Switch to OFF
+                LOG("%s: Switch to OFF \r\n", __FUNCTION__);
+                lucSwitchLevelState = 0;
+              }
+              else
+              {
+                // Switch to ON
+                LOG("%s: Switch to ON \r\n", __FUNCTION__);
+                lucSwitchLevelState = 99;
+              }
 
+              // Send COMMAND_CLASS_SWITCH_MULTILEVEL, SWITCH_MULTILEVEL_SET, value, duration to NodeID
+              ZWave_Send_Switch_Multilevel_Set(gtNodeProvisioningList[lucDSKIndex].NodeID, lucSwitchLevelState);
+            } // endif toggle
+
+            // Send COMMAND_CLASS_SWITCH_MULTILEVEL, SWITCH_MULTILEVEL_GET
+            //ZWave_Send_Switch_Multilevel_Get(gtNodeProvisioningList[lucDSKIndex].NodeID);
           }
           // ENDIF node is multiswitch, toggle its output
         }
@@ -12061,7 +12206,7 @@ void ZWaveTask(void *argument)
 
     //////////////////////////////////////////////////////////////////////////////
     //// TEST MAB 2026.10.09
-    //// Detect received Nonce Get
+    //// Process received Nonce Get OUTSIDE S2 Bootstrap. i.e. when CONNECTED
     uint8_t lucDSKIndex;
     if (gucIsNonceGetReceived)
     {
@@ -12077,7 +12222,29 @@ void ZWaveTask(void *argument)
       else
       {
         LOG("%s: - node is already CONNECTED, further processing is needed (send Nonce Report with new REI) \r\n", __FUNCTION__);
+        gucProcessingDSK = lucDSKIndex;
         ZWave_Send_Nonce_Report(guiSourceNodeID);
+      }
+    }
+    //////////////////////////////////////////////////////////////////////////////
+
+    //////////////////////////////////////////////////////////////////////////////
+    //// TEST MAB 2026.10.13
+    //// Per Claude AI, retransmit encrypted plaintext if a Nonce Report was received
+    for (uint8_t lucDSKIndex = 0; lucDSKIndex < NODE_PROVISIONING_LIST_COUNT; ++lucDSKIndex)
+    {
+      cl_entry_t* ptConn = &gtNodeConnectionList[lucDSKIndex];
+      if (ptConn->isResendRequested)
+      {
+        LOG("%s: Nonce Report after encrypted send to DSK %d; re-sending with new SPAN \r\n", __FUNCTION__, lucDSKIndex);
+        ZWave_Resend_Encrypted_Data(lucDSKIndex);
+      }
+      else if (ptConn->LastPlaintextLength && (HAL_GetTick() - ptConn->LastTxTick) >= S2_RESEND_WINDOW_MS)
+      {
+        // No Nonce Report in time, so assume the node decrypted it; drop the cache
+        memset(ptConn->LastPlaintext, 0, sizeof(ptConn->LastPlaintext));
+        ptConn->LastPlaintextLength = 0;
+        ptConn->isResendAllowed     = FALSE;
       }
     }
     //////////////////////////////////////////////////////////////////////////////
