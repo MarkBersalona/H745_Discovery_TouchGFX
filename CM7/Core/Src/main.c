@@ -394,7 +394,10 @@ pl_entry_t gtNodeProvisioningList[NODE_PROVISIONING_LIST_COUNT];
 // Node Connection list (i.e. NodeID and related fields for fully connected end nodes)
 cl_entry_t gtNodeConnectionList[NODE_PROVISIONING_LIST_COUNT];
 
-//
+// TEMPORARY provisioning and connection
+pl_entry_t gtTemporaryProvision;
+cl_entry_t gtTemporaryConnection;
+
 // Index of DSK currently being processed (may be NO DSK being processed)
 uint8_t gucProcessingDSK = DSK_UNAVAILABLE;
 
@@ -450,10 +453,6 @@ static const uint8_t CKDF_TEMP_EXPAND_C[15] = {
     0x88,0x88,0x88,0x88,0x88,0x88,0x88,0x88,
     0x88,0x88,0x88,0x88,0x88,0x88,0x88
 };
-uint8_t gucTemporarySymmetricKey[16];
-uint8_t gucTempPersonalizationString[32];
-uint8_t gucTemporaryREI[16];
-uint8_t gucTemporarySEI[16];
 
 // For Nonce generation
 static const uint8_t CKDF_MEI_EXTRACT_C[16] = {
@@ -462,9 +461,6 @@ static const uint8_t CKDF_MEI_EXTRACT_C[16] = {
     0x26,0x26,0x26,0x26,0x26,0x26,0x26,0x26,
     0x26,0x26,0x26,0x26,0x26,0x26,0x26,0x26
 };
-
-// For temporary SPAN/Nonce
-inner_span_t gtTemporarySPAN;
 
 // Buffer for any received ciphertext
 uint8_t gucReceivedCiphertext[256];
@@ -3292,7 +3288,7 @@ BootstrapState ZWave_Bootstrap_StateMachine(BootstrapStateMachineCommand stateMa
 
         // Establish Temporary SPAN (if needed)
         liSPANResult = 0;
-        if (FALSE == gtTemporarySPAN.IsActive)
+        if (FALSE == gtTemporaryConnection.SPAN.IsActive)
         {
           liSPANResult = ZWave_Temporary_SPAN_Establish();
           if (0 != liSPANResult) LOG("%s: *** WARNING *** liSPANResult = %d \r\n", __FUNCTION__, liSPANResult);
@@ -3345,7 +3341,7 @@ BootstrapState ZWave_Bootstrap_StateMachine(BootstrapStateMachineCommand stateMa
             lucFrameLength = lucKEXReportLength + lucHeaderLength + AUTH_TAG_LENGTH;
 
             // (Generate NextNonce)
-            liNextNonceResult = CTR_DRBG_Generate_16_Random_Bytes(&gtTemporarySPAN, gtTemporarySPAN.Nonce);
+            liNextNonceResult = CTR_DRBG_Generate_16_Random_Bytes(&gtTemporaryConnection.SPAN, gtTemporaryConnection.SPAN.Nonce);
             if (0 != liNextNonceResult) LOG("%s: *** WARNING *** liNextNonceResult = %d \r\n", __FUNCTION__, liNextNonceResult);
             //LOG("%s: FULL 16-bytes of gtTemporarySPAN.Nonce \r\n", __FUNCTION__);
             //PrintBytes(gtTemporarySPAN.Nonce, 16, false, 0);
@@ -3363,11 +3359,11 @@ BootstrapState ZWave_Bootstrap_StateMachine(BootstrapStateMachineCommand stateMa
             // (AES-CCM encrypt: ciphertext -> [4], tag -> [4+6])
             int liEncryptKEXReportResult;
             liAesInitResult   = wc_AesInit(&aes, NULL, INVALID_DEVID);
-            liAesSetKeyResult = wc_AesCcmSetKey(&aes, gucTemporarySymmetricKey, 16);
+            liAesSetKeyResult = wc_AesCcmSetKey(&aes, gtTemporaryConnection.KeyCCM, 16);
             liEncryptKEXReportResult = wc_AesCcmEncrypt(&aes,
                     &lucSendDataBuffer[lucHeaderLength],                           // out: ciphertext
                     gucKEXReport, lucKEXReportLength,                              // in:  plaintext
-                    gtTemporarySPAN.Nonce, 13,                                     // 13-byte CCM nonce
+                    gtTemporaryConnection.SPAN.Nonce, 13,                                     // 13-byte CCM nonce
                     &lucSendDataBuffer[lucHeaderLength + lucKEXReportLength],      // out: auth tag
                     AUTH_TAG_LENGTH,
                     (const byte *)&ltTxAAD, lucTxAADLength);
@@ -3408,7 +3404,7 @@ BootstrapState ZWave_Bootstrap_StateMachine(BootstrapStateMachineCommand stateMa
           lulElapsedTime_sec = 0;
 
           // Zeroize the Temporary SPAN
-          CTR_DRBG_Zeroize_SPAN(&gtTemporarySPAN);
+          CTR_DRBG_Zeroize_SPAN(&gtTemporaryConnection.SPAN);
 
           // Set state to TEMP_NONCE_GET
           gucIsNonceGetReceived = TRUE; // Don't wait for a Nonce Get, send new REI in a Nonce Report immediately
@@ -3509,7 +3505,7 @@ BootstrapState ZWave_Bootstrap_StateMachine(BootstrapStateMachineCommand stateMa
           PrintBytes(lucNetworkKeyReport, sizeof(lucNetworkKeyReport), false, 0);
 
           // (Generate NextNonce)
-          liNextNonceResult = CTR_DRBG_Generate_16_Random_Bytes(&gtTemporarySPAN, gtTemporarySPAN.Nonce);
+          liNextNonceResult = CTR_DRBG_Generate_16_Random_Bytes(&gtTemporaryConnection.SPAN, gtTemporaryConnection.SPAN.Nonce);
           if (0 != liNextNonceResult) LOG("%s: *** WARNING *** liNextNonceResult = %d \r\n", __FUNCTION__, liNextNonceResult);
           //LOG("%s: FULL 16-bytes of gtTemporarySPAN.Nonce \r\n", __FUNCTION__);
           //PrintBytes(gtTemporarySPAN.Nonce, 16, false, 0);
@@ -3527,11 +3523,11 @@ BootstrapState ZWave_Bootstrap_StateMachine(BootstrapStateMachineCommand stateMa
           // (AES-CCM encrypt: ciphertext -> [4], tag -> [4+6])
           int liEncryptNetworkKeyReportResult;
           liAesInitResult   = wc_AesInit(&aes, NULL, INVALID_DEVID);
-          liAesSetKeyResult = wc_AesCcmSetKey(&aes, gucTemporarySymmetricKey, 16);
+          liAesSetKeyResult = wc_AesCcmSetKey(&aes, gtTemporaryConnection.KeyCCM, 16);
           liEncryptNetworkKeyReportResult = wc_AesCcmEncrypt(&aes,
                   &lucSendDataBuffer[lucHeaderLength],                              // out: ciphertext
                   lucNetworkKeyReport, lucNetworkKeyReportLength,                   // in:  plaintext
-                  gtTemporarySPAN.Nonce, 13,                                        // 13-byte CCM nonce
+                  gtTemporaryConnection.SPAN.Nonce, 13,                                        // 13-byte CCM nonce
                   &lucSendDataBuffer[lucHeaderLength + lucNetworkKeyReportLength],  // out: auth tag
                   AUTH_TAG_LENGTH,
                   (const byte *)&ltTxAAD, lucTxAADLength);
@@ -3552,7 +3548,7 @@ BootstrapState ZWave_Bootstrap_StateMachine(BootstrapStateMachineCommand stateMa
           #endif
 
           //////////////////////////////////////////////////////////////////////////////////
-          //// TEST MAB 2026.09.30
+          //// MAB 2026.09.30
           //// At this point, for the given network key (selected above), need to generate
           //// the KeyCCM, the PersonalizationString and the KeyMPAN via the
           //// CKDF_NetworkKeyExpand algorithm
@@ -3695,11 +3691,11 @@ BootstrapState ZWave_Bootstrap_StateMachine(BootstrapStateMachineCommand stateMa
         // Re-establish Temporary SPAN
         // (WE are the sender now: generate our own SEI, combine with node's fresh REI (gucTemporaryREI))
         liWolfSSLRngReturn = wc_InitRng(&gtWolfSSLRng);
-        liWolfSSLRngReturn |= wc_RNG_GenerateBlock(&gtWolfSSLRng, gucTemporarySEI, 16);
+        liWolfSSLRngReturn |= wc_RNG_GenerateBlock(&gtWolfSSLRng, gtTemporaryProvision.SEI, 16);
         wc_FreeRng(&gtWolfSSLRng);
         if (liWolfSSLRngReturn) LOG("%s: *** WARNING *** SEI RNG failed \r\n", __FUNCTION__);
 
-        CTR_DRBG_Zeroize_SPAN(&gtTemporarySPAN);          // force re-establish
+        CTR_DRBG_Zeroize_SPAN(&gtTemporaryConnection.SPAN);          // force re-establish
         liSPANResult = ZWave_Temporary_SPAN_Establish();   // MEI = f(SEI=ours, REI=node's)
         if (0 != liSPANResult) LOG("%s: *** WARNING *** liSPANResult = %d \r\n", __FUNCTION__, liSPANResult);
 
@@ -3715,7 +3711,7 @@ BootstrapState ZWave_Bootstrap_StateMachine(BootstrapStateMachineCommand stateMa
         lucSendDataBuffer[3] = SECURITY_2_MESSAGE_ENCAPSULATION_PROPERTIES1_EXTENSION_BIT_MASK_V2; // 0x01
         lucSendDataBuffer[4] = 2 + 16;   // ext length = 0x12
         lucSendDataBuffer[5] = 0x41;     // type SPAN (0x01) | Critical (0x40), no "more to follow"
-        memcpy(&lucSendDataBuffer[6], gucTemporarySEI, 16);
+        memcpy(&lucSendDataBuffer[6], gtTemporaryProvision.SEI, 16);
         const uint8_t lucTransferEndLength = sizeof(lucTransferEnd);
         lucHeaderLength = 4 + 18;        // 22: ciphertext starts after the extension
         lucFrameLength = lucTransferEndLength + lucHeaderLength + AUTH_TAG_LENGTH;
@@ -3726,7 +3722,7 @@ BootstrapState ZWave_Bootstrap_StateMachine(BootstrapStateMachineCommand stateMa
         lucTransferEnd[2] = SECURITY_2_TRANSFER_END_PROPERTIES1_KEY_VERIFIED_BIT_MASK_V2;
 
         // (Generate NextNonce)
-        liNextNonceResult = CTR_DRBG_Generate_16_Random_Bytes(&gtTemporarySPAN, gtTemporarySPAN.Nonce);
+        liNextNonceResult = CTR_DRBG_Generate_16_Random_Bytes(&gtTemporaryConnection.SPAN, gtTemporaryConnection.SPAN.Nonce);
         if (0 != liNextNonceResult) LOG("%s: *** WARNING *** liNextNonceResult = %d \r\n", __FUNCTION__, liNextNonceResult);
         //LOG("%s: FULL 16-bytes of gtTemporarySPAN.Nonce \r\n", __FUNCTION__);
         //PrintBytes(gtTemporarySPAN.Nonce, 16, false, 0);
@@ -3745,11 +3741,11 @@ BootstrapState ZWave_Bootstrap_StateMachine(BootstrapStateMachineCommand stateMa
         // (AES-CCM encrypt: ciphertext -> [4], tag -> [4+6])
         int liEncryptTransferResult;
         liAesInitResult   = wc_AesInit(&aes, NULL, INVALID_DEVID);
-        liAesSetKeyResult = wc_AesCcmSetKey(&aes, gucTemporarySymmetricKey, 16);
+        liAesSetKeyResult = wc_AesCcmSetKey(&aes, gtTemporaryConnection.KeyCCM, 16);
         liEncryptTransferResult = wc_AesCcmEncrypt(&aes,
                 &lucSendDataBuffer[lucHeaderLength],                              // out: ciphertext
                 lucTransferEnd, lucTransferEndLength,                             // in:  plaintext
-                gtTemporarySPAN.Nonce, 13,                                        // 13-byte CCM nonce
+                gtTemporaryConnection.SPAN.Nonce, 13,                                        // 13-byte CCM nonce
                 &lucSendDataBuffer[lucHeaderLength + lucTransferEndLength],       // out: auth tag
                 AUTH_TAG_LENGTH,
                 (const byte *)&ltTxAAD, lucTxAADLength);
@@ -3761,8 +3757,8 @@ BootstrapState ZWave_Bootstrap_StateMachine(BootstrapStateMachineCommand stateMa
               liAesInitResult, liAesSetKeyResult, liEncryptTransferResult);
         }
 
-        LOG("%s: Encrypted Transfer End frame \r\n", __FUNCTION__);
-        PrintBytes(lucSendDataBuffer, lucFrameLength, false, 0);
+        //LOG("%s: Encrypted Transfer End frame \r\n", __FUNCTION__);
+        //PrintBytes(lucSendDataBuffer, lucFrameLength, false, 0);
 
         // (Transmit the encrypted Transfer End)
         #if ENABLE_ZWAVE_CONTROLLER_HOST
@@ -3964,10 +3960,12 @@ uint8_t ZWave_Decrypt_Received_Data(uint16_t auiNodeID, uint8_t* paucDecryptBuff
   if (NODE_ID_TEMPORARY_KEY == auiNodeID)
   {
     //////////////////////////////////////////
+    //
     // Decrypt using temporary key and SPAN
+    //
     //////////////////////////////////////////
     // Generate NextNonce
-    liNextNonceResult = CTR_DRBG_Generate_16_Random_Bytes(&gtTemporarySPAN, gtTemporarySPAN.Nonce);
+    liNextNonceResult = CTR_DRBG_Generate_16_Random_Bytes(&gtTemporaryConnection.SPAN, gtTemporaryConnection.SPAN.Nonce);
     if (0 != liNextNonceResult) LOG("%s: *** WARNING *** liNextNonceResult = %d \r\n", __FUNCTION__, liNextNonceResult);
     //LOG("%s: FULL 16-bytes of gtTemporarySPAN.Nonce \r\n", __FUNCTION__);
     //PrintBytes(gtTemporarySPAN.Nonce, 16, false, 0);
@@ -3975,7 +3973,7 @@ uint8_t ZWave_Decrypt_Received_Data(uint16_t auiNodeID, uint8_t* paucDecryptBuff
     // Decrypt received message
     liAesInitResult = wc_AesInit(&aes, NULL, INVALID_DEVID);
     if (0!=liAesInitResult) LOG("%s: *** WARNING *** liAesInitResult = %d \r\n", __FUNCTION__, liAesInitResult);
-    liAesSetKeyResult = wc_AesCcmSetKey(&aes, gucTemporarySymmetricKey, 16);
+    liAesSetKeyResult = wc_AesCcmSetKey(&aes, gtTemporaryConnection.KeyCCM, 16);
     if (0!=liAesSetKeyResult) LOG("%s: *** WARNING *** liAesSetKeyResult = %d \r\n", __FUNCTION__, liAesSetKeyResult);
     LOG("%s: gucReceivedCiphertext \r\n", __FUNCTION__);
     PrintBytes(gucReceivedCiphertext, gucReceivedCiphertextLength, false, 0);
@@ -3991,14 +3989,16 @@ uint8_t ZWave_Decrypt_Received_Data(uint16_t auiNodeID, uint8_t* paucDecryptBuff
     liDecryptResult = wc_AesCcmDecrypt(&aes,
                                                     paucDecryptBuffer,
                                                     gucReceivedCiphertext, gucReceivedCiphertextLength,
-                                                    gtTemporarySPAN.Nonce, 13,
+                                                    gtTemporaryConnection.SPAN.Nonce, 13,
                                                     gucReceivedAuthTag, gucReceivedAuthTagLength,
                                                     (const byte *)&gtTemporaryAAD, gucTemporaryAADLength);
   }
   else
   {
     //////////////////////////////////////////
+    //
     // Decrypt using network key and SPAN
+    //
     //////////////////////////////////////////
     // Generate NextNonce
     liNextNonceResult = CTR_DRBG_Generate_16_Random_Bytes(&gtNodeConnectionList[lucDSKIndex].SPAN, gtNodeConnectionList[lucDSKIndex].SPAN.Nonce);
@@ -5797,48 +5797,6 @@ void ZWave_Pop_Command_Queue(void)
   // ENDIF
 }
 // end ZWave_Pop_Command_Queue
-
-/** *****************************************************************************************************************************
-  * @brief  Read received FIFO bytes from Z-Wave controller
-  * @param  *aucResponseBuffer - pointer to buffer into which received bytes will be copied
-  * @retval Count of bytes received (possibly 0)
-  */
-uint16_t ZWave_Receive_Response(uint8_t* aucReceiveBuffer)
-{
-  static uint16_t luiZWaveRxCount;
-  static uint16_t i;
-  static uint8_t lucReceivedChar;
-  static osStatus_t ltZWaveRxQueueStatus;
-  //LOG("%s: START\r\n", __FUNCTION__);
-
-  // Copy bytes (if any) into RX buffer
-  luiZWaveRxCount = osMessageQueueGetCount(ZWaveRxQueueHandle);
-  if (luiZWaveRxCount > 0)
-  {
-    LOG("%s: Initial luiZWaveRxCount = %d\r\n", __FUNCTION__, luiZWaveRxCount);
-    // Read bytes from ZWave RX queue into RX buffer
-    for (i = 0; osMessageQueueGetCount(ZWaveRxQueueHandle) > 0 && i < SERIAL_BUFFER_SIZE-2; ++i)
-    {
-      ltZWaveRxQueueStatus = osMessageQueueGet(ZWaveRxQueueHandle, &lucReceivedChar, NULL, 0);
-      if (osOK != ltZWaveRxQueueStatus)
-      {
-        LOG("%s: *** WARNING *** ltZWaveRxQueueStatus = %d\r\n", __FUNCTION__, ltZWaveRxQueueStatus);
-      }
-      aucReceiveBuffer[i] = lucReceivedChar;
-    }
-    luiZWaveRxCount = i;
-    //aucReceiveBuffer[i+1] = 0;
-    LOG("%s:   FINAL luiZWaveRxCount = %d\r\n", __FUNCTION__, luiZWaveRxCount);
-  }
-//  else
-//  {
-//    LOG("%s: Nothing received from Z-Wave controller\r\n", __FUNCTION__);
-//  }
-
-  //LOG("%s: END\r\n", __FUNCTION__);
-  return luiZWaveRxCount;
-}
-// end ZWave_Receive_Response
 
 /** *****************************************************************************************************************************
   * @brief  Command handler for CMD 0x02 FUNC_ID_SERIAL_API_GET_INIT_DATA ZW->HOST: Cmd | ver | capabilities | 29 | nodes[29] | chip_type | chip_version
@@ -7990,13 +7948,13 @@ void ZWave_Rx_CC_9F_Security_2_V2(void)
           BOOTSTRAP_NETWORK_VERIFY_SPAN == geBootstrapState    )
       {
         LOG("%s: - saving Receiver's Entropy Input (REI) for TEMPORARY KEY \r\n", __FUNCTION__);
-        memcpy(gucTemporaryREI, &pgucCCBuffer[4], 16);
+        memcpy(gtTemporaryProvision.REI, &pgucCCBuffer[4], 16);
 
         // The Nonce Report with the REI has been received,
         // may proceed to establish the temporary SPAN
 
         // But first, zeroize temporary SPAN
-        CTR_DRBG_Zeroize_SPAN(&gtTemporarySPAN);
+        CTR_DRBG_Zeroize_SPAN(&gtTemporaryConnection.SPAN);
       }
       else
       {
@@ -8117,13 +8075,13 @@ void ZWave_Rx_CC_9F_Security_2_V2(void)
           if (BOOTSTRAP_TEMP_NONCE_SET == geBootstrapState)
           {
             LOG("%s: - saving Sender's Entropy Input (SEI) for TEMPORARY KEY \r\n", __FUNCTION__);
-            memcpy(gucTemporarySEI, &pgucCCBuffer[6+lucExtensionOffset], 16);
+            memcpy(gtTemporaryProvision.SEI, &pgucCCBuffer[6+lucExtensionOffset], 16);
 
             // The SPAN extension with the SEI has been received,
             // may proceed to establish the temporary SPAN
 
             // But first, zeroize temporary SPAN
-            CTR_DRBG_Zeroize_SPAN(&gtTemporarySPAN);
+            CTR_DRBG_Zeroize_SPAN(&gtTemporaryConnection.SPAN);
           }
           if (BOOTSTRAP_NETWORK_KEY_VERIFY == geBootstrapState)
           {
@@ -8507,6 +8465,12 @@ void ZWave_RES_CMD_XX_Unsupported(void)
   */
 void ZWave_Resend_Encrypted_Data(uint8_t aucDSKIndex)
 {
+  ///////////////////////////////////////////////////////////////////////////////////////////
+  //// WARNING - This routine is only to be used for fully-connected end nodes, i.e. with
+  ////           a selected S2 network key. Encrypted plaintext with a temporary key is
+  ////           handled in the Bootstrap state machine.
+  ///////////////////////////////////////////////////////////////////////////////////////////
+
   LOG("%s: Resending last encrypted plaintext \r\n", __FUNCTION__);
   cl_entry_t* ptConn = &gtNodeConnectionList[aucDSKIndex];
 
@@ -8557,6 +8521,14 @@ static void ZWave_S2_Encapsulate_And_Send(uint8_t aucDSKIndex, const uint8_t* pa
   {
     gtNodeConnectionList[aucDSKIndex].isSEIPending = FALSE;
 
+    //////////////////////////////////////////////////////////////////////////
+    //
+    // The S2 Message Encapsulation will include the (non-encrypted) extension
+    // containing the SEI. Generate the SEI, copy it to the extension space
+    // and set the S2 Message Encapsulation header appropriately.
+    //
+    //////////////////////////////////////////////////////////////////////////
+
     // Re-establish Network SPAN
     // (WE are the sender now: generate our own SEI, combine with node's fresh REI)
     liWolfSSLRngReturn = wc_InitRng(&gtWolfSSLRng);
@@ -8586,6 +8558,14 @@ static void ZWave_S2_Encapsulate_And_Send(uint8_t aucDSKIndex, const uint8_t* pa
   }
   else
   {
+    //////////////////////////////////////////////////////////////////////////
+    //
+    // This is a normal S2 Message Encapsulation, with just the encrypted
+    // plaintext (i.e. CCM ciphertext). Set the S2 Message Encapsulation
+    // header appropriately.
+    //
+    //////////////////////////////////////////////////////////////////////////
+
     // (Prep the frame header and update session ID)
     gucSessionID = ZWave_SessionID_Update(gucSessionID);
     memset(lucSendDataBuffer, 0x00, sizeof(lucSendDataBuffer));
@@ -8826,6 +8806,58 @@ void ZWave_Send_Encrypted_Data(uint16_t auiNodeID, uint8_t* paucPlaintextBuffer,
 // end ZWave_Send_Encrypted_Data
 
 /** *****************************************************************************************************************************
+  * @brief  Prepare and send encrypted data to an end node, using temporary key and SPAN
+  * @param  uint16_t auiNodeID - 2-byte NodeID to search in provisioning list
+  * @param  uint8_t* paucPlaintextBuffer - pointer to plaintext to be encrypted and transmitted
+  * @param  uint8_t aucPlaintextLength   - length of plaintext
+  * @retval None
+  */
+void ZWave_Send_Encrypted_Data_Temporary(uint16_t auiNodeID, uint8_t* paucPlaintextBuffer, uint8_t aucPlaintextLength)
+{
+  uint8_t lucIsValidNodeIDandDSK = TRUE;
+  uint8_t lucDSKIndex;
+
+  ///////////////////////////////////////////////////////////////////////////////////////////
+  //// WARNING - This routine is only to be used for end nodes connecting during the
+  ////           S2 Bootstrap sequence - consequently using the temporary key and SPAN.
+  ///////////////////////////////////////////////////////////////////////////////////////////
+
+  // Validate NodeID and DSK index
+  if (auiNodeID < 0x100 || auiNodeID > 4000)
+  {
+    LOG("%s: *** ERROR *** invalid NodeID \r\n", __FUNCTION__);
+    lucIsValidNodeIDandDSK = FALSE;
+  }
+  lucDSKIndex = ZWave_Scan_ProvisioningList_For_NodeID(auiNodeID);
+  if (lucDSKIndex >= NODE_PROVISIONING_LIST_COUNT )
+  {
+    LOG("%s: *** ERROR *** invalid DSK index \r\n", __FUNCTION__);
+    lucIsValidNodeIDandDSK = FALSE;
+  }
+  if (aucPlaintextLength > S2_MAX_PLAINTEXT_LENGTH)
+  {
+    LOG("%s: *** ERROR *** plaintext too long (%d) \r\n", __FUNCTION__, aucPlaintextLength);
+    lucIsValidNodeIDandDSK = FALSE;
+  }
+  LOG("%s: NodeID 0x%04X \t DSK %d \r\n", __FUNCTION__, auiNodeID, lucDSKIndex);
+
+  // IF valid NodeID and DSK index
+  if (lucIsValidNodeIDandDSK)
+  {
+    cl_entry_t* ptConn = &gtNodeConnectionList[lucDSKIndex];
+    memcpy(ptConn->LastPlaintext, paucPlaintextBuffer, aucPlaintextLength);
+    ptConn->LastPlaintextLength = aucPlaintextLength;
+    ptConn->LastTxTick          = HAL_GetTick(); // TODO: change this to elapsed msec
+    ptConn->isResendAllowed     = TRUE;
+    ptConn->isResendRequested   = FALSE;
+
+    ZWave_S2_Encapsulate_And_Send(lucDSKIndex, paucPlaintextBuffer, aucPlaintextLength);
+  }
+  // endif valid NodeID and DSK index
+}
+// end ZWave_Send_Encrypted_Data_Temporary
+
+/** *****************************************************************************************************************************
   * @brief  Prepare and send Nonce Report
   * @param  uint16_t auiNodeID - 2-byte NodeID to search in provisioning list (or 0xFFFF for Temporary REI)
   * @retval None
@@ -8867,10 +8899,10 @@ void ZWave_Send_Nonce_Report(uint16_t auiNodeID)
   {
     LOG("%s: DSK unavailable or invalid - generating Nonce Report for Temporary REI \r\n", __FUNCTION__);
 
-    liWolfSSLRngReturn = wc_RNG_GenerateBlock(&gtWolfSSLRng, gucTemporaryREI, 16);
+    liWolfSSLRngReturn = wc_RNG_GenerateBlock(&gtWolfSSLRng, gtTemporaryProvision.REI, 16);
     if (liWolfSSLRngReturn) LOG("%s: *** WARNING *** wc_RNG_GenerateBlock() return value was %d \r\n", __FUNCTION__, liWolfSSLRngReturn);
     LOG("%s: - saving Receiver's Entropy Input (REI) for TEMPORARY KEY \r\n", __FUNCTION__);
-    memcpy(&lucSendDataBuffer[4], gucTemporaryREI, 16);
+    memcpy(&lucSendDataBuffer[4], gtTemporaryProvision.REI, 16);
     //LOG("%s: Randomized Receiver's Entropy Input (REI) \r\n", __FUNCTION__);
     //PrintBytes(gucTemporaryREI, 16, FALSE, 0);
   }
@@ -10452,7 +10484,7 @@ int ZWave_Temporary_Key_Generate(void)
   lucMsgExpand[15] = 0x01;
   LOG("%s: - c88||0x01 \r\n", __FUNCTION__);
   //PrintBytes(lucMsgExpand, sizeof(lucMsgExpand), false, 0);
-  liReturnValue = wc_AesCmacGenerate(gucTemporarySymmetricKey, &luiSize,
+  liReturnValue = wc_AesCmacGenerate(gtTemporaryConnection.KeyCCM, &luiSize,
                                        lucMsgExpand, sizeof(lucMsgExpand),
                                        lucPRK, sizeof(lucPRK));
   if (liReturnValue != 0 || luiSize != 16)
@@ -10473,7 +10505,7 @@ int ZWave_Temporary_Key_Generate(void)
   /////////////////////////////////////////////////
   LOG("%s: Generating TempPersonalizationString \r\n", __FUNCTION__);
   LOG("%s: - generating T2 = CMAC(PRK, TempKeyCCM||c88||02) \r\n", __FUNCTION__);
-  memcpy(lucMsgExpand2,    gucTemporarySymmetricKey, sizeof(gucTemporarySymmetricKey));
+  memcpy(lucMsgExpand2,    gtTemporaryConnection.KeyCCM, sizeof(gtTemporaryConnection.KeyCCM));
   memcpy(lucMsgExpand2+16, CKDF_TEMP_EXPAND_C,       sizeof(CKDF_TEMP_EXPAND_C));
   lucMsgExpand2[31] = 0x02;
   liReturnValue = wc_AesCmacGenerate(lucT2, &luiSize,
@@ -10503,8 +10535,8 @@ int ZWave_Temporary_Key_Generate(void)
   //PrintBytes(lucT3, sizeof(lucT3), false, 0);
 
   LOG("%s: - generating TempPersonalizationString = T2||T3 \r\n", __FUNCTION__);
-  memcpy(gucTempPersonalizationString,    lucT2, sizeof(lucT2));
-  memcpy(gucTempPersonalizationString+16, lucT3, sizeof(lucT3));
+  memcpy(gtTemporaryConnection.PersonalizationString,    lucT2, sizeof(lucT2));
+  memcpy(gtTemporaryConnection.PersonalizationString+16, lucT3, sizeof(lucT3));
   // If no errors, gucTempPersonalizationString[] has the Temporary Personalization String
   //PrintBytes(gucTempPersonalizationString, sizeof(gucTempPersonalizationString), false, 0);
 
@@ -10543,8 +10575,8 @@ int ZWave_Temporary_SPAN_Establish(void)
   // CKDF-MEI-Extract: with SEI and REI, generate NoncePRK
   ///////////////////////////////////////////////////////////
   LOG("%s: CKDF-MEI-Extract: with SEI and REI, generate NoncePRK \r\n", __FUNCTION__);
-  memcpy(lucMEIExtract   , gucTemporarySEI, 16);
-  memcpy(lucMEIExtract+16, gucTemporaryREI, 16);
+  memcpy(lucMEIExtract   , gtTemporaryProvision.SEI, 16);
+  memcpy(lucMEIExtract+16, gtTemporaryProvision.REI, 16);
   luiSize = 16;
   liReturnValue = wc_AesCmacGenerate(lucNoncePRK, &luiSize,
                                        lucMEIExtract, sizeof(lucMEIExtract),
@@ -10619,7 +10651,7 @@ int ZWave_Temporary_SPAN_Establish(void)
   // - provided_data = lucMEI XOR gucTempPersonalizationString
   /////////////////////////////////////////////////////////////////////////////////////////////////////
   LOG("%s: Instantiating temporary SPAN \r\n", __FUNCTION__);
-  CTR_DRBG_Instantiate_SPAN(&gtTemporarySPAN, lucMEI, gucTempPersonalizationString);
+  CTR_DRBG_Instantiate_SPAN(&gtTemporaryConnection.SPAN, lucMEI, gtTemporaryConnection.PersonalizationString);
 
 exit:
   if (liReturnValue != 0) LOG("%s: *** WARNING *** return value = %d \r\n", __FUNCTION__, liReturnValue);
@@ -11121,18 +11153,6 @@ void MainTask(void *argument)
           LOG("%s: *** WARNING *** Standby mode OFF, readings and alarms active again\r\n", __FUNCTION__);
         }
       }
-
-//      ///////////////////////////////////////////////////////////////////////////
-//      //// TEST MAB 2025.10.14
-//      //// To test ZWave_Receive_Response(), stuff the ZWave Rx FIFO
-//      static uint8_t lucSimulatedZWaveRxByte;
-//      LOG("%s: *** WARNING *** Simulating ZWave receive bytes...\r\n", __FUNCTION__);
-//      for (int i = 0; i < 16; ++i)
-//      {
-//        lucSimulatedZWaveRxByte = i;
-//        osMessageQueuePut(ZWaveRxQueueHandle, &lucSimulatedZWaveRxByte, 0, 1);
-//      }
-//      ///////////////////////////////////////////////////////////////////////////
 
     } // updates on minutes
     ///////////////////////////////
@@ -11719,26 +11739,12 @@ void ZWaveTask(void *argument)
       gtZWaveRxInterface.ack_timeout = TRUE; // timeout occurred
       LOG("%s: *** WARNING *** ACK timeout occurred\r\n", __FUNCTION__);
     }
-    if (gtZWaveRxInterface.byte_timeout >= DEFAULT_BYTE_TIMEOUT_MS)
+    if (gtZWaveRxInterface.byte_timeout_ms >= DEFAULT_BYTE_TIMEOUT_MS)
     {
       gtZWaveRxInterface.byte_timeout_ms = 0; // stop the timer
       gtZWaveRxInterface.byte_timeout = TRUE; // timeout occurred
       LOG("%s: *** WARNING *** byte timeout occurred\r\n", __FUNCTION__);
     }
-
-//    //////////////////////////////////////////////
-//    //
-//    // Check for any received bytes from the Z-Wave controller
-//    //
-//    //////////////////////////////////////////////
-//    memset(gucZWaveRxBuffer, 0x00, sizeof(gucZWaveRxBuffer));
-//    luiZWaveRxCount = ZWave_Receive_Response(gucZWaveRxBuffer);
-//    if (luiZWaveRxCount > 0)
-//    {
-//      LOG("-----------------------  Z-Wave received bytes START -----------------------\r\n");
-//      PrintBytes(gucZWaveRxBuffer, luiZWaveRxCount, false, 0);
-//      LOG("-----------------------  Z-Wave received bytes  END  -----------------------\r\n");
-//    }
 
 
     //////////////////////////////////////////////
@@ -12125,8 +12131,8 @@ void ZWaveTask(void *argument)
     if (0 == lulCountdownToConnectedActivity_seconds)
     {
       //lulCountdownToConnectedActivity_seconds = 2*60;
-      //lulCountdownToConnectedActivity_seconds = 1*60;
-      lulCountdownToConnectedActivity_seconds = 10;
+      lulCountdownToConnectedActivity_seconds = 1*60;
+      //lulCountdownToConnectedActivity_seconds = 10;
 
       for (int lucDSKIndex = 0; lucDSKIndex < NODE_PROVISIONING_LIST_COUNT; ++lucDSKIndex)
       {
@@ -12140,7 +12146,7 @@ void ZWaveTask(void *argument)
             static uint8_t lucSwitchLevelState = 0;
             if (0 == lucCountdownToSwitchMultilevelSet_minutes)
             {
-              //lucCountdownToSwitchMultilevelSet_minutes = 5;
+              lucCountdownToSwitchMultilevelSet_minutes = 10;
 
               if (lucSwitchLevelState)
               {
