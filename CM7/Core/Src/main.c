@@ -368,6 +368,313 @@ ZWaveInterfaceFrame_ptr const ZWaveSerialFrame = (ZWaveInterfaceFrame_ptr)gtZWav
 typedef void (*zwave_cmd_handler_t)(void);
 zwave_cmd_handler_t gtZWave_CMD_Handler[256];
 zwave_cmd_handler_t gtZWave_CC_Handler[256];
+const char* pgcZWave_CC_Names[256] =
+{
+    // 0x00 - 0x0F
+    "xxxxxxxxx",
+    "xxxxxxxxx",
+    "xxxxxxxxx",
+    "xxxxxxxxx",
+    "xxxxxxxxx",
+    "xxxxxxxxx",
+    "xxxxxxxxx",
+    "xxxxxxxxx",
+
+    "xxxxxxxxx",
+    "xxxxxxxxx",
+    "xxxxxxxxx",
+    "xxxxxxxxx",
+    "xxxxxxxxx",
+    "xxxxxxxxx",
+    "xxxxxxxxx",
+    "xxxxxxxxx",
+
+    // 0x10 - 0x1F
+    "xxxxxxxxx",
+    "xxxxxxxxx",
+    "xxxxxxxxx",
+    "xxxxxxxxx",
+    "xxxxxxxxx",
+    "xxxxxxxxx",
+    "xxxxxxxxx",
+    "xxxxxxxxx",
+
+    "xxxxxxxxx",
+    "xxxxxxxxx",
+    "xxxxxxxxx",
+    "xxxxxxxxx",
+    "xxxxxxxxx",
+    "xxxxxxxxx",
+    "xxxxxxxxx",
+    "xxxxxxxxx",
+
+    // 0x20 - 0x2F
+    "xxxxxxxxx",
+    "xxxxxxxxx",
+    "xxxxxxxxx",
+    "xxxxxxxxx",
+    "xxxxxxxxx",
+    "xxxxxxxxx",
+    "COMMAND_CLASS_SWITCH_MULTILEVEL_V4",
+    "xxxxxxxxx",
+
+    "xxxxxxxxx",
+    "xxxxxxxxx",
+    "xxxxxxxxx",
+    "xxxxxxxxx",
+    "xxxxxxxxx",
+    "xxxxxxxxx",
+    "xxxxxxxxx",
+    "xxxxxxxxx",
+
+    // 0x30 - 0x3F
+    "xxxxxxxxx",
+    "xxxxxxxxx",
+    "xxxxxxxxx",
+    "COMMAND_CLASS_SWITCH_COLOR_V3",
+    "xxxxxxxxx",
+    "xxxxxxxxx",
+    "xxxxxxxxx",
+    "xxxxxxxxx",
+
+    "xxxxxxxxx",
+    "xxxxxxxxx",
+    "xxxxxxxxx",
+    "xxxxxxxxx",
+    "xxxxxxxxx",
+    "xxxxxxxxx",
+    "xxxxxxxxx",
+    "xxxxxxxxx",
+
+    // 0x40 - 0x4F
+    "xxxxxxxxx",
+    "xxxxxxxxx",
+    "xxxxxxxxx",
+    "xxxxxxxxx",
+    "xxxxxxxxx",
+    "xxxxxxxxx",
+    "xxxxxxxxx",
+    "xxxxxxxxx",
+
+    "xxxxxxxxx",
+    "xxxxxxxxx",
+    "xxxxxxxxx",
+    "xxxxxxxxx",
+    "xxxxxxxxx",
+    "xxxxxxxxx",
+    "xxxxxxxxx",
+    "xxxxxxxxx",
+
+    // 0x50 - 0x5F
+    "xxxxxxxxx",
+    "xxxxxxxxx",
+    "xxxxxxxxx",
+    "xxxxxxxxx",
+    "xxxxxxxxx",
+    "COMMAND_CLASS_TRANSPORT_SERVICE_V2",
+    "xxxxxxxxx",
+    "xxxxxxxxx",
+
+    "xxxxxxxxx",
+    "COMMAND_CLASS_ASSOCIATION_GRP_INFO_V3",
+    "COMMAND_CLASS_DEVICE_RESET_LOCALLY",
+    "xxxxxxxxx",
+    "xxxxxxxxx",
+    "xxxxxxxxx",
+    "COMMAND_CLASS_ZWAVEPLUS_INFO_V2",
+    "xxxxxxxxx",
+
+    // 0x60 - 0x6F
+    "xxxxxxxxx",
+    "xxxxxxxxx",
+    "xxxxxxxxx",
+    "xxxxxxxxx",
+    "xxxxxxxxx",
+    "xxxxxxxxx",
+    "xxxxxxxxx",
+    "xxxxxxxxx",
+
+    "xxxxxxxxx",
+    "xxxxxxxxx",
+    "xxxxxxxxx",
+    "xxxxxxxxx",
+    "COMMAND_CLASS_SUPERVISION_V2",
+    "xxxxxxxxx",
+    "xxxxxxxxx",
+    "xxxxxxxxx",
+
+    // 0x70 - 0x7F
+    "xxxxxxxxx",
+    "xxxxxxxxx",
+    "COMMAND_CLASS_MANUFACTURER_SPECIFIC_V2",
+    "COMMAND_CLASS_POWERLEVEL",
+    "xxxxxxxxx",
+    "xxxxxxxxx",
+    "xxxxxxxxx",
+    "xxxxxxxxx",
+
+    "xxxxxxxxx",
+    "xxxxxxxxx",
+    "COMMAND_CLASS_FIRMWARE_UPDATE_MD_V8",
+    "xxxxxxxxx",
+    "xxxxxxxxx",
+    "xxxxxxxxx",
+    "xxxxxxxxx",
+    "xxxxxxxxx",
+
+    // 0x80 - 0x8F
+    "xxxxxxxxx",
+    "xxxxxxxxx",
+    "xxxxxxxxx",
+    "xxxxxxxxx",
+    "xxxxxxxxx",
+    "COMMAND_CLASS_ASSOCIATION_V4",
+    "COMMAND_CLASS_VERSION_V3",
+    "COMMAND_CLASS_INDICATOR_V4",
+
+    "xxxxxxxxx",
+    "xxxxxxxxx",
+    "xxxxxxxxx",
+    "xxxxxxxxx",
+    "xxxxxxxxx",
+    "xxxxxxxxx",
+    "COMMAND_CLASS_MULTI_CHANNEL_ASSOCIATION_V5",
+    "xxxxxxxxx",
+
+    // 0x90 - 0x9F
+    "xxxxxxxxx",
+    "xxxxxxxxx",
+    "xxxxxxxxx",
+    "xxxxxxxxx",
+    "xxxxxxxxx",
+    "xxxxxxxxx",
+    "xxxxxxxxx",
+    "xxxxxxxxx",
+
+    "COMMAND_CLASS_SECURITY",
+    "xxxxxxxxx",
+    "xxxxxxxxx",
+    "xxxxxxxxx",
+    "xxxxxxxxx",
+    "xxxxxxxxx",
+    "xxxxxxxxx",
+    "COMMAND_CLASS_SECURITY_2_V2",
+
+    // 0xA0 - 0xAF
+    "xxxxxxxxx",
+    "xxxxxxxxx",
+    "xxxxxxxxx",
+    "xxxxxxxxx",
+    "xxxxxxxxx",
+    "xxxxxxxxx",
+    "xxxxxxxxx",
+    "xxxxxxxxx",
+
+    "xxxxxxxxx",
+    "xxxxxxxxx",
+    "xxxxxxxxx",
+    "xxxxxxxxx",
+    "xxxxxxxxx",
+    "xxxxxxxxx",
+    "xxxxxxxxx",
+    "xxxxxxxxx",
+
+    // 0xB0 - 0xBF
+    "xxxxxxxxx",
+    "xxxxxxxxx",
+    "xxxxxxxxx",
+    "xxxxxxxxx",
+    "xxxxxxxxx",
+    "xxxxxxxxx",
+    "xxxxxxxxx",
+    "xxxxxxxxx",
+
+    "xxxxxxxxx",
+    "xxxxxxxxx",
+    "xxxxxxxxx",
+    "xxxxxxxxx",
+    "xxxxxxxxx",
+    "xxxxxxxxx",
+    "xxxxxxxxx",
+    "xxxxxxxxx",
+
+    // 0xC0 - 0xCF
+    "xxxxxxxxx",
+    "xxxxxxxxx",
+    "xxxxxxxxx",
+    "xxxxxxxxx",
+    "xxxxxxxxx",
+    "xxxxxxxxx",
+    "xxxxxxxxx",
+    "xxxxxxxxx",
+
+    "xxxxxxxxx",
+    "xxxxxxxxx",
+    "xxxxxxxxx",
+    "xxxxxxxxx",
+    "xxxxxxxxx",
+    "xxxxxxxxx",
+    "xxxxxxxxx",
+    "xxxxxxxxx",
+
+    // 0xD0 - 0xDF
+    "xxxxxxxxx",
+    "xxxxxxxxx",
+    "xxxxxxxxx",
+    "xxxxxxxxx",
+    "xxxxxxxxx",
+    "xxxxxxxxx",
+    "xxxxxxxxx",
+    "xxxxxxxxx",
+
+    "xxxxxxxxx",
+    "xxxxxxxxx",
+    "xxxxxxxxx",
+    "xxxxxxxxx",
+    "xxxxxxxxx",
+    "xxxxxxxxx",
+    "xxxxxxxxx",
+    "xxxxxxxxx",
+
+    // 0xE0 - 0xEF
+    "xxxxxxxxx",
+    "xxxxxxxxx",
+    "xxxxxxxxx",
+    "xxxxxxxxx",
+    "xxxxxxxxx",
+    "xxxxxxxxx",
+    "xxxxxxxxx",
+    "xxxxxxxxx",
+
+    "xxxxxxxxx",
+    "xxxxxxxxx",
+    "xxxxxxxxx",
+    "xxxxxxxxx",
+    "xxxxxxxxx",
+    "xxxxxxxxx",
+    "xxxxxxxxx",
+    "xxxxxxxxx",
+
+    // 0xF0 - 0xFF
+    "xxxxxxxxx",
+    "xxxxxxxxx",
+    "xxxxxxxxx",
+    "xxxxxxxxx",
+    "xxxxxxxxx",
+    "xxxxxxxxx",
+    "xxxxxxxxx",
+    "xxxxxxxxx",
+
+    "xxxxxxxxx",
+    "xxxxxxxxx",
+    "xxxxxxxxx",
+    "xxxxxxxxx",
+    "xxxxxxxxx",
+    "xxxxxxxxx",
+    "xxxxxxxxx",
+    "xxxxxxxxx",
+
+};
 
 // State variables for ZWave state machine
 ZWaveState geZWaveState;
@@ -463,11 +770,15 @@ static const uint8_t CKDF_MEI_EXTRACT_C[16] = {
 };
 
 // Buffer for any received ciphertext
-uint8_t gucReceivedCiphertext[256];
+uint8_t gucReceivedCiphertext[80];
 uint8_t gucReceivedCiphertextLength;
 #define AUTH_TAG_LENGTH (8)
 uint8_t gucReceivedAuthTag[AUTH_TAG_LENGTH];
 uint8_t gucReceivedAuthTagLength;
+
+// Buffer for decrypted plaintext
+uint8_t gucDecryptedPlaintext[80];
+uint8_t gucDecryptedPlaintextLength;
 
 // Additional Authenticated Data (AAD) for temporary (S2 bootstrap) encryption/decryption
 aad_t gtTemporaryAAD;
@@ -479,7 +790,7 @@ uint8_t gucS2AuthenticatedKey[16];
 uint8_t gucS2UnauthenticatedKey[16];
 uint8_t gucS0LegacyKey[16];
 
-// For expanding the Networ Key
+// For expanding the Network Key
 static const uint8_t CKDF_CONSTANT_NK[15] = {
     /* 15 bytes of 0x55 per CKDF-NetworkKeyExpand */
     0x55,0x55,0x55,0x55,0x55,0x55,0x55,0x55,
@@ -3861,6 +4172,23 @@ uint8_t ZWave_Decrypt_Received_Data(uint16_t auiNodeID, uint8_t* paucDecryptBuff
 // end ZWave_Decrypt_Received_Data
 
 /** *****************************************************************************************************************************
+  * @brief  Display Command Class names
+  * @param  uint8_t* paucCCBuffer - pointer to buffer containing Command Class bytes
+  * @param  uint8_t  aucCCBufferLength - buffer length (bytes)
+  * @retval None
+  */
+void ZWave_Display_CC_Names(uint8_t* paucCCBuffer, uint8_t aucCCBufferLength)
+{
+  //LOG("---------------------- Command class names START -----------------------------\r\n");
+  for (int i = 0; i < aucCCBufferLength; ++i)
+  {
+    LOG("%s:   0x%02X - %s \r\n", __FUNCTION__, paucCCBuffer[i], pgcZWave_CC_Names[paucCCBuffer[i]]);
+  }
+  //LOG("---------------------- Command class names  END  -----------------------------\r\n");
+}
+// end ZWave_Display_CC_Names
+
+/** *****************************************************************************************************************************
   * @brief  Display received frame data (to debug port)
   * @param  None
   * @retval None
@@ -6793,7 +7121,8 @@ void ZWave_REQ_CMD_49_ZW_Application_Update(void)
 
     LOG("%s: CC list length       = 0x%02X\r\n", __FUNCTION__, lucCommandClassListLength);
     LOG("----------------------- Supported Command Class list START -----------------------\r\n");
-    PrintBytes(&ZWaveSerialFrame->payload[12], lucCommandClassListLength, false, 0);
+    //PrintBytes(&ZWaveSerialFrame->payload[12], lucCommandClassListLength, false, 0);
+    ZWave_Display_CC_Names(&ZWaveSerialFrame->payload[12], lucCommandClassListLength);
     LOG("----------------------- Supported Command Class list  END  -----------------------\r\n");
 
     ////////////////////////////////////////////////////////////////////////////////
@@ -6848,7 +7177,8 @@ void ZWave_REQ_CMD_49_ZW_Application_Update(void)
     ZWave_Identify_Specific_Device_Type(lucGenericDeviceType, lucSpecificDeviceType);
 
     LOG("----------------------- Supported Command Class list START -----------------------\r\n");
-    PrintBytes(&ZWaveSerialFrame->payload[7], lucCommandClassListLength - 3, false, 0);
+    //PrintBytes(&ZWaveSerialFrame->payload[7], lucCommandClassListLength - 3, false, 0);
+    ZWave_Display_CC_Names(&ZWaveSerialFrame->payload[7], lucCommandClassListLength - 3);
     LOG("----------------------- Supported Command Class list  END  -----------------------\r\n");
   }
 
@@ -7352,6 +7682,11 @@ void ZWave_RES_CMD_A8_Application_Command_Handler_Bridge(void)
   LOG("%s: Destination node ID                    = 0x%04X\r\n", __FUNCTION__, guiDestinationNodeID);
   LOG("%s: Source node ID                         = 0x%04X\r\n", __FUNCTION__, guiSourceNodeID);
   LOG("%s: Payload length                         = 0x%02X\r\n", __FUNCTION__, ZWaveSerialFrame->payload[5]);
+  uint8_t lucDSKIndex = ZWave_Scan_ProvisioningList_For_NodeID(guiSourceNodeID);
+  if (lucDSKIndex < NODE_PROVISIONING_LIST_COUNT)
+  {
+    gucProcessingDSK = lucDSKIndex;
+  }
   int i = ZWaveSerialFrame->payload[5]; // Payload length
   if (i)
   {
@@ -7572,6 +7907,7 @@ void ZWave_Rx_CC_26_Switch_Multilevel_V4(void)
     break;
   }
 
+  //  ------------------- SWITCH_MULTILEVEL_SET_V2 -----------------------------------------
   if ( SWITCH_MULTILEVEL_SET_V2    == pgucCCBuffer[1] )
   {
     LOG("%s: Value           = 0x%02X \r\n", __FUNCTION__, pgucCCBuffer[2]);
@@ -7591,9 +7927,27 @@ void ZWave_Rx_CC_26_Switch_Multilevel_V4(void)
     {
       LOG("%s: - *** WARNING *** reserved value \r\n", __FUNCTION__);
     }
+
     LOG("%s: Duration        = 0x%02X \r\n", __FUNCTION__, pgucCCBuffer[3]);
+    if (0x00 == pgucCCBuffer[3])
+    {
+      LOG("%s: - Instantly \r\n", __FUNCTION__)
+    }
+    else if (0x01 <= pgucCCBuffer[3] && pgucCCBuffer[3] <= 0x7F)
+    {
+      LOG("%s: - %03d seconds \r\n", __FUNCTION__, pgucCCBuffer[3])
+    }
+    else if (0x80 <= pgucCCBuffer[3] && pgucCCBuffer[3] <= 0xFE)
+    {
+      LOG("%s: - %03d minutes \r\n", __FUNCTION__, pgucCCBuffer[3])
+    }
+    else
+    {
+      LOG("%s: - Factory default duration \r\n", __FUNCTION__);
+    }
   }
 
+  //  ------------------- SWITCH_MULTILEVEL_REPORT_V4 -----------------------------------------
   if ( SWITCH_MULTILEVEL_REPORT_V4    == pgucCCBuffer[1] )
   {
     LOG("%s: Current Value   = 0x%02X \r\n", __FUNCTION__, pgucCCBuffer[2]);
@@ -7613,10 +7967,45 @@ void ZWave_Rx_CC_26_Switch_Multilevel_V4(void)
     {
       LOG("%s: - *** WARNING *** reserved value \r\n", __FUNCTION__);
     }
+
     LOG("%s: Target  Value   = 0x%02X \r\n", __FUNCTION__, pgucCCBuffer[3]);
+    if (0x00 == pgucCCBuffer[3])
+    {
+      LOG("%s: - OFF \r\n", __FUNCTION__)
+    }
+    else if (0x01 <= pgucCCBuffer[3] && pgucCCBuffer[3] <= 0x63)
+    {
+      LOG("%s: - ON, %02d %% \r\n", __FUNCTION__, pgucCCBuffer[3])
+    }
+    else if (0xFF == pgucCCBuffer[3])
+    {
+      LOG("%s: - ON; restored to most recent level \r\n", __FUNCTION__)
+    }
+    else
+    {
+      LOG("%s: - *** WARNING *** reserved value \r\n", __FUNCTION__);
+    }
+
     LOG("%s: Duration        = 0x%02X \r\n", __FUNCTION__, pgucCCBuffer[4]);
+    if (0x00 == pgucCCBuffer[4])
+    {
+      LOG("%s: - Instantly \r\n", __FUNCTION__)
+    }
+    else if (0x01 <= pgucCCBuffer[4] && pgucCCBuffer[4] <= 0x7F)
+    {
+      LOG("%s: - %03d seconds \r\n", __FUNCTION__, pgucCCBuffer[4])
+    }
+    else if (0x80 <= pgucCCBuffer[4] && pgucCCBuffer[4] <= 0xFE)
+    {
+      LOG("%s: - %03d minutes \r\n", __FUNCTION__, pgucCCBuffer[4])
+    }
+    else
+    {
+      LOG("%s: - Factory default duration \r\n", __FUNCTION__);
+    }
   }
 
+  //  ------------------- SWITCH_MULTILEVEL_START_LEVEL_CHANGE -----------------------------------------
   if ( SWITCH_MULTILEVEL_START_LEVEL_CHANGE    == pgucCCBuffer[1] )
   {
     LOG("%s: Options         = 0x%02X \r\n", __FUNCTION__, pgucCCBuffer[3]);
@@ -7714,10 +8103,12 @@ void ZWave_Rx_CC_9F_Security_2_V2(void)
     //////////////////////////////////////////////////////////////////////////////////////////////////////
     //// TEST MAB 2026.10.12
     //// Set this flag only under the following conditions
-    ////   SmartStart state in BOOTSTRAP; Bootstrap atate either TEMP_NONCE_GET or NETWORK_NONCE_GET
+    ////   SmartStart state in BOOTSTRAP; Bootstrap state either TEMP_NONCE_GET or NETWORK_NONCE_GET
     ////   SmartStart state in CONNECTED
-    if ( (SMARTSTART_BOOTSTRAP == geSmartStartState && (BOOTSTRAP_TEMP_NONCE_GET==geBootstrapState || BOOTSTRAP_NETWORK_NONCE_GET==geBootstrapState)) ||
-         (SMARTSTART_CONNECTED == geSmartStartState)                                                                                                       )
+    //// TEST MAB 2026.10.16
+    //// Check the SmartStart state of the DSK being processed, not the global SmartStart state
+    if ( (SMARTSTART_BOOTSTRAP == gtNodeProvisioningList[gucProcessingDSK].status && (BOOTSTRAP_TEMP_NONCE_GET==geBootstrapState || BOOTSTRAP_NETWORK_NONCE_GET==geBootstrapState)) ||
+         (SMARTSTART_CONNECTED == gtNodeProvisioningList[gucProcessingDSK].status)                                                                                                       )
     {
       gucIsNonceGetReceived = TRUE;
     }
@@ -9000,7 +9391,7 @@ void ZWave_Send_Switch_Multilevel_Set(uint16_t auiNodeID, uint8_t aucSwitchLevel
     lucSwitchMultilevelSet[0] = COMMAND_CLASS_SWITCH_MULTILEVEL;
     lucSwitchMultilevelSet[1] = SWITCH_MULTILEVEL_SET_V2;
     lucSwitchMultilevelSet[2] = aucSwitchLevelState;
-    lucSwitchMultilevelSet[3] = SWITCH_BINARY_SET_DEFAULT_V2;
+    lucSwitchMultilevelSet[3] = SWITCH_BINARY_SET_INSTANTLY_V2;
     LOG("-----------------------  Switch Multilevel Set START -----------------------\r\n");
     // Invoke the command class handler
     pgucCCBuffer = lucSwitchMultilevelSet;
@@ -11464,11 +11855,17 @@ void ZWaveTask(void *argument)
   static uint8_t lucOldHour   = 100; // Nonsense initial value guarantees update when RTC first read
   static uint8_t lucCountdownToRepeatedZWaveCommands_minutes = 30;
   #define NODE_PL_DISPLAY_INTERVAL_MINUTES (5)
+  #define CONNECTED_ACTIVITY_INTERVAL_SECONDS (1*60)
+  #define SWITCH_MULTILEVEL_SET_INTERVAL_MINUTES (5)
   static uint8_t lucCountdownToNodeProvisioningListStatus_minutes = NODE_PL_DISPLAY_INTERVAL_MINUTES;
   static uint32_t lulCountdownToCheckAbandonedNodeID_seconds = 120;
   static uint8_t lucCountdownToUpdateNodeIDList_minutes = 60;
   static uint32_t lulCountdownToConnectedActivity_seconds = 0;
-  static uint8_t lucCountdownToSwitchMultilevelSet_minutes = 0;
+  static uint8_t lucCountdownToSwitchMultilevelSet_minutes = SWITCH_MULTILEVEL_SET_INTERVAL_MINUTES;
+  static uint8_t lucDSKIndex;
+  static uint16_t luiMessageQueueBuffer;
+  static uint8_t lucRTCString[20];
+
 
   LOG("%s: initializing...\r\n", __FUNCTION__);
 
@@ -11696,6 +12093,15 @@ void ZWaveTask(void *argument)
 
 
 
+//  //////////////////////////////////////////////////////////////////////////////////////////////
+//  //// TEST MAB 2026.10.15
+//  //// Display all CC names
+//  for (int i = 0; i < 256; ++i)
+//  {
+//    LOG("%s:  CC command 0x%02X is %s \r\n", __FUNCTION__, i, pgcZWave_CC_Names[i]);
+//  }
+//  //////////////////////////////////////////////////////////////////////////////////////////////
+
 
   /* Infinite loop */
   for(;;)
@@ -11809,70 +12215,25 @@ void ZWaveTask(void *argument)
     //
     //////////////////////////////////////////////
     #if ENABLE_ZWAVE_CONTROLLER_HOST
+    static SmartStartState leSmartStartStateOLD = SMARTSTART_EMPTY;
     if (ZWave_DSK_IsProcessing() || SMARTSTART_EXCLUSION==geSmartStartState)
     {
       geSmartStartState = ZWave_SmartStart_StateMachine(SMARTSTART_SM_CMD_RUN);
-      if (SMARTSTART_DETECTED == geSmartStartState)
+
+      if ( (SMARTSTART_DETECTED == geSmartStartState) && (SMARTSTART_DETECTED != leSmartStartStateOLD) )
       {
         lucCountdownToUpdateNodeIDList_minutes = 5;
         lucCountdownToNodeProvisioningListStatus_minutes = 1;
       }
+      if ( (SMARTSTART_CONNECTED == geSmartStartState) && (SMARTSTART_CONNECTED != leSmartStartStateOLD) )
+      {
+        //lulCountdownToConnectedActivity_seconds = 0; // For a newly connected end node, trigger activity immediately
+      }
+
+      leSmartStartStateOLD = geSmartStartState;
     }
     #endif
 
-//    ////////////////////////////////////////////////////////////////////////
-//    //// TEST MAB 2025.11.14
-//    //// Every N minutes, requeue a bunch of commands to send to ZWave controller
-//    if (lucCountdownToRepeatedZWaveCommands_minutes == 0)
-//    {
-//      lucCountdownToRepeatedZWaveCommands_minutes = 30;
-//
-//      /// Send Memory Get ID to get the HomeID and NodeID values
-//      ZWave_Send_REQ_CMD_20_Memory_Get_ID();
-//      /// Send Serial API Get Capabilities
-//      ZWave_Send_REQ_CMD_07_Serial_API_Get_Capabilities();
-//      // Send Serial API Get LR Nodes
-//      ZWave_Send_REQ_CMD_DA_Serial_API_Get_LR_Nodes();
-//      // Send Serial API Get Init Data
-//      ZWave_Send_REQ_CMD_02_Serial_API_Get_Init_Data();
-//      // Send Get Controller Capabilities
-//      ZWave_Send_REQ_CMD_05_Get_Controller_Capabilities();
-//      // Send Get SUC Node ID
-//      ZWave_Send_REQ_CMD_56_Get_SUC_Node_ID();
-//
-//      // Set DCDC mode
-//      ZWave_Send_REQ_CMD_DF_Set_DCDC_Config(EDCDCMODE_AUTO);
-//      // Send Get DCDC Config
-//      ZWave_Send_REQ_CMD_DE_Get_DCDC_Config();
-//
-//      // Send Get Radio PTI
-//      ZWave_Send_REQ_CMD_E8_Get_Radio_PTI();
-//
-//      // Set region
-//      //ZWave_Send_REQ_CMD_0B_Serial_API_Setup(SERIAL_API_SETUP_CMD_RF_REGION_SET, REGION_US, IGNORE); // OK
-//      //ZWave_Send_REQ_CMD_0B_Serial_API_Setup(SERIAL_API_SETUP_CMD_RF_REGION_SET, REGION_EU, IGNORE); // OK
-//      ZWave_Send_REQ_CMD_0B_Serial_API_Setup(SERIAL_API_SETUP_CMD_RF_REGION_SET, REGION_US_LR, IGNORE); // OK
-//      //ZWave_Send_REQ_CMD_0B_Serial_API_Setup(SERIAL_API_SETUP_CMD_RF_REGION_SET, REGION_DEPRECATED_48, IGNORE); // FAILS; region unchanged
-//      //ZWave_Send_REQ_CMD_0B_Serial_API_Setup(SERIAL_API_SETUP_CMD_RF_REGION_SET, REGION_JP, IGNORE); // OK
-//      // Set TX power level
-//      //ZWave_Send_REQ_CMD_0B_Serial_API_Setup(SERIAL_API_SETUP_CMD_TX_POWERLEVEL_SET_16_BIT, 200, 0); // OK
-//      //ZWave_Send_REQ_CMD_0B_Serial_API_Setup(SERIAL_API_SETUP_CMD_TX_POWERLEVEL_SET_16_BIT, 205, 0); // FAILS; TX power unchanged
-//      ZWave_Send_REQ_CMD_0B_Serial_API_Setup(SERIAL_API_SETUP_CMD_TX_POWERLEVEL_SET_16_BIT, 200, 5); // OK
-//      // Set LR TX power level
-//      ZWave_Send_REQ_CMD_0B_Serial_API_Setup(SERIAL_API_SETUP_CMD_MAX_LR_TX_PWR_SET, 200, IGNORE); // OK
-//      //ZWave_Send_REQ_CMD_0B_Serial_API_Setup(SERIAL_API_SETUP_CMD_MAX_LR_TX_PWR_SET, 190, IGNORE); // OK
-//      //ZWave_Send_REQ_CMD_0B_Serial_API_Setup(SERIAL_API_SETUP_CMD_MAX_LR_TX_PWR_SET, 205, IGNORE); // FAILS; LR TX power unchanged
-//
-//
-//      // Send other Serial API Setup requests
-//      ZWave_Send_REQ_CMD_0B_Serial_API_Setup(SERIAL_API_SETUP_CMD_SUPPORTED, IGNORE, IGNORE);
-//      ZWave_Send_REQ_CMD_0B_Serial_API_Setup(SERIAL_API_SETUP_CMD_TX_POWERLEVEL_GET_16_BIT, IGNORE, IGNORE);
-//      ZWave_Send_REQ_CMD_0B_Serial_API_Setup(SERIAL_API_SETUP_CMD_MAX_LR_TX_PWR_GET, IGNORE, IGNORE);
-//      ZWave_Send_REQ_CMD_0B_Serial_API_Setup(SERIAL_API_SETUP_CMD_RF_REGION_GET, IGNORE, IGNORE);
-//      ZWave_Send_REQ_CMD_0B_Serial_API_Setup(SERIAL_API_SETUP_CMD_TX_GET_MAX_PAYLOAD_SIZE, IGNORE, IGNORE);
-//      ZWave_Send_REQ_CMD_0B_Serial_API_Setup(SERIAL_API_SETUP_CMD_TX_GET_MAX_LR_PAYLOAD_SIZE, IGNORE, IGNORE);
-//    }
-//    ////////////////////////////////////////////////////////////////////////
 
     #if ENABLE_ZWAVE_CONTROLLER_HOST
     //////////////////////////////////////////////////////////////////////////////
@@ -12000,7 +12361,8 @@ void ZWaveTask(void *argument)
 
             // Display supported Command Classes
             LOG("----------------------- Supported Command Class list START -----------------------\r\n");
-            PrintBytes(gtNodeProvisioningList[i].CC_list_buffer, gtNodeProvisioningList[i].CC_list_length, false, 0);
+            //PrintBytes(gtNodeProvisioningList[i].CC_list_buffer, gtNodeProvisioningList[i].CC_list_length, false, 0);
+            ZWave_Display_CC_Names(gtNodeProvisioningList[i].CC_list_buffer, gtNodeProvisioningList[i].CC_list_length);
             LOG("----------------------- Supported Command Class list  END  -----------------------\r\n");
             // END Display supported Command Classes
           }
@@ -12022,6 +12384,45 @@ void ZWaveTask(void *argument)
       }
     }
     // END display the node provisioning list
+    //////////////////////////////////////////////////////////////////////////////
+    #endif
+
+    #if ENABLE_ZWAVE_CONTROLLER_HOST
+    //////////////////////////////////////////////////////////////////////////////
+    //// MAB 2026.10.13
+    //// Per Claude AI, retransmit encrypted plaintext if a Nonce Report was received
+    cl_entry_t* ptConn;
+    for (uint8_t lucDSKIndex = 0; lucDSKIndex < NODE_PROVISIONING_LIST_COUNT; ++lucDSKIndex)
+    {
+      ptConn = &gtNodeConnectionList[lucDSKIndex];
+      if (ptConn->isResendRequested)
+      {
+        LOG("%s: Nonce Report after encrypted send to DSK %d; re-sending with new SPAN \r\n", __FUNCTION__, lucDSKIndex);
+        ZWave_Resend_Encrypted_Data(lucDSKIndex);
+      }
+      else if (ptConn->LastPlaintextLength && (HAL_GetTick() - ptConn->LastTxTick) >= S2_RESEND_WINDOW_MS)
+      {
+        // No Nonce Report in time, so assume the node decrypted it; drop the cache
+        memset(ptConn->LastPlaintext, 0, sizeof(ptConn->LastPlaintext));
+        ptConn->LastPlaintextLength = 0;
+        ptConn->isResendAllowed     = FALSE;
+      }
+    }
+    //// TEST MAB 2026.10.14
+    //// Handle bootstrap retransmit too
+    ptConn = &gtTemporaryConnection;
+    if (ptConn->isResendRequested)
+    {
+      LOG("%s: Nonce Report after encrypted send; re-sending with new SPAN \r\n", __FUNCTION__);
+      ZWave_Resend_Encrypted_Data_Temporary(gucProcessingDSK);
+    }
+    else if (ptConn->LastPlaintextLength && (HAL_GetTick() - ptConn->LastTxTick) >= S2_RESEND_WINDOW_MS)
+    {
+      // No Nonce Report in time, so assume the node decrypted it; drop the cache
+      memset(ptConn->LastPlaintext, 0, sizeof(ptConn->LastPlaintext));
+      ptConn->LastPlaintextLength = 0;
+      ptConn->isResendAllowed     = FALSE;
+    }
     //////////////////////////////////////////////////////////////////////////////
     #endif
 
@@ -12133,11 +12534,11 @@ void ZWaveTask(void *argument)
     //////////////////////////////////////////////////////////////////////////////
     //// TEST MAB 2026.10.09
     //// Every N seconds, CONNECTED end nodes are triggered to... do something
+    //// (Need to revamp this to having each DSK have its own seconds counter,
+    ////  updating each second, triggering against its own threshold.)
     if (0 == lulCountdownToConnectedActivity_seconds)
     {
-      //lulCountdownToConnectedActivity_seconds = 2*60;
-      lulCountdownToConnectedActivity_seconds = 1*60;
-      //lulCountdownToConnectedActivity_seconds = 10;
+      lulCountdownToConnectedActivity_seconds = CONNECTED_ACTIVITY_INTERVAL_SECONDS;
 
       for (int lucDSKIndex = 0; lucDSKIndex < NODE_PROVISIONING_LIST_COUNT; ++lucDSKIndex)
       {
@@ -12145,13 +12546,16 @@ void ZWaveTask(void *argument)
         {
           LOG("%s: >>>>> DSK %d is CONNECTED <<<<<\r\n", __FUNCTION__, lucDSKIndex);
 
-          // IF node is multiswitch, toggle its output, read its state
+          ///////////////////////////////////////////////////////////////////
+          // IF node is multilevel switch, toggle its output, read its state
           if (GENERIC_TYPE_SWITCH_MULTILEVEL == gtNodeProvisioningList[lucDSKIndex].generic_device_type)
           {
-            static uint8_t lucSwitchLevelState = 0;
+            static uint8_t lucSwitchLevelState = 99;
+
+            // (toggle its output every N minutes)
             if (0 == lucCountdownToSwitchMultilevelSet_minutes)
             {
-              lucCountdownToSwitchMultilevelSet_minutes = 10;
+              lucCountdownToSwitchMultilevelSet_minutes = SWITCH_MULTILEVEL_SET_INTERVAL_MINUTES;
 
               if (lucSwitchLevelState)
               {
@@ -12168,22 +12572,29 @@ void ZWaveTask(void *argument)
 
               // Send COMMAND_CLASS_SWITCH_MULTILEVEL, SWITCH_MULTILEVEL_SET, value, duration to NodeID
               ZWave_Send_Switch_Multilevel_Set(gtNodeProvisioningList[lucDSKIndex].NodeID, lucSwitchLevelState);
+
+              // Display RTC in debug output
+              luiMessageQueueBuffer = msgid_MAIN_DISPLAY_RTC;
+              osMessageQueuePut(MainQueueHandle, &luiMessageQueueBuffer, 0, 1);
             } // endif toggle
 
+            // (read its state periodically)
             // Send COMMAND_CLASS_SWITCH_MULTILEVEL, SWITCH_MULTILEVEL_GET
-            //ZWave_Send_Switch_Multilevel_Get(gtNodeProvisioningList[lucDSKIndex].NodeID);
+            ZWave_Send_Switch_Multilevel_Get(gtNodeProvisioningList[lucDSKIndex].NodeID);
+
           }
           // ENDIF node is multiswitch, toggle its output
+          ///////////////////////////////////////////////////////////////////
         }
       }
     }
     //////////////////////////////////////////////////////////////////////////////
     #endif
 
+    #if ENABLE_ZWAVE_CONTROLLER_HOST
     //////////////////////////////////////////////////////////////////////////////
     //// TEST MAB 2026.10.09
     //// Process received Nonce Get OUTSIDE S2 Bootstrap. i.e. when CONNECTED
-    uint8_t lucDSKIndex;
     if (gucIsNonceGetReceived)
     {
       gucIsNonceGetReceived = FALSE;
@@ -12203,43 +12614,88 @@ void ZWaveTask(void *argument)
       }
     }
     //////////////////////////////////////////////////////////////////////////////
+    #endif
 
+    #if ENABLE_ZWAVE_CONTROLLER_HOST
     //////////////////////////////////////////////////////////////////////////////
-    //// TEST MAB 2026.10.13
-    //// Per Claude AI, retransmit encrypted plaintext if a Nonce Report was received
-    cl_entry_t* ptConn;
-    for (uint8_t lucDSKIndex = 0; lucDSKIndex < NODE_PROVISIONING_LIST_COUNT; ++lucDSKIndex)
+    //// TEST MAB 2026.10.15
+    //// Process received encrypted messages when CONNECTED
+    uint8_t lucIsReadyToDecrypt = FALSE;
+    int liDecryptMsgSuccessful;
+    if (gucIsEncryptedMsgReceived)
     {
-      ptConn = &gtNodeConnectionList[lucDSKIndex];
-      if (ptConn->isResendRequested)
+      gucIsEncryptedMsgReceived = FALSE;
+
+      // Validate NodeID and associated DSK to see if decrypt should proceed
+      LOG("%s: Encrypted message received; guiSourceNodeID = 0x%04X \r\n", __FUNCTION__, guiSourceNodeID);
+      lucDSKIndex = ZWave_Scan_ProvisioningList_For_NodeID(guiSourceNodeID);
+      LOG("%s: - NodeID 0x%04X associated with DSK %d\r\n", __FUNCTION__, guiSourceNodeID, lucDSKIndex);
+      if (SMARTSTART_CONNECTED != gtNodeProvisioningList[lucDSKIndex].status)
       {
-        LOG("%s: Nonce Report after encrypted send to DSK %d; re-sending with new SPAN \r\n", __FUNCTION__, lucDSKIndex);
-        ZWave_Resend_Encrypted_Data(lucDSKIndex);
+        LOG("%s: - node is not yet connected, so no further processing is needed \r\n", __FUNCTION__);
       }
-      else if (ptConn->LastPlaintextLength && (HAL_GetTick() - ptConn->LastTxTick) >= S2_RESEND_WINDOW_MS)
+      else if (lucDSKIndex >= NODE_PROVISIONING_LIST_COUNT)
       {
-        // No Nonce Report in time, so assume the node decrypted it; drop the cache
-        memset(ptConn->LastPlaintext, 0, sizeof(ptConn->LastPlaintext));
-        ptConn->LastPlaintextLength = 0;
-        ptConn->isResendAllowed     = FALSE;
+        LOG("%s: - node 0x%04X is associated with any DSK, so no further processing is needed \r\n", __FUNCTION__, guiSourceNodeID);
       }
-    }
-    //// TEST MAB 2026.10.14
-    //// Handle bootstrap retransmit too
-    ptConn = &gtTemporaryConnection;
-    if (ptConn->isResendRequested)
-    {
-      LOG("%s: Nonce Report after encrypted send; re-sending with new SPAN \r\n", __FUNCTION__);
-      ZWave_Resend_Encrypted_Data_Temporary(lucDSKIndex);
-    }
-    else if (ptConn->LastPlaintextLength && (HAL_GetTick() - ptConn->LastTxTick) >= S2_RESEND_WINDOW_MS)
-    {
-      // No Nonce Report in time, so assume the node decrypted it; drop the cache
-      memset(ptConn->LastPlaintext, 0, sizeof(ptConn->LastPlaintext));
-      ptConn->LastPlaintextLength = 0;
-      ptConn->isResendAllowed     = FALSE;
-    }
+      else
+      {
+        LOG("%s: - node is already CONNECTED, further processing is needed \r\n", __FUNCTION__);
+        gucProcessingDSK = lucDSKIndex;
+        lucIsReadyToDecrypt = TRUE;
+      }
+
+      // Decrypt message if NodeID and DSK are OK
+      if (lucIsReadyToDecrypt)
+      {
+        // Decrypt received message with Network Key and SPAN
+        liDecryptMsgSuccessful = ZWave_Decrypt_Received_Data(gtNodeProvisioningList[gucProcessingDSK].NodeID, gucDecryptedPlaintext);
+
+        if (liDecryptMsgSuccessful)
+        {
+          /////////////////////////////////////////////////////////////////////
+          //
+          // Switch Multilevel Report
+          //
+          /////////////////////////////////////////////////////////////////////
+          if (COMMAND_CLASS_SWITCH_MULTILEVEL_V4 == gucDecryptedPlaintext[0] &&
+              SWITCH_MULTILEVEL_REPORT_V4        == gucDecryptedPlaintext[1]     )
+          {
+            LOG("-----------------------  Switch Multilevel Report START -----------------------\r\n");
+            // Invoke the command class handler
+            pgucCCBuffer = gucDecryptedPlaintext;
+            gucCCBufferLength = gucReceivedCiphertextLength;
+            gtZWave_CC_Handler[pgucCCBuffer[0]]();
+            LOG("-----------------------  Switch Multilevel Report  END  -----------------------\r\n");
+            sprintf(lucRTCString, "20%02d.%02d.%02d %02d:%02d",
+                     sMainRTCDate.Year,  sMainRTCDate.Month,   sMainRTCDate.Date,
+                     sMainRTCTime.Hours, sMainRTCTime.Minutes                     );
+            LOG("%s: Zone=%d Timestamp=%s type=%d Value=%d \r\n", __FUNCTION__, lucDSKIndex+1, lucRTCString, 0, gucDecryptedPlaintext[2]);
+
+          }
+          /////////////////////////////////////////////////////////////////////
+          //
+          // Unsupported - just display the plaintext bytes
+          //
+          /////////////////////////////////////////////////////////////////////
+          else
+          {
+            LOG("-----------------------  Decrypted plaintext START -----------------------\r\n");
+            PrintBytes(gucDecryptedPlaintext, gucReceivedCiphertextLength, false, 0);
+            LOG("-----------------------  Decrypted plaintext  END  -----------------------\r\n");
+            LOG("%s: *** WARNING *** decrypted plaintext not yet identified for processing\r\n", __FUNCTION__);
+          }
+        }  // decrypt successful
+        else
+        {
+          LOG("%s: *** WARNING *** decrypt of received ciphertext FAILED \r\n", __FUNCTION__);
+        }  // decrypt failed
+
+      } // endif ready to decrypt
+
+    } // endif encrypted message received
     //////////////////////////////////////////////////////////////////////////////
+    #endif
 
 
     //////////////////////////////////////////////
