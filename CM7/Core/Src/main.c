@@ -10339,7 +10339,11 @@ ZWave_SmartStart_StateMachine
       Update elapsed exclusion time
       IF node exclusion completed, failed OR timed out
         Resume listening for SmartStart Prime commands, report to host application
-        Set state to READY
+        IF timeout but no DSK is being processed
+          Set state machine to READY
+        ELSE
+          Set state to READY
+        ENDIF
       ENDIf
     ELSE IF state is BOOTSTRAP
       Update elapsed bootstrap time
@@ -10626,13 +10630,27 @@ SmartStartState ZWave_SmartStart_StateMachine(SmartStartStateMachineCommand stat
         ZWave_Send_REQ_CMD_4A_Add_Node_to_Network(ADD_NODE_OPTION_NETWORK_WIDE|ADD_NODE_OPTION_LR|ADD_NODE_SMART_START, gucSessionID, NULL);
         #endif
 
-        // Set state to READY
-        geBootstrapState = ZWave_Bootstrap_StateMachine(BOOTSTRAP_SM_CMD_INITIALIZE);
-        LOG("%s: Transitioning DSK %d from EXCLUSION to READY\r\n", __FUNCTION__, gucProcessingDSK);
-        leSmartStartState                               = SMARTSTART_READY;
-        gtNodeProvisioningList[gucProcessingDSK].status = SMARTSTART_READY;
-        gucProcessingDSK = DSK_UNAVAILABLE;
-        guiLiveNodeCount = ZWave_DSK_Count_Live_NodeIDs();
+        // IF timeout but no DSK is being processed
+        if ( lulElapsedTime_Exclusion_msec > EXCLUSION_TIMEOUT_MSEC && !ZWave_DSK_IsProcessing() )
+        {
+          // Set state machine to READY
+          geBootstrapState = ZWave_Bootstrap_StateMachine(BOOTSTRAP_SM_CMD_INITIALIZE);
+          LOG("%s: Transitioning from EXCLUSION to READY\r\n", __FUNCTION__);
+          leSmartStartState                               = SMARTSTART_READY;
+        }
+        else
+        {
+          // Set state to READY
+          LOG("%s gucProcessingDSK = %d \t guiSourceNodeID = 0x%04X \r\n", __FUNCTION__, gucProcessingDSK, guiSourceNodeID);
+          geBootstrapState = ZWave_Bootstrap_StateMachine(BOOTSTRAP_SM_CMD_INITIALIZE);
+          LOG("%s: Transitioning DSK %d from EXCLUSION to READY\r\n", __FUNCTION__, gucProcessingDSK);
+          leSmartStartState                               = SMARTSTART_READY;
+          gtNodeProvisioningList[gucProcessingDSK].status = SMARTSTART_READY;
+          gucProcessingDSK = DSK_UNAVAILABLE;
+          guiLiveNodeCount = ZWave_DSK_Count_Live_NodeIDs();
+        }
+        // ENDIF
+
 
         // Display RTC in debug output
         luiMessageQueueBuffer = msgid_MAIN_DISPLAY_RTC;
@@ -11408,6 +11426,12 @@ void MainTask(void *argument)
   // display the firmware version
   LOG("%s: ZWave Sentinel firmware version is v%s.%s.%s\r\n", __FUNCTION__, VERSION_A,VERSION_B,VERSION_C);
 
+  /////////////////////////////////////////////////////////////////////////
+  //// TEST MAB 2026.10.19
+  //// Request RTC sync from the ZWave Sentinel Diagnostic Tool
+  LOG("%s: Request RTC sync \r\n", __FUNCTION__);
+  /////////////////////////////////////////////////////////////////////////
+
   /* ************************************************** Infinite loop ************************************************** */
   for(;;)
   {
@@ -11854,14 +11878,19 @@ void ZWaveTask(void *argument)
   static uint8_t lucOldMinute = 100; // Nonsense initial value guarantees update when RTC first read
   static uint8_t lucOldHour   = 100; // Nonsense initial value guarantees update when RTC first read
   static uint8_t lucCountdownToRepeatedZWaveCommands_minutes = 30;
+  #define NODE_PL_UPDATE_INTERVAL_MINUTES (60)
   #define NODE_PL_DISPLAY_INTERVAL_MINUTES (5)
+  //// TEST MAB 2026.10.16 #define NODE_PL_DISPLAY_INTERVAL_MINUTES (8*60)
   #define CONNECTED_ACTIVITY_INTERVAL_SECONDS (1*60)
+  //// TEST MAB 2026.10.16 #define CONNECTED_ACTIVITY_INTERVAL_SECONDS (12*60*60)
   #define SWITCH_MULTILEVEL_SET_INTERVAL_MINUTES (5)
+  //// TEST MAB 2026.10.16 #define SWITCH_MULTILEVEL_SET_INTERVAL_MINUTES (24*60*60)
+  #define SWITCH_MULTILEVEL_SET_INTERVAL_SECONDS (SWITCH_MULTILEVEL_SET_INTERVAL_MINUTES*60)
   static uint8_t lucCountdownToNodeProvisioningListStatus_minutes = NODE_PL_DISPLAY_INTERVAL_MINUTES;
   static uint32_t lulCountdownToCheckAbandonedNodeID_seconds = 120;
-  static uint8_t lucCountdownToUpdateNodeIDList_minutes = 60;
+  static uint8_t lucCountdownToUpdateNodeIDList_minutes = NODE_PL_UPDATE_INTERVAL_MINUTES;
   static uint32_t lulCountdownToConnectedActivity_seconds = 0;
-  static uint8_t lucCountdownToSwitchMultilevelSet_minutes = SWITCH_MULTILEVEL_SET_INTERVAL_MINUTES;
+  static uint32_t lulCountdownToSwitchMultilevelSet_seconds = SWITCH_MULTILEVEL_SET_INTERVAL_SECONDS;
   static uint8_t lucDSKIndex;
   static uint16_t luiMessageQueueBuffer;
   static uint8_t lucRTCString[20];
@@ -12114,6 +12143,7 @@ void ZWaveTask(void *argument)
 
       if (lulCountdownToCheckAbandonedNodeID_seconds) --lulCountdownToCheckAbandonedNodeID_seconds;
       if (lulCountdownToConnectedActivity_seconds) --lulCountdownToConnectedActivity_seconds;
+      if (lulCountdownToSwitchMultilevelSet_seconds) --lulCountdownToSwitchMultilevelSet_seconds;
 
     } // updates on seconds
     ///////////////////////////////
@@ -12125,7 +12155,6 @@ void ZWaveTask(void *argument)
       if (lucCountdownToRepeatedZWaveCommands_minutes) --lucCountdownToRepeatedZWaveCommands_minutes;
       if (lucCountdownToNodeProvisioningListStatus_minutes) --lucCountdownToNodeProvisioningListStatus_minutes;
       if (lucCountdownToUpdateNodeIDList_minutes) --lucCountdownToUpdateNodeIDList_minutes;
-      if (lucCountdownToSwitchMultilevelSet_minutes) --lucCountdownToSwitchMultilevelSet_minutes;
 
     } // updates on minutes
     ///////////////////////////////
@@ -12227,7 +12256,7 @@ void ZWaveTask(void *argument)
       }
       if ( (SMARTSTART_CONNECTED == geSmartStartState) && (SMARTSTART_CONNECTED != leSmartStartStateOLD) )
       {
-        //lulCountdownToConnectedActivity_seconds = 0; // For a newly connected end node, trigger activity immediately
+        lulCountdownToConnectedActivity_seconds = 0; // For a newly connected end node, trigger activity immediately
       }
 
       leSmartStartStateOLD = geSmartStartState;
@@ -12247,6 +12276,7 @@ void ZWaveTask(void *argument)
     if (lucCountdownToNodeProvisioningListStatus_minutes == 0)
     {
       lucCountdownToNodeProvisioningListStatus_minutes = ZWave_DSK_Count_Live_NodeIDs() ? NODE_PL_DISPLAY_INTERVAL_MINUTES : 60;
+      //lucCountdownToNodeProvisioningListStatus_minutes = ZWave_DSK_Count_Live_NodeIDs() ? NODE_PL_DISPLAY_INTERVAL_MINUTES : 2*NODE_PL_DISPLAY_INTERVAL_MINUTES;
 
       for (int i = 0; i < NODE_PROVISIONING_LIST_COUNT; ++i)
       {
@@ -12431,7 +12461,7 @@ void ZWaveTask(void *argument)
     //// Periodically update the local copy of LR node list
     if (0 == lucCountdownToUpdateNodeIDList_minutes)
     {
-      lucCountdownToUpdateNodeIDList_minutes = 60;
+      lucCountdownToUpdateNodeIDList_minutes = NODE_PL_UPDATE_INTERVAL_MINUTES;
       //// TEST MAB 2026.10.06 lucCountdownToUpdateNodeIDList_minutes = 10;
 
       #if ENABLE_ZWAVE_CONTROLLER_HOST
@@ -12532,6 +12562,58 @@ void ZWaveTask(void *argument)
 
     #if ENABLE_ZWAVE_CONTROLLER_HOST
     //////////////////////////////////////////////////////////////////////////////
+    //// TEST MAB 2026.10.19
+    //// Every N seconds, CONNECTED multilevel switches are toggled
+    if (0 == lulCountdownToSwitchMultilevelSet_seconds)
+    {
+      lulCountdownToSwitchMultilevelSet_seconds = SWITCH_MULTILEVEL_SET_INTERVAL_SECONDS;
+
+      for (int lucDSKIndex = 0; lucDSKIndex < NODE_PROVISIONING_LIST_COUNT; ++lucDSKIndex)
+      {
+        if (ZWave_DSK_IsConnected(lucDSKIndex))
+        {
+          ///////////////////////////////////////////////////////////////////
+          // IF node is multilevel switch, toggle its output
+          if (GENERIC_TYPE_SWITCH_MULTILEVEL == gtNodeProvisioningList[lucDSKIndex].generic_device_type)
+          {
+            static uint8_t lucSwitchLevelState = 99;
+
+            // (toggle its output every N minutes)
+            if (lucSwitchLevelState)
+            {
+              // Switch to OFF
+              LOG("%s: Switch to OFF \r\n", __FUNCTION__);
+              lucSwitchLevelState = 0;
+            }
+            else
+            {
+              // Switch to ON
+              LOG("%s: Switch to ON \r\n", __FUNCTION__);
+              lucSwitchLevelState = 99;
+            }
+
+            // Send COMMAND_CLASS_SWITCH_MULTILEVEL, SWITCH_MULTILEVEL_SET, value, duration to NodeID
+            ZWave_Send_Switch_Multilevel_Set(gtNodeProvisioningList[lucDSKIndex].NodeID, lucSwitchLevelState);
+
+            // (read its state)
+            // Send COMMAND_CLASS_SWITCH_MULTILEVEL, SWITCH_MULTILEVEL_GET
+            ZWave_Send_Switch_Multilevel_Get(gtNodeProvisioningList[lucDSKIndex].NodeID);
+
+            // Display RTC in debug output
+            luiMessageQueueBuffer = msgid_MAIN_DISPLAY_RTC;
+            osMessageQueuePut(MainQueueHandle, &luiMessageQueueBuffer, 0, 1);
+          }
+          // ENDIF node is multiswitch, toggle its output
+          ///////////////////////////////////////////////////////////////////
+        }
+      }
+    }
+    //////////////////////////////////////////////////////////////////////////////
+    #endif
+
+
+    #if ENABLE_ZWAVE_CONTROLLER_HOST
+    //////////////////////////////////////////////////////////////////////////////
     //// TEST MAB 2026.10.09
     //// Every N seconds, CONNECTED end nodes are triggered to... do something
     //// (Need to revamp this to having each DSK have its own seconds counter,
@@ -12544,44 +12626,13 @@ void ZWaveTask(void *argument)
       {
         if (ZWave_DSK_IsConnected(lucDSKIndex))
         {
-          LOG("%s: >>>>> DSK %d is CONNECTED <<<<<\r\n", __FUNCTION__, lucDSKIndex);
-
           ///////////////////////////////////////////////////////////////////
-          // IF node is multilevel switch, toggle its output, read its state
+          // IF node is multilevel switch,read its state
           if (GENERIC_TYPE_SWITCH_MULTILEVEL == gtNodeProvisioningList[lucDSKIndex].generic_device_type)
           {
-            static uint8_t lucSwitchLevelState = 99;
-
-            // (toggle its output every N minutes)
-            if (0 == lucCountdownToSwitchMultilevelSet_minutes)
-            {
-              lucCountdownToSwitchMultilevelSet_minutes = SWITCH_MULTILEVEL_SET_INTERVAL_MINUTES;
-
-              if (lucSwitchLevelState)
-              {
-                // Switch to OFF
-                LOG("%s: Switch to OFF \r\n", __FUNCTION__);
-                lucSwitchLevelState = 0;
-              }
-              else
-              {
-                // Switch to ON
-                LOG("%s: Switch to ON \r\n", __FUNCTION__);
-                lucSwitchLevelState = 99;
-              }
-
-              // Send COMMAND_CLASS_SWITCH_MULTILEVEL, SWITCH_MULTILEVEL_SET, value, duration to NodeID
-              ZWave_Send_Switch_Multilevel_Set(gtNodeProvisioningList[lucDSKIndex].NodeID, lucSwitchLevelState);
-
-              // Display RTC in debug output
-              luiMessageQueueBuffer = msgid_MAIN_DISPLAY_RTC;
-              osMessageQueuePut(MainQueueHandle, &luiMessageQueueBuffer, 0, 1);
-            } // endif toggle
-
             // (read its state periodically)
             // Send COMMAND_CLASS_SWITCH_MULTILEVEL, SWITCH_MULTILEVEL_GET
             ZWave_Send_Switch_Multilevel_Get(gtNodeProvisioningList[lucDSKIndex].NodeID);
-
           }
           // ENDIF node is multiswitch, toggle its output
           ///////////////////////////////////////////////////////////////////
@@ -12667,9 +12718,9 @@ void ZWaveTask(void *argument)
             gucCCBufferLength = gucReceivedCiphertextLength;
             gtZWave_CC_Handler[pgucCCBuffer[0]]();
             LOG("-----------------------  Switch Multilevel Report  END  -----------------------\r\n");
-            sprintf(lucRTCString, "20%02d.%02d.%02d %02d:%02d",
+            sprintf(lucRTCString, "20%02d.%02d.%02d %02d:%02d:%02d",
                      sMainRTCDate.Year,  sMainRTCDate.Month,   sMainRTCDate.Date,
-                     sMainRTCTime.Hours, sMainRTCTime.Minutes                     );
+                     sMainRTCTime.Hours, sMainRTCTime.Minutes, sMainRTCTime.Seconds  );
             LOG("%s: Zone=%d Timestamp=%s type=%d Value=%d \r\n", __FUNCTION__, lucDSKIndex+1, lucRTCString, 0, gucDecryptedPlaintext[2]);
 
           }
