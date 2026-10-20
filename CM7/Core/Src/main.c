@@ -8054,6 +8054,19 @@ void ZWave_Rx_CC_84_Wake_Up_V3(void)
     break;
   }
 
+  //  ------------------- WAKE_UP_INTERVAL_REPORT_V3 -----------------------------------------
+  if (WAKE_UP_INTERVAL_REPORT_V3             == pgucCCBuffer[1])
+  {
+    LOG("%s: Seconds (MSB)   = 0x%02X \r\n", __FUNCTION__, pgucCCBuffer[2]);
+    LOG("%s: Seconds         = 0x%02X \r\n", __FUNCTION__, pgucCCBuffer[3]);
+    LOG("%s: Seconds (LSB)   = 0x%02X \r\n", __FUNCTION__, pgucCCBuffer[4]);
+    uint32_t lulIntervalSeconds = (0x10000*pgucCCBuffer[2]) + (0x100*pgucCCBuffer[3]) + pgucCCBuffer[4];
+    LOG("%s: - %d seconds between wakeups \r\n", __FUNCTION__, lulIntervalSeconds);
+
+    LOG("%s: NodeID          = 0x%02X \r\n", __FUNCTION__, pgucCCBuffer[5]);
+  }
+
+
 }
 // end ZWave_Rx_CC_84_Wake_Up_V3
 
@@ -9448,6 +9461,44 @@ void ZWave_Send_Switch_Multilevel_Set(uint16_t auiNodeID, uint8_t aucSwitchLevel
   }
 }
 // end ZWave_Send_Switch_Multilevel_Set
+
+/** *****************************************************************************************************************************
+  * @brief  Prepare and send Wakeup Interval_Get
+  * @param  uint16_t auiNodeID - 2-byte NodeID to search in provisioning list
+  * @retval None
+  */
+void ZWave_Send_Wakeup_Interval_Get(uint16_t auiNodeID)
+{
+  uint8_t lucWakeupIntervalGet[2];
+  uint8_t lucDSKIndex;
+
+  lucDSKIndex = ZWave_Scan_ProvisioningList_For_NodeID(auiNodeID);
+  if (lucDSKIndex >= NODE_PROVISIONING_LIST_COUNT )
+  {
+    LOG("%s: *** ERROR *** invalid DSK index \r\n", __FUNCTION__);
+  }
+  else
+  {
+    //LOG("%s: NodeID 0x%04X \t DSK %d \r\n", __FUNCTION__, auiNodeID, lucDSKIndex);
+
+    // Send encrypted Wakeup Interval_Get
+    LOG("%s: Send encrypted Wakeup Interval_Get \r\n", __FUNCTION__);
+
+    // (Prep the Wakeup Interval_Get)
+    lucWakeupIntervalGet[0] = COMMAND_CLASS_WAKE_UP_V3;
+    lucWakeupIntervalGet[1] = WAKE_UP_INTERVAL_GET_V3;
+    LOG("-----------------------  Wakeup Interval_Get START -----------------------\r\n");
+    // Invoke the command class handler
+    pgucCCBuffer = lucWakeupIntervalGet;
+    gucCCBufferLength = sizeof(lucWakeupIntervalGet);
+    gtZWave_CC_Handler[pgucCCBuffer[0]]();
+    LOG("-----------------------  Wakeup Interval_Get  END  -----------------------\r\n");
+
+
+    ZWave_Send_Encrypted_Data(auiNodeID, lucWakeupIntervalGet, sizeof(lucWakeupIntervalGet));
+  }
+}
+// end ZWave_Send_Wakeup_Interval_Get
 
 /** *****************************************************************************************************************************
   * @brief  Prepare and send Wakeup No More Information
@@ -12812,7 +12863,7 @@ void ZWaveTask(void *argument)
           // Wakeup Notification
           //
           /////////////////////////////////////////////////////////////////////
-          if (COMMAND_CLASS_WAKE_UP_V3 == gucDecryptedPlaintext[0] &&
+          else if (COMMAND_CLASS_WAKE_UP_V3 == gucDecryptedPlaintext[0] &&
               WAKE_UP_NOTIFICATION_V3  == gucDecryptedPlaintext[1]     )
           {
             LOG("-----------------------  Wakeup Notification START -----------------------\r\n");
@@ -12826,11 +12877,32 @@ void ZWaveTask(void *argument)
             // If any messages to the remote sensor are pending,
             // send them now while the remote sensor is awake
             //
+            ZWave_Send_Wakeup_Interval_Get(guiSourceNodeID);
 
             //
             // Send Wakeup No More Information to put remote sensor back to sleep
             //
-            ZWave_Send_Wakeup_No_More_Information(guiSourceNodeID);
+            //ZWave_Send_Wakeup_No_More_Information(guiSourceNodeID);
+          }
+          /////////////////////////////////////////////////////////////////////
+          //
+          // Wakeup Interval Report
+          //
+          /////////////////////////////////////////////////////////////////////
+          else if (COMMAND_CLASS_WAKE_UP_V3 == gucDecryptedPlaintext[0] &&
+              WAKE_UP_INTERVAL_REPORT_V3  == gucDecryptedPlaintext[1]     )
+          {
+            LOG("-----------------------  Wakeup Interval Report START -----------------------\r\n");
+            // Invoke the command class handler
+            pgucCCBuffer = gucDecryptedPlaintext;
+            gucCCBufferLength = gucReceivedCiphertextLength;
+            gtZWave_CC_Handler[pgucCCBuffer[0]]();
+            LOG("-----------------------  Wakeup Interval Report  END  -----------------------\r\n");
+
+            //
+            // Send Wakeup No More Information to put remote sensor back to sleep
+            //
+            //ZWave_Send_Wakeup_No_More_Information(guiSourceNodeID);
           }
           /////////////////////////////////////////////////////////////////////
           //
