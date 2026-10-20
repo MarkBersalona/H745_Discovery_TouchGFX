@@ -904,6 +904,7 @@ void ZWave_RES_CMD_DF_Set_DCDC_Config(void);
 void ZWave_RES_CMD_E8_Get_Radio_PTI(void);
 void ZWave_RES_CMD_XX_Unsupported(void);
 void ZWave_Rx_CC_26_Switch_Multilevel_V4(void);
+void ZWave_Rx_CC_31_Sensor_Multilevel_V11(void);
 void ZWave_Rx_CC_84_Wake_Up_V3(void);
 void ZWave_Rx_CC_9F_Security_2_V2(void);
 void ZWave_Rx_CC_XX_Unsupported(void);
@@ -8010,6 +8011,74 @@ void ZWave_Rx_CC_26_Switch_Multilevel_V4(void)
 // end ZWave_Rx_CC_26_Switch_Multilevel_V4
 
 /** *****************************************************************************************************************************
+  * @brief  Command class handler for CC 0x31 COMMAND_CLASS_SENSOR_MULTILEVEL_V11
+  * @param  None
+  * @retval None
+  */
+void ZWave_Rx_CC_31_Sensor_Multilevel_V11(void)
+{
+  uint8_t lucExtensionLength;
+  uint8_t* plucExtensionLocation;
+  uint8_t lucExtensionOptions;
+
+  // Assume pgucCCBuffer and gucCCBufferLength have already been assigned
+
+  LOG("%s: Command class   = 0x%02X \r\n", __FUNCTION__, pgucCCBuffer[0]);
+  LOG("%s: - COMMAND_CLASS_SENSOR_MULTILEVEL_V11 \r\n", __FUNCTION__);
+
+  LOG("%s: Security header = 0x%02X \r\n", __FUNCTION__, pgucCCBuffer[1]);
+  switch (pgucCCBuffer[1])
+  {
+  case SENSOR_MULTILEVEL_SUPPORTED_GET_SENSOR_V11:
+    LOG("%s: - SENSOR_MULTILEVEL_SUPPORTED_GET_SENSOR_V11 \r\n", __FUNCTION__)
+    break;
+  case SENSOR_MULTILEVEL_SUPPORTED_SENSOR_REPORT_V11:
+    LOG("%s: - SENSOR_MULTILEVEL_SUPPORTED_SENSOR_REPORT_V11 \r\n", __FUNCTION__)
+    break;
+  case SENSOR_MULTILEVEL_SUPPORTED_GET_SCALE_V11:
+    LOG("%s: - SENSOR_MULTILEVEL_SUPPORTED_GET_SCALE_V11 \r\n", __FUNCTION__)
+    break;
+  case SENSOR_MULTILEVEL_GET_V11:
+    LOG("%s: - SENSOR_MULTILEVEL_GET_V11 \r\n", __FUNCTION__)
+    break;
+  case SENSOR_MULTILEVEL_REPORT_V11:
+    LOG("%s: - SENSOR_MULTILEVEL_REPORT_V11 \r\n", __FUNCTION__)
+    break;
+  case SENSOR_MULTILEVEL_SUPPORTED_SCALE_REPORT_V11:
+    LOG("%s: - SENSOR_MULTILEVEL_SUPPORTED_SCALE_REPORT_V11 \r\n", __FUNCTION__)
+    break;
+  case SENSOR_MULTILEVEL_VERSION_V11:
+    LOG("%s: - SENSOR_MULTILEVEL_VERSION_V11 \r\n", __FUNCTION__)
+    break;
+  default:
+    LOG("%s: - *** WARNING *** Security header UNKNOWN \r\n", __FUNCTION__)
+    break;
+  }
+
+  //  ------------------- SENSOR_MULTILEVEL_SUPPORTED_SENSOR_REPORT_V11 -----------------------------------------
+  if (SENSOR_MULTILEVEL_SUPPORTED_SENSOR_REPORT_V11             == pgucCCBuffer[1])
+  {
+    PrintBytes(&pgucCCBuffer[2], gucReceivedCiphertextLength-2, false, 0);
+    uint8_t lucSensorType = 0;
+
+    for (uint8_t lucByteIndex = 0; lucByteIndex < gucReceivedCiphertextLength-2; ++lucByteIndex)
+    {
+      LOG("%s: Bitmask %d       = 0x%02X \r\n", __FUNCTION__, lucByteIndex+1, pgucCCBuffer[2+lucByteIndex]);
+      for (uint8_t lucBitIndex = 0; lucBitIndex < 8; ++lucBitIndex)
+      {
+        ++lucSensorType;
+        if (pgucCCBuffer[2+lucByteIndex] & (0x01 << lucBitIndex))
+        {
+          LOG("%s: - Sensor type 0x%02X is present \r\n", __FUNCTION__, lucSensorType);
+        }
+      }
+    }
+  }
+
+}
+// end ZWave_Rx_CC_31_Sensor_Multilevel_V11
+
+/** *****************************************************************************************************************************
   * @brief  Command class handler for CC 0x84 COMMAND_CLASS_WAKE_UP_V3
   * @param  None
   * @retval None
@@ -9309,6 +9378,44 @@ void ZWave_Send_Encrypted_Data_Temporary(uint16_t auiNodeID, uint8_t* paucPlaint
   // endif valid NodeID and DSK index
 }
 // end ZWave_Send_Encrypted_Data_Temporary
+
+/** *****************************************************************************************************************************
+  * @brief  Prepare and send Multilevel Sensor Get Supported Sensor
+  * @param  uint16_t auiNodeID - 2-byte NodeID to search in provisioning list (or 0xFFFF for Temporary REI)
+  * @retval None
+  */
+void ZWave_Send_Multilevel_Sensor_Get_Supported_Sensor(uint16_t auiNodeID)
+{
+  uint8_t lucMultilevelSensorGetSupportedSensor[2];
+  uint8_t lucDSKIndex;
+
+  lucDSKIndex = ZWave_Scan_ProvisioningList_For_NodeID(auiNodeID);
+  if (lucDSKIndex >= NODE_PROVISIONING_LIST_COUNT )
+  {
+    LOG("%s: *** ERROR *** invalid DSK index \r\n", __FUNCTION__);
+  }
+  else
+  {
+    //LOG("%s: NodeID 0x%04X \t DSK %d \r\n", __FUNCTION__, auiNodeID, lucDSKIndex);
+
+    // Send encrypted Multilevel Sensor Get Supported Sensor
+    LOG("%s: Send encrypted Multilevel Sensor Get Supported Sensor \r\n", __FUNCTION__);
+
+    // (Prep the Multilevel Sensor Get Supported Sensor Get)
+    lucMultilevelSensorGetSupportedSensor[0] = COMMAND_CLASS_SENSOR_MULTILEVEL_V11;
+    lucMultilevelSensorGetSupportedSensor[1] = SENSOR_MULTILEVEL_SUPPORTED_GET_SENSOR_V11;
+    LOG("-----------------------  Multilevel Sensor Get Supported Sensor START -----------------------\r\n");
+    // Invoke the command class handler
+    pgucCCBuffer = lucMultilevelSensorGetSupportedSensor;
+    gucCCBufferLength = sizeof(lucMultilevelSensorGetSupportedSensor);
+    gtZWave_CC_Handler[pgucCCBuffer[0]]();
+    LOG("-----------------------  Multilevel Sensor Get Supported Sensor  END  -----------------------\r\n");
+
+
+    ZWave_Send_Encrypted_Data(auiNodeID, lucMultilevelSensorGetSupportedSensor, sizeof(lucMultilevelSensorGetSupportedSensor));
+  }
+}
+// end ZWave_Send_Multilevel_Sensor_Get_Supported_Sensor
 
 /** *****************************************************************************************************************************
   * @brief  Prepare and send Nonce Report
@@ -12095,6 +12202,7 @@ void ZWaveTask(void *argument)
 
   // Also fill in the entries for supported command class handler routines
   gtZWave_CC_Handler[COMMAND_CLASS_SWITCH_MULTILEVEL_V4]          = ZWave_Rx_CC_26_Switch_Multilevel_V4;
+  gtZWave_CC_Handler[COMMAND_CLASS_SENSOR_MULTILEVEL_V11]         = ZWave_Rx_CC_31_Sensor_Multilevel_V11;
   gtZWave_CC_Handler[COMMAND_CLASS_WAKE_UP_V3]                    = ZWave_Rx_CC_84_Wake_Up_V3;
   gtZWave_CC_Handler[COMMAND_CLASS_SECURITY_2_V2]                 = ZWave_Rx_CC_9F_Security_2_V2;
   // Here's a handy template when implementing command class handlers in the future
@@ -12877,12 +12985,28 @@ void ZWaveTask(void *argument)
             // If any messages to the remote sensor are pending,
             // send them now while the remote sensor is awake
             //
-            ZWave_Send_Wakeup_Interval_Get(guiSourceNodeID);
+            //ZWave_Send_Wakeup_Interval_Get(guiSourceNodeID);
+            ZWave_Send_Multilevel_Sensor_Get_Supported_Sensor(guiSourceNodeID);
 
             //
             // Send Wakeup No More Information to put remote sensor back to sleep
             //
             //ZWave_Send_Wakeup_No_More_Information(guiSourceNodeID);
+          }
+          /////////////////////////////////////////////////////////////////////
+          //
+          // Multilevel Sensor Supported Sensor Report
+          //
+          /////////////////////////////////////////////////////////////////////
+          else if (COMMAND_CLASS_SENSOR_MULTILEVEL_V11      == gucDecryptedPlaintext[0] &&
+              SENSOR_MULTILEVEL_SUPPORTED_SENSOR_REPORT_V11  == gucDecryptedPlaintext[1]     )
+          {
+            LOG("-----------------------  Multilevel Sensor Supported Sensor Report START -----------------------\r\n");
+            // Invoke the command class handler
+            pgucCCBuffer = gucDecryptedPlaintext;
+            gucCCBufferLength = gucReceivedCiphertextLength;
+            gtZWave_CC_Handler[pgucCCBuffer[0]]();
+            LOG("-----------------------  Multilevel Sensor Supported Sensor Report  END  -----------------------\r\n");
           }
           /////////////////////////////////////////////////////////////////////
           //
