@@ -429,7 +429,7 @@ const char* pgcZWave_CC_Names[256] =
 
     // 0x30 - 0x3F
     "xxxxxxxxx",
-    "xxxxxxxxx",
+    "COMMAND_CLASS_SENSOR_MULTILEVEL_V11",
     "xxxxxxxxx",
     "COMMAND_CLASS_SWITCH_COLOR_V3",
     "xxxxxxxxx",
@@ -504,7 +504,7 @@ const char* pgcZWave_CC_Names[256] =
     "xxxxxxxxx",
 
     // 0x70 - 0x7F
-    "xxxxxxxxx",
+    "COMMAND_CLASS_CONFIGURATION_V4",
     "xxxxxxxxx",
     "COMMAND_CLASS_MANUFACTURER_SPECIFIC_V2",
     "COMMAND_CLASS_POWERLEVEL",
@@ -523,11 +523,11 @@ const char* pgcZWave_CC_Names[256] =
     "xxxxxxxxx",
 
     // 0x80 - 0x8F
+    "COMMAND_CLASS_BATTERY_V3",
     "xxxxxxxxx",
     "xxxxxxxxx",
     "xxxxxxxxx",
-    "xxxxxxxxx",
-    "xxxxxxxxx",
+    "COMMAND_CLASS_WAKE_UP_V3",
     "COMMAND_CLASS_ASSOCIATION_V4",
     "COMMAND_CLASS_VERSION_V3",
     "COMMAND_CLASS_INDICATOR_V4",
@@ -904,6 +904,7 @@ void ZWave_RES_CMD_DF_Set_DCDC_Config(void);
 void ZWave_RES_CMD_E8_Get_Radio_PTI(void);
 void ZWave_RES_CMD_XX_Unsupported(void);
 void ZWave_Rx_CC_26_Switch_Multilevel_V4(void);
+void ZWave_Rx_CC_84_Wake_Up_V3(void);
 void ZWave_Rx_CC_9F_Security_2_V2(void);
 void ZWave_Rx_CC_XX_Unsupported(void);
 static void ZWave_S2_Encapsulate_And_Send(uint8_t aucDSKIndex, const uint8_t* paucPlaintext, uint8_t aucLength);
@@ -3223,9 +3224,7 @@ ZWave_Bootstrap_StateMachine
       ENDIF
     ELSE IF state is TEMP_NONCE_SET
       IF encrypted message received
-        Establish Temporary SPAN (if needed)
         LOOP WHILE (KEX Set not decrypted AND retries available)
-          Generate NextNonce
           Decrypt received message
           IF successfully decrypted KEX Set
             Reset elapsed time for next state
@@ -3241,7 +3240,6 @@ ZWave_Bootstrap_StateMachine
       ENDIF
     ELSE IF state is NETWORK_KEY_GET
       IF encrypted message received
-        Generate NextNonce
         Decrypt received message
         IF successfully decrypted Network Key Get
           Reset elapsed time for next state
@@ -3257,8 +3255,6 @@ ZWave_Bootstrap_StateMachine
       ENDIF
     ELSE IF state is NETWORK_KEY_VERIFY
       IF encrypted message received
-        Establish SPAN for this DSK/NodeID
-        Generate NextNonce
         Decrypt received message with Network Key and SPAN
         IF successfully decrypted Network Key Verify
           Reset elapsed time for next state
@@ -3272,13 +3268,11 @@ ZWave_Bootstrap_StateMachine
       ENDIF
     ELSE IF state is NETWORK_VERIFY_SPAN
       IF Nonce Report is received
-        Re-establish Temporary SPAN
         Send the Transfer End message encrypted with the Temporary Key and SPAN
         Set state to NETWORK_KEY_DONE
       ENDIF
     ELSE IF state is NETWORK_KEY_DONE
       IF encrypted message received
-        Generate NextNonce
         Decrypt received message
         IF successfully decrypted Transfer End
           Set state to COMPLETE
@@ -3587,14 +3581,6 @@ BootstrapState ZWave_Bootstrap_StateMachine(BootstrapStateMachineCommand stateMa
         // (reset so subsequent KEX Set retries from end node may be processed also)
         gucIsEncryptedMsgReceived = FALSE;
 
-        // Establish Temporary SPAN (if needed)
-        liSPANResult = 0;
-        if (FALSE == gtTemporaryConnection.SPAN.IsActive)
-        {
-          liSPANResult = ZWave_Temporary_SPAN_Establish();
-          if (0 != liSPANResult) LOG("%s: *** WARNING *** liSPANResult = %d \r\n", __FUNCTION__, liSPANResult);
-        }
-
         // LOOP WHILE (KEX Set not decrypted AND retries available)
         liDecryptKEXSetSuccessful = FALSE;
         uint8_t lucKEXSetDecryptAttempts = 1;
@@ -3806,14 +3792,6 @@ BootstrapState ZWave_Bootstrap_StateMachine(BootstrapStateMachineCommand stateMa
       {
         // (reset so subsequent retries from end node may be processed also)
         gucIsEncryptedMsgReceived = FALSE;
-
-        // Establish SPAN for this DSK/NodeID
-        liSPANResult = 0;
-        if (FALSE == gtNodeConnectionList[gucProcessingDSK].SPAN.IsActive)
-        {
-          liSPANResult = ZWave_Network_SPAN_Establish(gucProcessingDSK);
-          if (0 != liSPANResult) LOG("%s: *** WARNING *** liSPANResult for DSK %d = %d \r\n", __FUNCTION__, gucProcessingDSK, liSPANResult);
-        }
 
         // Decrypt received message with Network Key and SPAN
         liDecryptNetworkKeyVerifySuccessful = ZWave_Decrypt_Received_Data(gtNodeProvisioningList[gucProcessingDSK].NodeID, lucNetworkKeyVerify);
@@ -4068,6 +4046,7 @@ uint8_t ZWave_Decrypt_Received_Data(uint16_t auiNodeID, uint8_t* paucDecryptBuff
   int liAesInitResult;
   int liAesSetKeyResult;
   int liDecryptResult;
+  static int liSPANResult;
   Aes aes;
   uint8_t lucDecryptSuccessful;
 
@@ -4094,6 +4073,14 @@ uint8_t ZWave_Decrypt_Received_Data(uint16_t auiNodeID, uint8_t* paucDecryptBuff
     // Decrypt using temporary key and SPAN
     //
     //////////////////////////////////////////
+    // Establish Temporary SPAN (if needed)
+    liSPANResult = 0;
+    if (FALSE == gtTemporaryConnection.SPAN.IsActive)
+    {
+      liSPANResult = ZWave_Temporary_SPAN_Establish();
+      if (0 != liSPANResult) LOG("%s: *** WARNING *** liSPANResult = %d \r\n", __FUNCTION__, liSPANResult);
+    }
+
     // Generate NextNonce
     liNextNonceResult = CTR_DRBG_Generate_16_Random_Bytes(&gtTemporaryConnection.SPAN, gtTemporaryConnection.SPAN.Nonce);
     if (0 != liNextNonceResult) LOG("%s: *** WARNING *** liNextNonceResult = %d \r\n", __FUNCTION__, liNextNonceResult);
@@ -4130,6 +4117,14 @@ uint8_t ZWave_Decrypt_Received_Data(uint16_t auiNodeID, uint8_t* paucDecryptBuff
     // Decrypt using network key and SPAN
     //
     //////////////////////////////////////////
+    // Establish SPAN for this DSK/NodeID
+    liSPANResult = 0;
+    if (FALSE == gtNodeConnectionList[gucProcessingDSK].SPAN.IsActive)
+    {
+      liSPANResult = ZWave_Network_SPAN_Establish(gucProcessingDSK);
+      if (0 != liSPANResult) LOG("%s: *** WARNING *** liSPANResult for DSK %d = %d \r\n", __FUNCTION__, gucProcessingDSK, liSPANResult);
+    }
+
     // Generate NextNonce
     liNextNonceResult = CTR_DRBG_Generate_16_Random_Bytes(&gtNodeConnectionList[lucDSKIndex].SPAN, gtNodeConnectionList[lucDSKIndex].SPAN.Nonce);
     if (0 != liNextNonceResult) LOG("%s: *** WARNING *** liNextNonceResult = %d \r\n", __FUNCTION__, liNextNonceResult);
@@ -8015,6 +8010,54 @@ void ZWave_Rx_CC_26_Switch_Multilevel_V4(void)
 // end ZWave_Rx_CC_26_Switch_Multilevel_V4
 
 /** *****************************************************************************************************************************
+  * @brief  Command class handler for CC 0x84 COMMAND_CLASS_WAKE_UP_V3
+  * @param  None
+  * @retval None
+  */
+void ZWave_Rx_CC_84_Wake_Up_V3(void)
+{
+  uint8_t lucExtensionLength;
+  uint8_t* plucExtensionLocation;
+  uint8_t lucExtensionOptions;
+
+  // Assume pgucCCBuffer and gucCCBufferLength have already been assigned
+
+  LOG("%s: Command class   = 0x%02X \r\n", __FUNCTION__, pgucCCBuffer[0]);
+  LOG("%s: - COMMAND_CLASS_WAKE_UP_V3 \r\n", __FUNCTION__);
+
+  LOG("%s: Security header = 0x%02X \r\n", __FUNCTION__, pgucCCBuffer[1]);
+  switch (pgucCCBuffer[1])
+  {
+  case WAKE_UP_INTERVAL_SET_V3:
+    LOG("%s: - WAKE_UP_INTERVAL_SET_V3 \r\n", __FUNCTION__)
+    break;
+  case WAKE_UP_INTERVAL_GET_V3:
+    LOG("%s: - WAKE_UP_INTERVAL_GET_V3 \r\n", __FUNCTION__)
+    break;
+  case WAKE_UP_INTERVAL_REPORT_V3:
+    LOG("%s: - WAKE_UP_INTERVAL_REPORT_V3 \r\n", __FUNCTION__)
+    break;
+  case WAKE_UP_NOTIFICATION_V3:
+    LOG("%s: - WAKE_UP_NOTIFICATION_V3 \r\n", __FUNCTION__)
+    break;
+  case WAKE_UP_NO_MORE_INFORMATION_V3:
+    LOG("%s: - WAKE_UP_NO_MORE_INFORMATION_V3 \r\n", __FUNCTION__)
+    break;
+  case WAKE_UP_INTERVAL_CAPABILITIES_GET_V3:
+    LOG("%s: - WAKE_UP_INTERVAL_CAPABILITIES_GET_V3 \r\n", __FUNCTION__)
+    break;
+  case WAKE_UP_INTERVAL_CAPABILITIES_REPORT_V3:
+    LOG("%s: - WAKE_UP_INTERVAL_CAPABILITIES_REPORT_V3 \r\n", __FUNCTION__)
+    break;
+  default:
+    LOG("%s: - *** WARNING *** Security header UNKNOWN \r\n", __FUNCTION__)
+    break;
+  }
+
+}
+// end ZWave_Rx_CC_84_Wake_Up_V3
+
+/** *****************************************************************************************************************************
   * @brief  Command class handler for CC 0x9F COMMAND_CLASS_SECURITY_2_V2
   * @param  None
   * @retval None
@@ -8317,7 +8360,8 @@ void ZWave_Rx_CC_9F_Security_2_V2(void)
             // But first, zeroize temporary SPAN
             CTR_DRBG_Zeroize_SPAN(&gtTemporaryConnection.SPAN);
           }
-          if (BOOTSTRAP_NETWORK_KEY_VERIFY == geBootstrapState)
+          if (BOOTSTRAP_NETWORK_KEY_VERIFY == geBootstrapState ||
+              SMARTSTART_CONNECTED == gtNodeProvisioningList[gucProcessingDSK].status)
           {
             LOG("%s: - saving Sender's Entropy Input (SEI) for DSK %d \r\n", __FUNCTION__, gucProcessingDSK);
             memcpy(gtNodeProvisioningList[gucProcessingDSK].SEI, &pgucCCBuffer[6+lucExtensionOffset], 16);
@@ -9404,6 +9448,44 @@ void ZWave_Send_Switch_Multilevel_Set(uint16_t auiNodeID, uint8_t aucSwitchLevel
   }
 }
 // end ZWave_Send_Switch_Multilevel_Set
+
+/** *****************************************************************************************************************************
+  * @brief  Prepare and send Wakeup No More Information
+  * @param  uint16_t auiNodeID - 2-byte NodeID to search in provisioning list
+  * @retval None
+  */
+void ZWave_Send_Wakeup_No_More_Information(uint16_t auiNodeID)
+{
+  uint8_t lucWakeupNoMoreInformation[2];
+  uint8_t lucDSKIndex;
+
+  lucDSKIndex = ZWave_Scan_ProvisioningList_For_NodeID(auiNodeID);
+  if (lucDSKIndex >= NODE_PROVISIONING_LIST_COUNT )
+  {
+    LOG("%s: *** ERROR *** invalid DSK index \r\n", __FUNCTION__);
+  }
+  else
+  {
+    //LOG("%s: NodeID 0x%04X \t DSK %d \r\n", __FUNCTION__, auiNodeID, lucDSKIndex);
+
+    // Send encrypted Wakeup No More Information
+    LOG("%s: Send encrypted Wakeup No More Information \r\n", __FUNCTION__);
+
+    // (Prep the Wakeup No More Information)
+    lucWakeupNoMoreInformation[0] = COMMAND_CLASS_WAKE_UP_V3;
+    lucWakeupNoMoreInformation[1] = WAKE_UP_NO_MORE_INFORMATION_V3;
+    LOG("-----------------------  Wakeup No More Information START -----------------------\r\n");
+    // Invoke the command class handler
+    pgucCCBuffer = lucWakeupNoMoreInformation;
+    gucCCBufferLength = sizeof(lucWakeupNoMoreInformation);
+    gtZWave_CC_Handler[pgucCCBuffer[0]]();
+    LOG("-----------------------  Wakeup No More Information  END  -----------------------\r\n");
+
+
+    ZWave_Send_Encrypted_Data(auiNodeID, lucWakeupNoMoreInformation, sizeof(lucWakeupNoMoreInformation));
+  }
+}
+// end ZWave_Send_Wakeup_No_More_Information
 
 /** *****************************************************************************************************************************
   * @brief  Prepare and send REQ CMD 02 Serial API Get Init Data
@@ -11879,7 +11961,7 @@ void ZWaveTask(void *argument)
   static uint8_t lucOldHour   = 100; // Nonsense initial value guarantees update when RTC first read
   static uint8_t lucCountdownToRepeatedZWaveCommands_minutes = 30;
   #define NODE_PL_UPDATE_INTERVAL_MINUTES (60)
-  #define NODE_PL_DISPLAY_INTERVAL_MINUTES (5)
+  #define NODE_PL_DISPLAY_INTERVAL_MINUTES (60)
   //// TEST MAB 2026.10.16 #define NODE_PL_DISPLAY_INTERVAL_MINUTES (8*60)
   #define CONNECTED_ACTIVITY_INTERVAL_SECONDS (1*60)
   //// TEST MAB 2026.10.16 #define CONNECTED_ACTIVITY_INTERVAL_SECONDS (12*60*60)
@@ -11962,6 +12044,7 @@ void ZWaveTask(void *argument)
 
   // Also fill in the entries for supported command class handler routines
   gtZWave_CC_Handler[COMMAND_CLASS_SWITCH_MULTILEVEL_V4]          = ZWave_Rx_CC_26_Switch_Multilevel_V4;
+  gtZWave_CC_Handler[COMMAND_CLASS_WAKE_UP_V3]                    = ZWave_Rx_CC_84_Wake_Up_V3;
   gtZWave_CC_Handler[COMMAND_CLASS_SECURITY_2_V2]                 = ZWave_Rx_CC_9F_Security_2_V2;
   // Here's a handy template when implementing command class handlers in the future
   //gtZWave_CC_Handler[xxxxxxxxxxxxxxxxxx] = xxxxxxxxxxxxxxxxx;
@@ -12031,7 +12114,7 @@ void ZWaveTask(void *argument)
   if (lucAvailableDSKIndex != DSK_UNAVAILABLE)
   {
     gtNodeProvisioningList[lucAvailableDSKIndex].NodeID = NODE_ID_UNAVAILABLE; // initialize NodeID
-    ZWave_DSK_Write_From_String(lucAvailableDSKIndex, "14243-27274-60778-20660-35863-37075-18465-14419");
+    ZWave_DSK_Write_From_String(lucAvailableDSKIndex, "24885-46461-09306-35598-41867-53488-08856-30122");
     memset(lucDSKString, 0x00, sizeof(lucDSKString));
     ZWave_DSK_Write_To_String(lucAvailableDSKIndex, lucDSKString);
     LOG("%s: DSK %d: %s\r\n", __FUNCTION__, lucAvailableDSKIndex, lucDSKString);
@@ -12723,6 +12806,31 @@ void ZWaveTask(void *argument)
                      sMainRTCTime.Hours, sMainRTCTime.Minutes, sMainRTCTime.Seconds  );
             LOG("%s: Zone=%d Timestamp=%s type=%d Value=%d \r\n", __FUNCTION__, lucDSKIndex+1, lucRTCString, 0, gucDecryptedPlaintext[2]);
 
+          }
+          /////////////////////////////////////////////////////////////////////
+          //
+          // Wakeup Notification
+          //
+          /////////////////////////////////////////////////////////////////////
+          if (COMMAND_CLASS_WAKE_UP_V3 == gucDecryptedPlaintext[0] &&
+              WAKE_UP_NOTIFICATION_V3  == gucDecryptedPlaintext[1]     )
+          {
+            LOG("-----------------------  Wakeup Notification START -----------------------\r\n");
+            // Invoke the command class handler
+            pgucCCBuffer = gucDecryptedPlaintext;
+            gucCCBufferLength = gucReceivedCiphertextLength;
+            gtZWave_CC_Handler[pgucCCBuffer[0]]();
+            LOG("-----------------------  Wakeup Notification  END  -----------------------\r\n");
+
+            //
+            // If any messages to the remote sensor are pending,
+            // send them now while the remote sensor is awake
+            //
+
+            //
+            // Send Wakeup No More Information to put remote sensor back to sleep
+            //
+            ZWave_Send_Wakeup_No_More_Information(guiSourceNodeID);
           }
           /////////////////////////////////////////////////////////////////////
           //
