@@ -404,6 +404,22 @@ typedef struct {
 
 #define S2_MAX_PLAINTEXT_LENGTH  (50)    // 80-byte tx buffer - 22 (header + SPAN ext) - 8 (tag)
 #define S2_RESEND_WINDOW_MS      (3000)  // a Nonce Report later than this isn't tied to our send
+
+#define NODE_TXQ_DEPTH          (4)
+#define NODE_TXQ_REPORT_TMO_MS  (S2_RESEND_WINDOW_MS + 2000)   // must exceed S2_RESEND_WINDOW_MS (SOS + resend round trip)
+#define NODE_TXQ_RETRIES        (2)
+
+typedef enum { TXQ_IDLE, TXQ_WAIT_TX_DONE, TXQ_WAIT_REPORT } txq_state_t;
+
+typedef struct {
+  uint8_t  Plaintext[S2_MAX_PLAINTEXT_LENGTH];
+  uint8_t  Length;
+  uint8_t  ExpectCC;        // 0 = no report expected (e.g. Set, WakeUp No More Info)
+  uint8_t  ExpectCmd;
+  uint8_t  RetriesLeft;
+} txq_item_t;
+
+
 // Node connection list
 typedef struct {
   uint16_t NodeID;                      // 2-byte NodeID
@@ -412,12 +428,14 @@ typedef struct {
   uint8_t  KeyMPAN[16];                 // KeyMPAN for the given network key
   inner_span_t SPAN;                    // SPAN for the given network key
   uint8_t  isSEIPending;                // TRUE = need new SEI
-  // Last encrypted command, kept for ONE re-send after a Nonce Report (SOS)
-  uint8_t  LastPlaintext[S2_MAX_PLAINTEXT_LENGTH];
-  uint8_t  LastPlaintextLength;    // 0 = nothing cached
-  uint32_t LastTxTick;             // HAL_GetTick() at send TODO: change this to elapsed msec
-  uint8_t  isResendAllowed;        // TRUE until the one re-send is used
+  // --- per-node transaction queue; TxQ[TxQHead] is the in-flight item ---
+  txq_item_t  TxQ[NODE_TXQ_DEPTH];
+  uint8_t     TxQHead, TxQCount;
+  txq_state_t TxQState;
+  uint32_t    TxQTick;             // HAL_GetTick() at last state change
+  uint8_t  isResendAllowed;        // one S2 SOS resend per transmission of the head item
   uint8_t  isResendRequested;      // set by the Nonce Report handler, consumed by ZWaveTask
+  uint8_t     isAwake;             // sleeping node: TRUE between WakeUp Notification and No More Info
 } cl_entry_t;
 
 

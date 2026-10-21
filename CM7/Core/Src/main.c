@@ -797,6 +797,7 @@ static const uint8_t CKDF_CONSTANT_NK[15] = {
     0x55,0x55,0x55,0x55,0x55,0x55,0x55
 };
 
+uint8_t gucSerialApiTxBusy;
 
 
 /* ***************************************************************************************************************************** */
@@ -938,6 +939,13 @@ void ZWave_Send_REQ_CMD_DA_Serial_API_Get_LR_Nodes(void);
 void ZWave_Send_REQ_CMD_DE_Get_DCDC_Config(void);
 void ZWave_Send_REQ_CMD_DF_Set_DCDC_Config(sl_dcdc_config_t atDCDCMode);
 void ZWave_Send_REQ_CMD_E8_Get_Radio_PTI(void);
+uint8_t ZWave_TxQ_Enqueue(uint16_t auiNodeID, const uint8_t* paucPlaintextBuffer, uint8_t aucPlaintextLength,
+                          uint8_t aucExpectCC, uint8_t aucExpectCmd);
+void ZWave_TxQ_On_Report(uint8_t aucDSKIndex, const uint8_t* paucPlaintextBuffer);
+void ZWave_TxQ_On_TxDone(uint8_t aucDSKIndex, uint8_t aucTxStatus);
+static void ZWave_TxQ_Pop(cl_entry_t* patNodeConnectionEntry);
+static void ZWave_TxQ_SendHead(uint8_t aucDSKIndex);
+void ZWave_TxQ_Service(uint8_t aucDSKIndex);
 #endif // ENABLE_ZWAVE_CONTROLLER_HOST
 uint8_t ZWave_SessionID_Randomize(void);
 uint8_t ZWave_SessionID_Update(uint8_t aucSessionID);
@@ -4212,79 +4220,91 @@ void ZWave_Display_Tx_Report(void)
    *           bRouteTries | bLastFailedLink.from | bLastFailedLink.to |
    *           bUsedTxpower | bMeasuredNoiseFloor | bAckDestinationUsedTxPower | bDestinationAckMeasuredRSSI |
    *           bDestinationckMeasuredNoiseFloor */
-  LOG("----------------------- Tx report START -----------------------\r\n");
-//  PrintBytes(ZWaveSerialFrame->payload, ZWaveSerialFrame->len - 3, false, 0);
-//  LOG("%s: Session ID                                    = 0x%02X \r\n", __FUNCTION__, ZWaveSerialFrame->payload[0]);
-//  LOG("%s: TX status                                     = 0x%02X \r\n", __FUNCTION__, ZWaveSerialFrame->payload[1]);
-//  switch (ZWaveSerialFrame->payload[1])
-//  {
-//  case TRANSMIT_COMPLETE_OK:
-//    LOG("%s: - transmit OK \r\n", __FUNCTION__);
-//    break;
-//  case TRANSMIT_COMPLETE_NO_ACK:
-//    LOG("%s: - transmit ERROR (no ACK received) \r\n", __FUNCTION__);
-//    break;
-//  case TRANSMIT_COMPLETE_FAIL:
-//    LOG("%s: - transmit ERROR (FAIL; network busy or jammed) \r\n", __FUNCTION__);
-//    break;
-//  case TRANSMIT_ROUTING_NOT_IDLE:
-//    LOG("%s: - transmit ERROR (routing not idle) \r\n", __FUNCTION__);
-//    break;
-//  default:
-//    LOG("%s: - *** WARNING *** txStatus value UNKNOWN \r\n", __FUNCTION__);
-//    break;
-//  }
-//
-//  LOG("%s: Transmit ticks                                = 0x%04X \r\n", __FUNCTION__, (0x100*ZWaveSerialFrame->payload[2]) + ZWaveSerialFrame->payload[3]);
-//  LOG("%s: Repeater count                                = 0x%02X \r\n", __FUNCTION__, ZWaveSerialFrame->payload[4]);
-//  LOG("%s: ACK RSSI                                      = 0x%02X \r\n", __FUNCTION__, ZWaveSerialFrame->payload[5]);
-//  LOG("%s: Repeater 0 RSSI                               = 0x%02X \r\n", __FUNCTION__, ZWaveSerialFrame->payload[6]);
-//  LOG("%s: Repeater 1 RSSI                               = 0x%02X \r\n", __FUNCTION__, ZWaveSerialFrame->payload[7]);
-//  LOG("%s: Repeater 2 RSSI                               = 0x%02X \r\n", __FUNCTION__, ZWaveSerialFrame->payload[8]);
-//  LOG("%s: Repeater 3 RSSI                               = 0x%02X \r\n", __FUNCTION__, ZWaveSerialFrame->payload[9]);
-//  LOG("%s: ACK channel num                               = 0x%02X \r\n", __FUNCTION__, ZWaveSerialFrame->payload[10]);
-//  LOG("%s: Tx  channel num                               = 0x%02X \r\n", __FUNCTION__, ZWaveSerialFrame->payload[11]);
-//  LOG("%s: Route scheme state                            = 0x%02X \r\n", __FUNCTION__, ZWaveSerialFrame->payload[12]);
-//  LOG("%s: Repeater 0 last route                         = 0x%02X \r\n", __FUNCTION__, ZWaveSerialFrame->payload[13]);
-//  LOG("%s: Repeater 1 last route                         = 0x%02X \r\n", __FUNCTION__, ZWaveSerialFrame->payload[14]);
-//  LOG("%s: Repeater 2 last route                         = 0x%02X \r\n", __FUNCTION__, ZWaveSerialFrame->payload[15]);
-//  LOG("%s: Repeater 3 last route                         = 0x%02X \r\n", __FUNCTION__, ZWaveSerialFrame->payload[16]);
-//  LOG("%s: Beam bits/last route speed                    = 0x%02X \r\n", __FUNCTION__, ZWaveSerialFrame->payload[17]);
-//  if (ZWaveSerialFrame->payload[17] & 0x40)
-//  {
-//    LOG("%s: - destination requires 1000 msec beam to be reached \r\n", __FUNCTION__);
-//  }
-//  if (ZWaveSerialFrame->payload[17] & 0x20)
-//  {
-//    LOG("%s: - destination requires  250 msec beam to be reached \r\n", __FUNCTION__);
-//  }
-//  switch (ZWaveSerialFrame->payload[17] & 0x07)
-//  {
-//  case 0x01:
-//    LOG("%s: - Z-Wave 9.6 kbits/sec \r\n", __FUNCTION__);
-//    break;
-//  case 0x02:
-//    LOG("%s: - Z-Wave 40 kbits/sec \r\n", __FUNCTION__);
-//    break;
-//  case 0x03:
-//    LOG("%s: - Z-Wave 100 kbits/sec \r\n", __FUNCTION__);
-//    break;
-//  case 0x04:
-//    LOG("%s: - Z-Wave LR 100 kbits/sec \r\n", __FUNCTION__);
-//    break;
-//  default:
-//    LOG("%s: - *** WARNING *** reserved/undefined value for Last Route Speed \r\n", __FUNCTION__);
-//    break;
-//  }
-//  LOG("%s: Routing attempts                              = 0x%02X \r\n", __FUNCTION__, ZWaveSerialFrame->payload[18]);
-//  LOG("%s: Last route failed link     functional NodeID  = 0x%02X \r\n", __FUNCTION__, ZWaveSerialFrame->payload[19]);
-//  LOG("%s: Last route failed link non-functional NodeID  = 0x%02X \r\n", __FUNCTION__, ZWaveSerialFrame->payload[20]);
-//  LOG("%s: Tx power                                      = 0x%02X \r\n", __FUNCTION__, ZWaveSerialFrame->payload[21]);
-//  LOG("%s: Measured noise floor                          = 0x%02X \r\n", __FUNCTION__, ZWaveSerialFrame->payload[22]);
-//  LOG("%s: Destination ACK MPDU Tx power                 = 0x%02X \r\n", __FUNCTION__, ZWaveSerialFrame->payload[23]);
-//  LOG("%s: Destination ACK MPDU measured RSSI            = 0x%02X \r\n", __FUNCTION__, ZWaveSerialFrame->payload[24]);
-//  LOG("%s: Destination ACK MPDU measured noise floor     = 0x%02X \r\n", __FUNCTION__, ZWaveSerialFrame->payload[25]);
-  LOG("----------------------- Tx report  END  -----------------------\r\n");
+
+  //
+  // Display Tx Report only if TX status is NOT OK
+  //
+  if (TRANSMIT_COMPLETE_OK != ZWaveSerialFrame->payload[1])
+  {
+    LOG("%s: *** WARNING *** transmit error detected \r\n", __FUNCTION__);
+    LOG("----------------------- Tx report START -----------------------\r\n");
+    PrintBytes(ZWaveSerialFrame->payload, ZWaveSerialFrame->len - 3, false, 0);
+    LOG("%s: Session ID                                    = 0x%02X \r\n", __FUNCTION__, ZWaveSerialFrame->payload[0]);
+    LOG("%s: TX status                                     = 0x%02X \r\n", __FUNCTION__, ZWaveSerialFrame->payload[1]);
+    switch (ZWaveSerialFrame->payload[1])
+    {
+    case TRANSMIT_COMPLETE_OK:
+      LOG("%s: - transmit OK \r\n", __FUNCTION__);
+      break;
+    case TRANSMIT_COMPLETE_NO_ACK:
+      LOG("%s: - transmit ERROR (no ACK received) \r\n", __FUNCTION__);
+      break;
+    case TRANSMIT_COMPLETE_FAIL:
+      LOG("%s: - transmit ERROR (FAIL; network busy or jammed) \r\n", __FUNCTION__);
+      break;
+    case TRANSMIT_ROUTING_NOT_IDLE:
+      LOG("%s: - transmit ERROR (routing not idle) \r\n", __FUNCTION__);
+      break;
+    default:
+      LOG("%s: - *** WARNING *** txStatus value UNKNOWN \r\n", __FUNCTION__);
+      break;
+    }
+
+    LOG("%s: Transmit ticks                                = 0x%04X \r\n", __FUNCTION__, (0x100*ZWaveSerialFrame->payload[2]) + ZWaveSerialFrame->payload[3]);
+    LOG("%s: Repeater count                                = 0x%02X \r\n", __FUNCTION__, ZWaveSerialFrame->payload[4]);
+    LOG("%s: ACK RSSI                                      = 0x%02X \r\n", __FUNCTION__, ZWaveSerialFrame->payload[5]);
+    LOG("%s: Repeater 0 RSSI                               = 0x%02X \r\n", __FUNCTION__, ZWaveSerialFrame->payload[6]);
+    LOG("%s: Repeater 1 RSSI                               = 0x%02X \r\n", __FUNCTION__, ZWaveSerialFrame->payload[7]);
+    LOG("%s: Repeater 2 RSSI                               = 0x%02X \r\n", __FUNCTION__, ZWaveSerialFrame->payload[8]);
+    LOG("%s: Repeater 3 RSSI                               = 0x%02X \r\n", __FUNCTION__, ZWaveSerialFrame->payload[9]);
+    LOG("%s: ACK channel num                               = 0x%02X \r\n", __FUNCTION__, ZWaveSerialFrame->payload[10]);
+    LOG("%s: Tx  channel num                               = 0x%02X \r\n", __FUNCTION__, ZWaveSerialFrame->payload[11]);
+    LOG("%s: Route scheme state                            = 0x%02X \r\n", __FUNCTION__, ZWaveSerialFrame->payload[12]);
+    LOG("%s: Repeater 0 last route                         = 0x%02X \r\n", __FUNCTION__, ZWaveSerialFrame->payload[13]);
+    LOG("%s: Repeater 1 last route                         = 0x%02X \r\n", __FUNCTION__, ZWaveSerialFrame->payload[14]);
+    LOG("%s: Repeater 2 last route                         = 0x%02X \r\n", __FUNCTION__, ZWaveSerialFrame->payload[15]);
+    LOG("%s: Repeater 3 last route                         = 0x%02X \r\n", __FUNCTION__, ZWaveSerialFrame->payload[16]);
+    LOG("%s: Beam bits/last route speed                    = 0x%02X \r\n", __FUNCTION__, ZWaveSerialFrame->payload[17]);
+    if (ZWaveSerialFrame->payload[17] & 0x40)
+    {
+      LOG("%s: - destination requires 1000 msec beam to be reached \r\n", __FUNCTION__);
+    }
+    if (ZWaveSerialFrame->payload[17] & 0x20)
+    {
+      LOG("%s: - destination requires  250 msec beam to be reached \r\n", __FUNCTION__);
+    }
+    switch (ZWaveSerialFrame->payload[17] & 0x07)
+    {
+    case 0x01:
+      LOG("%s: - Z-Wave 9.6 kbits/sec \r\n", __FUNCTION__);
+      break;
+    case 0x02:
+      LOG("%s: - Z-Wave 40 kbits/sec \r\n", __FUNCTION__);
+      break;
+    case 0x03:
+      LOG("%s: - Z-Wave 100 kbits/sec \r\n", __FUNCTION__);
+      break;
+    case 0x04:
+      LOG("%s: - Z-Wave LR 100 kbits/sec \r\n", __FUNCTION__);
+      break;
+    default:
+      LOG("%s: - *** WARNING *** reserved/undefined value for Last Route Speed \r\n", __FUNCTION__);
+      break;
+    }
+    LOG("%s: Routing attempts                              = 0x%02X \r\n", __FUNCTION__, ZWaveSerialFrame->payload[18]);
+    LOG("%s: Last route failed link     functional NodeID  = 0x%02X \r\n", __FUNCTION__, ZWaveSerialFrame->payload[19]);
+    LOG("%s: Last route failed link non-functional NodeID  = 0x%02X \r\n", __FUNCTION__, ZWaveSerialFrame->payload[20]);
+    LOG("%s: Tx power                                      = 0x%02X \r\n", __FUNCTION__, ZWaveSerialFrame->payload[21]);
+    LOG("%s: Measured noise floor                          = 0x%02X \r\n", __FUNCTION__, ZWaveSerialFrame->payload[22]);
+    LOG("%s: Destination ACK MPDU Tx power                 = 0x%02X \r\n", __FUNCTION__, ZWaveSerialFrame->payload[23]);
+    LOG("%s: Destination ACK MPDU measured RSSI            = 0x%02X \r\n", __FUNCTION__, ZWaveSerialFrame->payload[24]);
+    LOG("%s: Destination ACK MPDU measured noise floor     = 0x%02X \r\n", __FUNCTION__, ZWaveSerialFrame->payload[25]);
+    LOG("----------------------- Tx report  END  -----------------------\r\n");
+  }
+  else
+  {
+    LOG("%s: Transmit OK \r\n", __FUNCTION__);
+  }
 }
 // end ZWave_Display_Tx_Report
 
@@ -4745,6 +4765,17 @@ void ZWave_DSK_Zeroize(uint8_t aucDSKIndex)
 
     gtNodeProvisioningList[aucDSKIndex].CC_list_length = 0;
     memset(gtNodeProvisioningList[aucDSKIndex].CC_list_buffer, 0x00, sizeof(gtNodeProvisioningList[aucDSKIndex].CC_list_buffer));
+
+    // Zeroize the node connection list as well
+    gtNodeConnectionList[aucDSKIndex].NodeID = NODE_ID_UNAVAILABLE; // initialize NodeID to unavailable
+    memset(gtNodeConnectionList[aucDSKIndex].KeyCCM, 0x00, 16);
+    memset(gtNodeConnectionList[aucDSKIndex].PersonalizationString, 0x00, 32);
+    memset(gtNodeConnectionList[aucDSKIndex].KeyMPAN, 0x00, 16);
+    memset(gtNodeConnectionList[aucDSKIndex].TxQ, 0x00, sizeof(txq_item_t)*NODE_TXQ_DEPTH);
+    gtNodeConnectionList[aucDSKIndex].isResendAllowed = FALSE;
+    gtNodeConnectionList[aucDSKIndex].isResendRequested = FALSE;
+    gtNodeConnectionList[aucDSKIndex].isAwake = FALSE;
+
   }
   else
   {
@@ -6604,6 +6635,7 @@ void ZWave_RSQ_CMD_13_ZW_Send_Data(void)
     else
     {
       LOG("%s: - No further data are expected\r\n", __FUNCTION__);
+      gucSerialApiTxBusy = FALSE;
     }
   }
   else
@@ -6612,6 +6644,10 @@ void ZWave_RSQ_CMD_13_ZW_Send_Data(void)
     // Handle the REQUEST with assorted data
     //////////////////////////////////////////////////////
     ZWave_Display_Tx_Report();
+    //uint8_t lucSessionID = ZWaveSerialFrame->payload[0];
+    uint8_t lucTxStatus = ZWaveSerialFrame->payload[1];
+    gucSerialApiTxBusy = FALSE;
+    ZWave_TxQ_On_TxDone(gucProcessingDSK, lucTxStatus);
   }
 }
 // end ZWave_RSQ_CMD_13_ZW_Send_Data
@@ -7733,6 +7769,7 @@ void ZWave_RES_CMD_A9_ZW_Send_Data_Bridge(void)
     else
     {
       LOG("%s: - No further data are expected\r\n", __FUNCTION__);
+      gucSerialApiTxBusy = FALSE;
     }
   }
   else
@@ -7741,6 +7778,10 @@ void ZWave_RES_CMD_A9_ZW_Send_Data_Bridge(void)
     // Handle the REQUEST with assorted data
     //////////////////////////////////////////////////////
     ZWave_Display_Tx_Report();
+    //uint8_t lucSessionID = ZWaveSerialFrame->payload[0];
+    uint8_t lucTxStatus = ZWaveSerialFrame->payload[1];
+    gucSerialApiTxBusy = FALSE;
+    ZWave_TxQ_On_TxDone(gucProcessingDSK, lucTxStatus);
  }
 }
 // end ZWave_RES_CMD_A9_ZW_Send_Data_Bridge
@@ -8301,8 +8342,7 @@ void ZWave_Rx_CC_9F_Security_2_V2(void)
         //// TEST MAB 2026.10.14
         //// Per Claude AI, flag for possible retransmit
         cl_entry_t* ptConn = &gtTemporaryConnection;
-        if (ptConn->isResendAllowed && ptConn->LastPlaintextLength &&
-            (HAL_GetTick() - ptConn->LastTxTick) < S2_RESEND_WINDOW_MS)
+        if (ptConn->isResendAllowed)
         {
           LOG("%s: - flagging for potential retransmit \r\n", __FUNCTION__);
           ptConn->isResendRequested = TRUE;
@@ -8327,8 +8367,7 @@ void ZWave_Rx_CC_9F_Security_2_V2(void)
           //// TEST MAB 2026.10.13
           //// Per Claude AI, flag for possible retransmit
           cl_entry_t* ptConn = &gtNodeConnectionList[gucProcessingDSK];
-          if (ptConn->isResendAllowed && ptConn->LastPlaintextLength &&
-              (HAL_GetTick() - ptConn->LastTxTick) < S2_RESEND_WINDOW_MS)
+          if (ptConn->isResendAllowed)
           {
             ptConn->isResendRequested = TRUE;
           }
@@ -8819,73 +8858,6 @@ void ZWave_RES_CMD_XX_Unsupported(void)
 // end ZWave_RES_CMD_XX_Unsupported
 
 /** *****************************************************************************************************************************
-  * @brief  Resend encrypted plaintext
-  * @param  uint8_t  aucDSKIndex - index into node provisioning list [0, NODE_PROVISIONING_LIST_COUNT-1]
-  * @retval None
-  */
-void ZWave_Resend_Encrypted_Data(uint8_t aucDSKIndex)
-{
-  ///////////////////////////////////////////////////////////////////////////////////////////
-  //// WARNING - This routine is only to be used for fully-connected end nodes, i.e. with
-  ////           a selected S2 network key. Encrypted plaintext with a temporary key is
-  ////           handled in the Bootstrap state machine.
-  ///////////////////////////////////////////////////////////////////////////////////////////
-
-  LOG("%s: Resending last encrypted plaintext \r\n", __FUNCTION__);
-  cl_entry_t* ptConn = &gtNodeConnectionList[aucDSKIndex];
-
-  ptConn->isResendRequested = FALSE;
-
-  if (ptConn->isResendAllowed && ptConn->LastPlaintextLength)
-  {
-    ptConn->LastTxTick      = HAL_GetTick();  // restart window, so cleanup waits for this attempt
-    // isSEIPending is already TRUE from the Nonce Report, so this frame gets a new SEI + SPAN ext
-    LOG("-----------------------  Command Class START -----------------------\r\n");
-    // Invoke the command class handler
-    pgucCCBuffer = ptConn->LastPlaintext;
-    gucCCBufferLength = ptConn->LastPlaintextLength;
-    gtZWave_CC_Handler[pgucCCBuffer[0]]();
-    LOG("-----------------------  Command Class  END  -----------------------\r\n");
-    ZWave_S2_Encapsulate_And_Send(aucDSKIndex, ptConn->LastPlaintext, ptConn->LastPlaintextLength);
-  }
-  ptConn->isResendAllowed = FALSE;          // one shot
-}
-// end ZWave_Resend_Encrypted_Data
-
-/** *****************************************************************************************************************************
-  * @brief  Resend plaintext encrypted with temporary key and SPAN
-  * @param  uint8_t  aucDSKIndex - index into node provisioning list [0, NODE_PROVISIONING_LIST_COUNT-1]
-  * @retval None
-  */
-void ZWave_Resend_Encrypted_Data_Temporary(uint8_t aucDSKIndex)
-{
-  ///////////////////////////////////////////////////////////////////////////////////////////
-  //// WARNING - This routine is only to be used for connecting end nodes, i.e. with
-  ////           temporary key
-  ///////////////////////////////////////////////////////////////////////////////////////////
-
-  LOG("%s: Resending last encrypted plaintext \r\n", __FUNCTION__);
-  cl_entry_t* ptConn = &gtTemporaryConnection;
-
-  ptConn->isResendRequested = FALSE;
-
-  if (ptConn->isResendAllowed && ptConn->LastPlaintextLength)
-  {
-    ptConn->LastTxTick      = HAL_GetTick();  // restart window, so cleanup waits for this attempt
-    // isSEIPending is already TRUE from the Nonce Report, so this frame gets a new SEI + SPAN ext
-    LOG("-----------------------  Command Class START -----------------------\r\n");
-    // Invoke the command class handler
-    pgucCCBuffer = ptConn->LastPlaintext;
-    gucCCBufferLength = ptConn->LastPlaintextLength;
-    gtZWave_CC_Handler[pgucCCBuffer[0]]();
-    LOG("-----------------------  Command Class  END  -----------------------\r\n");
-    ZWave_S2_Encapsulate_And_Send_Temporary(aucDSKIndex, ptConn->LastPlaintext, ptConn->LastPlaintextLength);
-  }
-  ptConn->isResendAllowed = FALSE;          // one shot
-}
-// end ZWave_Resend_Encrypted_Data
-
-/** *****************************************************************************************************************************
   * @brief  Encapsulate and send encrypted plaintext
   * @param  uint8_t  aucDSKIndex - index into node provisioning list [0, NODE_PROVISIONING_LIST_COUNT-1]
   * @param  uint8_t* paucPlaintextBuffer - pointer to plaintext to be encrypted and transmitted
@@ -9273,61 +9245,6 @@ uint8_t ZWave_Scan_ProvisioningList_For_NWIHomeID(uint32_t aulNWIHomeID)
 #if ENABLE_ZWAVE_CONTROLLER_HOST
 
 /** *****************************************************************************************************************************
-  * @brief  Prepare and send encrypted data to a connected end node
-  * @param  uint16_t auiNodeID - 2-byte NodeID to search in provisioning list
-  * @param  uint8_t* paucPlaintextBuffer - pointer to plaintext to be encrypted and transmitted
-  * @param  uint8_t aucPlaintextLength   - length of plaintext
-  * @retval None
-  */
-void ZWave_Send_Encrypted_Data(uint16_t auiNodeID, uint8_t* paucPlaintextBuffer, uint8_t aucPlaintextLength)
-{
-  uint8_t lucIsValidNodeIDandDSK = TRUE;
-  uint8_t lucDSKIndex;
-
-  ///////////////////////////////////////////////////////////////////////////////////////////
-  //// WARNING - This routine is only to be used for fully-connected end nodes, i.e. with
-  ////           a selected S2 network key. Encrypted plaintext with a temporary key is
-  ////           handled in the Bootstrap state machine.
-  ///////////////////////////////////////////////////////////////////////////////////////////
-
-  // Validate NodeID and DSK index
-  if (auiNodeID < 0x100 || auiNodeID > 4000)
-  {
-    LOG("%s: *** ERROR *** invalid NodeID \r\n", __FUNCTION__);
-    lucIsValidNodeIDandDSK = FALSE;
-  }
-  lucDSKIndex = ZWave_Scan_ProvisioningList_For_NodeID(auiNodeID);
-  if (lucDSKIndex >= NODE_PROVISIONING_LIST_COUNT )
-  {
-    LOG("%s: *** ERROR *** invalid DSK index \r\n", __FUNCTION__);
-    lucIsValidNodeIDandDSK = FALSE;
-  }
-  if (aucPlaintextLength > S2_MAX_PLAINTEXT_LENGTH)
-  {
-    LOG("%s: *** ERROR *** plaintext too long (%d) \r\n", __FUNCTION__, aucPlaintextLength);
-    lucIsValidNodeIDandDSK = FALSE;
-  }
-  LOG("%s: NodeID 0x%04X \t DSK %d \r\n", __FUNCTION__, auiNodeID, lucDSKIndex);
-
-
-  // IF valid NodeID and DSK index
-  if (lucIsValidNodeIDandDSK)
-  {
-    cl_entry_t* ptConn = &gtNodeConnectionList[lucDSKIndex];
-    memcpy(ptConn->LastPlaintext, paucPlaintextBuffer, aucPlaintextLength);
-    ptConn->LastPlaintextLength = aucPlaintextLength;
-    ptConn->LastTxTick          = HAL_GetTick(); // TODO: change this to elapsed msec
-    ptConn->isResendAllowed     = TRUE;
-    ptConn->isResendRequested   = FALSE;
-
-    ZWave_S2_Encapsulate_And_Send(lucDSKIndex, paucPlaintextBuffer, aucPlaintextLength);
-  }
-  // endif valid NodeID and DSK index
-
-}
-// end ZWave_Send_Encrypted_Data
-
-/** *****************************************************************************************************************************
   * @brief  Prepare and send encrypted data to an end node, using temporary key and SPAN
   * @param  uint16_t auiNodeID - 2-byte NodeID to search in provisioning list
   * @param  uint8_t* paucPlaintextBuffer - pointer to plaintext to be encrypted and transmitted
@@ -9367,9 +9284,7 @@ void ZWave_Send_Encrypted_Data_Temporary(uint16_t auiNodeID, uint8_t* paucPlaint
   if (lucIsValidNodeIDandDSK)
   {
     cl_entry_t* ptConn = &gtTemporaryConnection;
-    memcpy(ptConn->LastPlaintext, paucPlaintextBuffer, aucPlaintextLength);
-    ptConn->LastPlaintextLength = aucPlaintextLength;
-    ptConn->LastTxTick          = HAL_GetTick(); // TODO: change this to elapsed msec
+    ptConn->TxQTick             = HAL_GetTick();
     ptConn->isResendAllowed     = TRUE;
     ptConn->isResendRequested   = FALSE;
 
@@ -9412,7 +9327,7 @@ void ZWave_Send_Multilevel_Sensor_Get_Supported_Sensor(uint16_t auiNodeID)
     LOG("-----------------------  Multilevel Sensor Get Supported Sensor  END  -----------------------\r\n");
 
 
-    ZWave_Send_Encrypted_Data(auiNodeID, lucMultilevelSensorGetSupportedSensor, sizeof(lucMultilevelSensorGetSupportedSensor));
+    ZWave_TxQ_Enqueue(auiNodeID, lucMultilevelSensorGetSupportedSensor, sizeof(lucMultilevelSensorGetSupportedSensor), COMMAND_CLASS_SENSOR_MULTILEVEL_V11, SENSOR_MULTILEVEL_SUPPORTED_SENSOR_REPORT_V11);
   }
 }
 // end ZWave_Send_Multilevel_Sensor_Get_Supported_Sensor
@@ -9522,7 +9437,7 @@ void ZWave_Send_Switch_Multilevel_Get(uint16_t auiNodeID)
     LOG("-----------------------  Switch Multilevel Get  END  -----------------------\r\n");
 
 
-    ZWave_Send_Encrypted_Data(auiNodeID, lucSwitchMultilevelGet, sizeof(lucSwitchMultilevelGet));
+    ZWave_TxQ_Enqueue(auiNodeID, lucSwitchMultilevelGet, sizeof(lucSwitchMultilevelGet), COMMAND_CLASS_SWITCH_MULTILEVEL, SWITCH_MULTILEVEL_REPORT);
   }
 
 }
@@ -9564,7 +9479,7 @@ void ZWave_Send_Switch_Multilevel_Set(uint16_t auiNodeID, uint8_t aucSwitchLevel
     LOG("-----------------------  Switch Multilevel Set  END  -----------------------\r\n");
 
 
-    ZWave_Send_Encrypted_Data(auiNodeID, lucSwitchMultilevelSet, sizeof(lucSwitchMultilevelSet));
+    ZWave_TxQ_Enqueue(auiNodeID, lucSwitchMultilevelSet, sizeof(lucSwitchMultilevelSet), 0, 0); // no response/report expected
   }
 }
 // end ZWave_Send_Switch_Multilevel_Set
@@ -9602,7 +9517,7 @@ void ZWave_Send_Wakeup_Interval_Get(uint16_t auiNodeID)
     LOG("-----------------------  Wakeup Interval_Get  END  -----------------------\r\n");
 
 
-    ZWave_Send_Encrypted_Data(auiNodeID, lucWakeupIntervalGet, sizeof(lucWakeupIntervalGet));
+    ZWave_TxQ_Enqueue(auiNodeID, lucWakeupIntervalGet, sizeof(lucWakeupIntervalGet), COMMAND_CLASS_WAKE_UP_V3, WAKE_UP_INTERVAL_REPORT_V3);
   }
 }
 // end ZWave_Send_Wakeup_Interval_Get
@@ -9640,7 +9555,7 @@ void ZWave_Send_Wakeup_No_More_Information(uint16_t auiNodeID)
     LOG("-----------------------  Wakeup No More Information  END  -----------------------\r\n");
 
 
-    ZWave_Send_Encrypted_Data(auiNodeID, lucWakeupNoMoreInformation, sizeof(lucWakeupNoMoreInformation));
+    ZWave_TxQ_Enqueue(auiNodeID, lucWakeupNoMoreInformation, sizeof(lucWakeupNoMoreInformation), 0, 0);
   }
 }
 // end ZWave_Send_Wakeup_No_More_Information
@@ -11406,6 +11321,188 @@ void ZWave_Transmit_Frame(uint8_t aucCMD, uint8_t aucType, const uint8_t* paucPa
 // end ZWave_Transmit_Frame
 
 /** *****************************************************************************************************************************
+  * @brief  Replaces direct ZWave_Send_Encrypted_Data() calls from the ZWave_Send_xxx() helpers
+  * @param  uint16_t auiNodeID - 2-byte NodeID to search in provisioning list
+  * @param  uint8_t* paucPlaintextBuffer - pointer to plaintext to be encrypted and transmitted
+  * @param  uint8_t aucPlaintextLength   - length of plaintext
+  * @param  uint8_t aucExpectCC   - expected Command Class of response (0 if no response expected)
+  * @param  uint8_t aucExpectCmd   - expected command of response (0 if no response expected)
+  * @retval TRUE if successfully queued for transmit; FALSE otherwise
+  */
+uint8_t ZWave_TxQ_Enqueue(uint16_t auiNodeID, const uint8_t* paucPlaintextBuffer, uint8_t aucPlaintextLength,
+                          uint8_t aucExpectCC, uint8_t aucExpectCmd)
+{
+  //// MAB 2026.10.20 Designed by Claude
+
+  // Validate NodeID, check space on TX queue
+  uint8_t lucDSKIndex = ZWave_Scan_ProvisioningList_For_NodeID(auiNodeID);
+  if (lucDSKIndex >= NODE_PROVISIONING_LIST_COUNT || aucPlaintextLength > S2_MAX_PLAINTEXT_LENGTH) return FALSE;
+  cl_entry_t* p = &gtNodeConnectionList[lucDSKIndex];
+  if (p->TxQCount >= NODE_TXQ_DEPTH)
+  {
+    LOG("%s: *** WARNING *** TX queue full DSK %d\r\n", __FUNCTION__, lucDSKIndex);
+    return FALSE;
+  }
+
+  // Put plaintext and any expected response/report onto TX queue
+  txq_item_t* it = &p->TxQ[(p->TxQHead + p->TxQCount) % NODE_TXQ_DEPTH];
+  memcpy(it->Plaintext, paucPlaintextBuffer, aucPlaintextLength);
+  it->Length      = aucPlaintextLength;
+  it->ExpectCC    = aucExpectCC;
+  it->ExpectCmd   = aucExpectCmd;
+  it->RetriesLeft = NODE_TXQ_RETRIES;
+  p->TxQCount++;
+
+  return TRUE;
+}
+// end ZWave_TxQ_Enqueue
+
+/** *****************************************************************************************************************************
+  * @brief  Retire the in-flight transaction (pop it from the TX queue) if this is the report it was waiting for;
+  * @brief  called for EVERY successfully decrypted frame, before processing the decrypted frame
+  * @param  uint8_t  aucDSKIndex - index into node provisioning list  [0, NODE_PROVISIONING_LIST_COUNT-1]
+  * @param  uint8_t* paucPlaintextBuffer - pointer to decrypted plaintext
+  * @retval None
+  */
+void ZWave_TxQ_On_Report(uint8_t aucDSKIndex, const uint8_t* paucPlaintextBuffer)
+{
+  //// MAB 2026.10.20 Designed by Claude
+
+  cl_entry_t* pltNodeConnectionEntry = &gtNodeConnectionList[aucDSKIndex];
+  if (pltNodeConnectionEntry->TxQCount                                                                 &&
+      pltNodeConnectionEntry->TxQState != TXQ_IDLE                                                     &&
+      paucPlaintextBuffer[0] == pltNodeConnectionEntry->TxQ[pltNodeConnectionEntry->TxQHead].ExpectCC  &&
+      paucPlaintextBuffer[1] == pltNodeConnectionEntry->TxQ[pltNodeConnectionEntry->TxQHead].ExpectCmd    )
+  {
+    ZWave_TxQ_Pop(pltNodeConnectionEntry);
+  }
+}
+// end ZWave_TxQ_On_Report
+
+/** *****************************************************************************************************************************
+  * @brief  Called from the CMD 0x13 callback REQUEST (ZWave_RSQ_CMD_13_ZW_Send_Data)
+  * @param  uint8_t  aucDSKIndex - index into node provisioning list  [0, NODE_PROVISIONING_LIST_COUNT-1]
+  * @param  uint8_t  aucTxStatus - serial transmit status of the ZWave frame
+  * @retval None
+  */
+void ZWave_TxQ_On_TxDone(uint8_t aucDSKIndex, uint8_t aucTxStatus)
+{
+  //// MAB 2026.10.20 Designed by Claude
+
+  cl_entry_t* pltNodeConnectionEntry = &gtNodeConnectionList[aucDSKIndex];
+  if (pltNodeConnectionEntry->TxQState != TXQ_WAIT_TX_DONE) return;
+
+  if (aucTxStatus != TRANSMIT_COMPLETE_OK)
+  {
+    pltNodeConnectionEntry->TxQState = TXQ_WAIT_REPORT;          // let the timeout/retry path handle it
+    pltNodeConnectionEntry->TxQTick  = HAL_GetTick() - NODE_TXQ_REPORT_TMO_MS;
+  }
+  else if (0 == pltNodeConnectionEntry->TxQ[pltNodeConnectionEntry->TxQHead].ExpectCC)
+  {
+    ZWave_TxQ_Pop(pltNodeConnectionEntry);   // nothing to wait for
+  }
+  else
+  {
+    pltNodeConnectionEntry->TxQState = TXQ_WAIT_REPORT;
+    pltNodeConnectionEntry->TxQTick = HAL_GetTick();
+  }
+}
+// end ZWave_TxQ_On_TxDone
+
+/** *****************************************************************************************************************************
+  * @brief  Pop the head item from the TX queue
+  * @param  cl_entry_t* patNodeConnectionEntry
+  * @retval None
+  */
+static void ZWave_TxQ_Pop(cl_entry_t* patNodeConnectionEntry)
+{
+  //// MAB 2026.10.20 Designed by Claude
+
+  patNodeConnectionEntry->TxQHead = (patNodeConnectionEntry->TxQHead + 1) % NODE_TXQ_DEPTH;
+  patNodeConnectionEntry->TxQCount--;
+  patNodeConnectionEntry->TxQState = TXQ_IDLE;
+  patNodeConnectionEntry->isResendAllowed = FALSE;
+}
+// end ZWave_TxQ_Pop
+
+/** *****************************************************************************************************************************
+  * @brief  Transmit the head item of the TX queue
+  * @param  uint8_t  aucDSKIndex - index into node provisioning list  [0, NODE_PROVISIONING_LIST_COUNT-1]
+  * @retval None
+  */
+static void ZWave_TxQ_SendHead(uint8_t aucDSKIndex)
+{
+  //// MAB 2026.10.20 Designed by Claude
+
+  cl_entry_t* pltNodeConnectionEntry = &gtNodeConnectionList[aucDSKIndex];
+  txq_item_t* it = &pltNodeConnectionEntry->TxQ[pltNodeConnectionEntry->TxQHead];
+  pltNodeConnectionEntry->isResendAllowed   = TRUE;
+  pltNodeConnectionEntry->isResendRequested = FALSE;
+  pltNodeConnectionEntry->TxQState = TXQ_WAIT_TX_DONE;
+  pltNodeConnectionEntry->TxQTick  = HAL_GetTick();
+  gucSerialApiTxBusy = TRUE;
+
+  ZWave_S2_Encapsulate_And_Send(aucDSKIndex, it->Plaintext, it->Length);
+}
+// end ZWave_TxQ_SendHead
+
+/** *****************************************************************************************************************************
+  * @brief  Called once per ZWaveTask loop; replaces the existing "retransmit if Nonce Report" block
+  * @param  uint8_t  aucDSKIndex - index into node provisioning list  [0, NODE_PROVISIONING_LIST_COUNT-1]
+  * @retval None
+  */
+void ZWave_TxQ_Service(uint8_t aucDSKIndex)
+{
+  cl_entry_t* pltNodeConnectionEntry = &gtNodeConnectionList[aucDSKIndex];
+  uint8_t isSleeping = !(gtNodeProvisioningList[aucDSKIndex].CC_list_length &&
+                         /* TODO: listening flag / FLiRS from NIF */ 1);
+
+  if (pltNodeConnectionEntry->isResendRequested && pltNodeConnectionEntry->TxQCount && pltNodeConnectionEntry->isResendAllowed)   // S2 SOS: resend head
+  {
+    pltNodeConnectionEntry->isResendRequested = FALSE;
+    pltNodeConnectionEntry->isResendAllowed   = FALSE;   // one shot
+    pltNodeConnectionEntry->TxQState = TXQ_WAIT_TX_DONE;
+    pltNodeConnectionEntry->TxQTick = HAL_GetTick();
+    ZWave_S2_Encapsulate_And_Send(aucDSKIndex,
+                                  pltNodeConnectionEntry->TxQ[pltNodeConnectionEntry->TxQHead].Plaintext,
+                                  pltNodeConnectionEntry->TxQ[pltNodeConnectionEntry->TxQHead].Length);
+    return;
+  }
+
+  switch (pltNodeConnectionEntry->TxQState)
+  {
+  case TXQ_IDLE:
+    if (pltNodeConnectionEntry->TxQCount && (!isSleeping || pltNodeConnectionEntry->isAwake) && !gucSerialApiTxBusy)
+      ZWave_TxQ_SendHead(aucDSKIndex);
+    else if (0 == pltNodeConnectionEntry->TxQCount && pltNodeConnectionEntry->isAwake)
+    {
+      pltNodeConnectionEntry->isAwake = FALSE;
+      ZWave_Send_Wakeup_No_More_Information(pltNodeConnectionEntry->NodeID);   // enqueue with ExpectCC = 0, or send directly
+    }
+    break;
+
+  case TXQ_WAIT_TX_DONE:
+  case TXQ_WAIT_REPORT:
+    if ((HAL_GetTick() - pltNodeConnectionEntry->TxQTick) >= NODE_TXQ_REPORT_TMO_MS)
+    {
+      if (pltNodeConnectionEntry->TxQ[pltNodeConnectionEntry->TxQHead].RetriesLeft--)
+      {
+        LOG("%s: *** WARNING *** DSK %d timeout, retry\r\n", __FUNCTION__, aucDSKIndex);
+        ZWave_TxQ_SendHead(aucDSKIndex);
+      }
+      else
+      {
+        LOG("%s: *** WARNING *** DSK %d timeout, drop\r\n",  __FUNCTION__, aucDSKIndex);
+        ZWave_TxQ_Pop(pltNodeConnectionEntry);
+        gucSerialApiTxBusy = FALSE;
+      }
+    }
+    break;
+  } // end switch
+}
+// end ZWave_TxQ_Service
+
+/** *****************************************************************************************************************************
   * @brief  Calculate Z-Wave checksum
   * @param  uint8_t  aucInitialValue - initial checksum value (for a Z-Wave frame, must be 0xFF)
   * @param  uint8_t* paucDataBuffer  - pointer to data buffer over which the checksum is calculated
@@ -12237,30 +12334,30 @@ void ZWaveTask(void *argument)
   LOG("%s: --------- Initializing Node Provisioning list... ---------\r\n", __FUNCTION__);
   // ----- Zeroize DSKs (initialize any valid DSKs later)
   LOG("%s: Zeroized DSKs\r\n", __FUNCTION__);
-  for (int i = 0; i < NODE_PROVISIONING_LIST_COUNT; ++i)
+  for (uint8_t lucDSKIndex = 0; lucDSKIndex < NODE_PROVISIONING_LIST_COUNT; ++lucDSKIndex)
   {
-    ZWave_DSK_Zeroize(i);
+    ZWave_DSK_Zeroize(lucDSKIndex);
   }
-  for (int i = 0; i < NODE_PROVISIONING_LIST_COUNT; ++i)
+  for (uint8_t lucDSKIndex = 0; lucDSKIndex < NODE_PROVISIONING_LIST_COUNT; ++lucDSKIndex)
   {
     memset(lucDSKString, 0x00, sizeof(lucDSKString));
-    ZWave_DSK_Write_To_String(i, lucDSKString);
-    LOG("%s: DSK %d: %s\r\n", __FUNCTION__, i, lucDSKString);
+    ZWave_DSK_Write_To_String(lucDSKIndex, lucDSKString);
+    LOG("%s: DSK %d: %s\r\n", __FUNCTION__, lucDSKIndex, lucDSKString);
   }
   // ----- Initialize with random values for DSKs (initialize any valid DSKs later)
   uint8_t lucDSKBuffer[DSK_LENGTH_BYTES];
   LOG("%s: Randomized DSKs\r\n", __FUNCTION__);
-  for (int i = 0; i < NODE_PROVISIONING_LIST_COUNT; ++i)
+  for (uint8_t lucDSKIndex = 0; lucDSKIndex < NODE_PROVISIONING_LIST_COUNT; ++lucDSKIndex)
   {
-    gtNodeProvisioningList[i].NodeID = NODE_ID_UNAVAILABLE; // initialize NodeID
+    gtNodeProvisioningList[lucDSKIndex].NodeID = NODE_ID_UNAVAILABLE; // initialize NodeID
     memset(lucDSKString, 0x00, sizeof(lucDSKString));
     for (int j = 0; j < DSK_LENGTH_BYTES; ++j)
     {
       lucDSKBuffer[j] = (uint8_t)RandomValue();
     }
-    ZWave_DSK_Write(i, lucDSKBuffer);
-    ZWave_DSK_Write_To_String(i, lucDSKString);
-    LOG("%s: DSK %d: %s\r\n", __FUNCTION__, i, lucDSKString);
+    ZWave_DSK_Write(lucDSKIndex, lucDSKBuffer);
+    ZWave_DSK_Write_To_String(lucDSKIndex, lucDSKString);
+    LOG("%s: DSK %d: %s\r\n", __FUNCTION__, lucDSKIndex, lucDSKString);
   }
   // ----- Set up a valid DSK for existing End node
   LOG("%s: Valid DSKs\r\n", __FUNCTION__);
@@ -12661,39 +12758,14 @@ void ZWaveTask(void *argument)
 
     #if ENABLE_ZWAVE_CONTROLLER_HOST
     //////////////////////////////////////////////////////////////////////////////
-    //// MAB 2026.10.13
-    //// Per Claude AI, retransmit encrypted plaintext if a Nonce Report was received
-    cl_entry_t* ptConn;
+    //// TEST MAB 2026.10.21
+    //// Per Claude AI, call once per ZWaveTask loop, replacing the "retransmit if Nonce Report" block
     for (uint8_t lucDSKIndex = 0; lucDSKIndex < NODE_PROVISIONING_LIST_COUNT; ++lucDSKIndex)
     {
-      ptConn = &gtNodeConnectionList[lucDSKIndex];
-      if (ptConn->isResendRequested)
+      if (ZWave_DSK_IsConnected(lucDSKIndex))
       {
-        LOG("%s: Nonce Report after encrypted send to DSK %d; re-sending with new SPAN \r\n", __FUNCTION__, lucDSKIndex);
-        ZWave_Resend_Encrypted_Data(lucDSKIndex);
+        ZWave_TxQ_Service(lucDSKIndex);
       }
-      else if (ptConn->LastPlaintextLength && (HAL_GetTick() - ptConn->LastTxTick) >= S2_RESEND_WINDOW_MS)
-      {
-        // No Nonce Report in time, so assume the node decrypted it; drop the cache
-        memset(ptConn->LastPlaintext, 0, sizeof(ptConn->LastPlaintext));
-        ptConn->LastPlaintextLength = 0;
-        ptConn->isResendAllowed     = FALSE;
-      }
-    }
-    //// TEST MAB 2026.10.14
-    //// Handle bootstrap retransmit too
-    ptConn = &gtTemporaryConnection;
-    if (ptConn->isResendRequested)
-    {
-      LOG("%s: Nonce Report after encrypted send; re-sending with new SPAN \r\n", __FUNCTION__);
-      ZWave_Resend_Encrypted_Data_Temporary(gucProcessingDSK);
-    }
-    else if (ptConn->LastPlaintextLength && (HAL_GetTick() - ptConn->LastTxTick) >= S2_RESEND_WINDOW_MS)
-    {
-      // No Nonce Report in time, so assume the node decrypted it; drop the cache
-      memset(ptConn->LastPlaintext, 0, sizeof(ptConn->LastPlaintext));
-      ptConn->LastPlaintextLength = 0;
-      ptConn->isResendAllowed     = FALSE;
     }
     //////////////////////////////////////////////////////////////////////////////
     #endif
@@ -12895,15 +12967,15 @@ void ZWaveTask(void *argument)
       LOG("%s: Received Nonce Get detected; guiSourceNodeID = 0x%04X \r\n", __FUNCTION__, guiSourceNodeID);
       lucDSKIndex = ZWave_Scan_ProvisioningList_For_NodeID(guiSourceNodeID);
       LOG("%s: - NodeID 0x%04X associated with DSK %d\r\n", __FUNCTION__, guiSourceNodeID, lucDSKIndex);
-      if (SMARTSTART_CONNECTED != gtNodeProvisioningList[lucDSKIndex].status)
-      {
-        LOG("%s: - node is not yet connected, so no further processing is needed \r\n", __FUNCTION__);
-      }
-      else
+      if (ZWave_DSK_IsConnected(lucDSKIndex))
       {
         LOG("%s: - node is already CONNECTED, further processing is needed (send Nonce Report with new REI) \r\n", __FUNCTION__);
         gucProcessingDSK = lucDSKIndex;
         ZWave_Send_Nonce_Report(guiSourceNodeID);
+      }
+      else
+      {
+        LOG("%s: - node is not yet connected, so no further processing is needed \r\n", __FUNCTION__);
       }
     }
     //////////////////////////////////////////////////////////////////////////////
@@ -12923,17 +12995,17 @@ void ZWaveTask(void *argument)
       LOG("%s: Encrypted message received; guiSourceNodeID = 0x%04X \r\n", __FUNCTION__, guiSourceNodeID);
       lucDSKIndex = ZWave_Scan_ProvisioningList_For_NodeID(guiSourceNodeID);
       LOG("%s: - NodeID 0x%04X associated with DSK %d\r\n", __FUNCTION__, guiSourceNodeID, lucDSKIndex);
-      if (SMARTSTART_CONNECTED != gtNodeProvisioningList[lucDSKIndex].status)
+      if (lucDSKIndex >= NODE_PROVISIONING_LIST_COUNT)
       {
-        LOG("%s: - node is not yet connected, so no further processing is needed \r\n", __FUNCTION__);
+        LOG("%s: - *** WARNING *** node 0x%04X is NOT associated with any DSK, so will not decrypt \r\n", __FUNCTION__, guiSourceNodeID);
       }
-      else if (lucDSKIndex >= NODE_PROVISIONING_LIST_COUNT)
+      else if (!ZWave_DSK_IsConnected(lucDSKIndex))
       {
-        LOG("%s: - node 0x%04X is associated with any DSK, so no further processing is needed \r\n", __FUNCTION__, guiSourceNodeID);
+        LOG("%s: - *** WARNING *** node is not yet connected, so will not decrypt \r\n", __FUNCTION__);
       }
       else
       {
-        LOG("%s: - node is already CONNECTED, further processing is needed \r\n", __FUNCTION__);
+        LOG("%s: - node is already CONNECTED, proceeding with decryption \r\n", __FUNCTION__);
         gucProcessingDSK = lucDSKIndex;
         lucIsReadyToDecrypt = TRUE;
       }
@@ -12946,6 +13018,9 @@ void ZWaveTask(void *argument)
 
         if (liDecryptMsgSuccessful)
         {
+          // Retire the in-flight transaction (pop it from the TX queue) if this is the report it was waiting for
+          ZWave_TxQ_On_Report(gucProcessingDSK, gucDecryptedPlaintext);
+
           /////////////////////////////////////////////////////////////////////
           //
           // Switch Multilevel Report
@@ -12982,16 +13057,16 @@ void ZWaveTask(void *argument)
             LOG("-----------------------  Wakeup Notification  END  -----------------------\r\n");
 
             //
+            // Set the node isAwake to "AWAKE"
+            //
+            gtNodeConnectionList[gucProcessingDSK].isAwake = TRUE;
+
+            //
             // If any messages to the remote sensor are pending,
             // send them now while the remote sensor is awake
             //
-            //ZWave_Send_Wakeup_Interval_Get(guiSourceNodeID);
+            ZWave_Send_Wakeup_Interval_Get(guiSourceNodeID);
             ZWave_Send_Multilevel_Sensor_Get_Supported_Sensor(guiSourceNodeID);
-
-            //
-            // Send Wakeup No More Information to put remote sensor back to sleep
-            //
-            //ZWave_Send_Wakeup_No_More_Information(guiSourceNodeID);
           }
           /////////////////////////////////////////////////////////////////////
           //
@@ -13022,11 +13097,6 @@ void ZWaveTask(void *argument)
             gucCCBufferLength = gucReceivedCiphertextLength;
             gtZWave_CC_Handler[pgucCCBuffer[0]]();
             LOG("-----------------------  Wakeup Interval Report  END  -----------------------\r\n");
-
-            //
-            // Send Wakeup No More Information to put remote sensor back to sleep
-            //
-            //ZWave_Send_Wakeup_No_More_Information(guiSourceNodeID);
           }
           /////////////////////////////////////////////////////////////////////
           //
@@ -13044,6 +13114,12 @@ void ZWaveTask(void *argument)
         else
         {
           LOG("%s: *** WARNING *** decrypt of received ciphertext FAILED \r\n", __FUNCTION__);
+          ///////////////////////////////////////////////////////////////////
+          //// TEST MAB 2026.10.21
+          //// Per Claude AI, this will make the node resend the report it sent
+          //// (assuming the SPAN got out of sync, I suppose)
+          ZWave_Send_Nonce_Report(guiSourceNodeID);
+          ///////////////////////////////////////////////////////////////////
         }  // decrypt failed
 
       } // endif ready to decrypt
