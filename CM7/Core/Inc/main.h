@@ -428,6 +428,9 @@ typedef struct {
   uint8_t  KeyMPAN[16];                 // KeyMPAN for the given network key
   inner_span_t SPAN;                    // SPAN for the given network key
   uint8_t  isSEIPending;                // TRUE = need new SEI
+  uint8_t  GenericDeviceType;
+  uint8_t  SpecificDeviceType;
+  uint8_t  SensorTypes[10];             // Supported sensor types
   // --- per-node transaction queue; TxQ[TxQHead] is the in-flight item ---
   txq_item_t  TxQ[NODE_TXQ_DEPTH];
   uint8_t     TxQHead, TxQCount;

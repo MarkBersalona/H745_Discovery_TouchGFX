@@ -915,6 +915,7 @@ uint8_t ZWave_Scan_ProvisioningList_For_DSK(uint8_t* paucDSKBuffer, uint8_t aucN
 uint8_t ZWave_Scan_ProvisioningList_For_NodeID(uint16_t auiNodeID);
 uint8_t ZWave_Scan_ProvisioningList_For_NWIHomeID(uint32_t aulNWIHomeID);
 void ZWave_Send_Encrypted_Data_Temporary(uint16_t auiNodeID, uint8_t* paucPlaintextBuffer, uint8_t aucPlaintextLength);
+void ZWave_Send_Multilevel_Sensor_Get_Supported_Scale(uint16_t auiNodeID, uint8_t aucSensorType);
 void ZWave_Send_Nonce_Report(uint16_t auiNodeID);
 #if ENABLE_ZWAVE_CONTROLLER_HOST
 void ZWave_Send_REQ_CMD_02_Serial_API_Get_Init_Data(void);
@@ -4480,6 +4481,39 @@ uint8_t ZWave_DSK_IsProcessing(void)
 // end ZWave_DSK_IsProcessing
 
 /** *****************************************************************************************************************************
+  * @brief  Test if a specified DSK in the node provisioning list supports COMMAND_CLASS_WAKE_UP
+  * @param  uint8_t  aucDSKIndex - index into node provisioning list  [0, NODE_PROVISIONING_LIST_COUNT-1]
+  * @retval TRUE if specified DSK can Wakeup; FALSE otherwise
+  */
+uint8_t ZWave_DSK_IsSleeping(uint8_t aucDSKIndex)
+{
+  uint8_t lucIsDSKSleeping;
+
+  if (0 <= aucDSKIndex && aucDSKIndex < NODE_PROVISIONING_LIST_COUNT)
+  {
+    // Assume this given DSK cannot Wakeup until proven otherwise
+    lucIsDSKSleeping = FALSE;
+
+    for (uint8_t lucCCByte = 0; lucCCByte < gtNodeProvisioningList[aucDSKIndex].CC_list_length; ++lucCCByte)
+    {
+      if (COMMAND_CLASS_WAKE_UP_V3 == gtNodeProvisioningList[aucDSKIndex].CC_list_buffer[lucCCByte])
+      {
+        //LOG("%s DSK %d does support COMMAND_CLASS_WAKE_UP \r\n", __FUNCTION__, aucDSKIndex);
+        lucIsDSKSleeping = TRUE;
+      }
+    }
+  }
+  else
+  {
+    LOG("%s: *** WARNING *** invalid DSK index %d, assume DSK doesn't go to sleep \r\n", __FUNCTION__, aucDSKIndex);
+    lucIsDSKSleeping = FALSE;
+  }
+
+  return lucIsDSKSleeping;
+}
+// end ZWave_DSK_IsSleeping
+
+/** *****************************************************************************************************************************
   * @brief  Test if a specified DSK in the node provisioning list is zeroized
   * @param  uint8_t  aucDSKIndex - index into node provisioning list  [0, NODE_PROVISIONING_LIST_COUNT-1]
   * @retval TRUE if specified DSK is zeroized; FALSE otherwise
@@ -5404,6 +5438,91 @@ void ZWave_Identify_Generic_Device_Type(uint8_t aucGenericDeviceType)
   }
 }
 // end ZWave_Identify_Generic_Device_Type
+
+/** *****************************************************************************************************************************
+  * @brief  Identify Multilevel Sensor sensor type
+  * @param  uint8_t aucMultilevelSensor_SensorType
+  * @retval None
+  */
+void ZWave_Identify_Multilevel_Sensor_SensorType(uint8_t aucMultilevelSensor_SensorType)
+{
+  switch (aucMultilevelSensor_SensorType)
+  {
+  case SENSOR_MULTILEVEL_GET_TEMPERATURE_VERSION_1_V11:
+    LOG("%s: - Sensor type 0x%02X is Temperature \r\n", __FUNCTION__, aucMultilevelSensor_SensorType);
+    break;
+  case SENSOR_MULTILEVEL_GET_GENERAL_PURPOSE_VALUE_VERSION_1_V11:
+    LOG("%s: - Sensor type 0x%02X is General purpose value \r\n", __FUNCTION__, aucMultilevelSensor_SensorType);
+    break;
+  case SENSOR_MULTILEVEL_GET_LUMINANCE_VERSION_1_V11:
+    LOG("%s: - Sensor type 0x%02X is Luminance \r\n", __FUNCTION__, aucMultilevelSensor_SensorType);
+    break;
+  case SENSOR_MULTILEVEL_GET_POWER_VERSION_2_V11:
+    LOG("%s: - Sensor type 0x%02X is Power \r\n", __FUNCTION__, aucMultilevelSensor_SensorType);
+    break;
+  case SENSOR_MULTILEVEL_GET_RELATIVE_HUMIDITY_VERSION_2_V11:
+    LOG("%s: - Sensor type 0x%02X is Relative humidity \r\n", __FUNCTION__, aucMultilevelSensor_SensorType);
+    break;
+  case SENSOR_MULTILEVEL_GET_VELOCITY_VERSION_2_V11:
+    LOG("%s: - Sensor type 0x%02X is Velocity \r\n", __FUNCTION__, aucMultilevelSensor_SensorType);
+    break;
+  case SENSOR_MULTILEVEL_GET_DIRECTION_VERSION_2_V11:
+    LOG("%s: - Sensor type 0x%02X is Direction \r\n", __FUNCTION__, aucMultilevelSensor_SensorType);
+    break;
+  case SENSOR_MULTILEVEL_GET_ATMOSPHERIC_PRESSURE_VERSION_2_V11:
+    LOG("%s: - Sensor type 0x%02X is Atmospheric pressure \r\n", __FUNCTION__, aucMultilevelSensor_SensorType);
+    break;
+  case SENSOR_MULTILEVEL_GET_BAROMETRIC_PRESSURE_VERSION_2_V11:
+    LOG("%s: - Sensor type 0x%02X is Barometric pressure \r\n", __FUNCTION__, aucMultilevelSensor_SensorType);
+    break;
+  case SENSOR_MULTILEVEL_GET_SOLAR_RADIATION_VERSION_2_V11:
+    LOG("%s: - Sensor type 0x%02X is Solar radiation \r\n", __FUNCTION__, aucMultilevelSensor_SensorType);
+    break;
+  case SENSOR_MULTILEVEL_GET_DEW_POINT_VERSION_2_V11:
+    LOG("%s: - Sensor type 0x%02X is Dew point \r\n", __FUNCTION__, aucMultilevelSensor_SensorType);
+    break;
+  case SENSOR_MULTILEVEL_GET_RAIN_RATE_VERSION_2_V11:
+    LOG("%s: - Sensor type 0x%02X is Rain rate \r\n", __FUNCTION__, aucMultilevelSensor_SensorType);
+    break;
+  case SENSOR_MULTILEVEL_GET_TIDE_LEVEL_VERSION_2_V11:
+    LOG("%s: - Sensor type 0x%02X is Tide level \r\n", __FUNCTION__, aucMultilevelSensor_SensorType);
+    break;
+  case SENSOR_MULTILEVEL_GET_WEIGHT_VERSION_3_V11:
+    LOG("%s: - Sensor type 0x%02X is Weight \r\n", __FUNCTION__, aucMultilevelSensor_SensorType);
+    break;
+  case SENSOR_MULTILEVEL_GET_VOLTAGE_VERSION_3_V11:
+    LOG("%s: - Sensor type 0x%02X is Voltage \r\n", __FUNCTION__, aucMultilevelSensor_SensorType);
+    break;
+  case SENSOR_MULTILEVEL_GET_CURRENT_VERSION_3_V11:
+    LOG("%s: - Sensor type 0x%02X is Current \r\n", __FUNCTION__, aucMultilevelSensor_SensorType);
+    break;
+  case SENSOR_MULTILEVEL_GET_CO2_LEVEL_VERSION_3_V11:
+    LOG("%s: - Sensor type 0x%02X is CO2 level \r\n", __FUNCTION__, aucMultilevelSensor_SensorType);
+    break;
+  case SENSOR_MULTILEVEL_GET_AIR_FLOW_VERSION_3_V11:
+    LOG("%s: - Sensor type 0x%02X is Air flow \r\n", __FUNCTION__, aucMultilevelSensor_SensorType);
+    break;
+  case SENSOR_MULTILEVEL_GET_TANK_CAPACITY_VERSION_3_V11:
+    LOG("%s: - Sensor type 0x%02X is Tank capacity \r\n", __FUNCTION__, aucMultilevelSensor_SensorType);
+    break;
+  case SENSOR_MULTILEVEL_GET_DISTANCE_VERSION_3_V11:
+    LOG("%s: - Sensor type 0x%02X is Distance \r\n", __FUNCTION__, aucMultilevelSensor_SensorType);
+    break;
+  case SENSOR_MULTILEVEL_GET_ANGLE_POSITION_VERSION_4_V11:
+    LOG("%s: - Sensor type 0x%02X is Angle position \r\n", __FUNCTION__, aucMultilevelSensor_SensorType);
+    break;
+  case SENSOR_MULTILEVEL_GET_ROTATION_V5_V11:
+    LOG("%s: - Sensor type 0x%02X is Rotation \r\n", __FUNCTION__, aucMultilevelSensor_SensorType);
+    break;
+  case SENSOR_MULTILEVEL_GET_ELECTRICAL_RESISTIVITY_V5_V11:
+    LOG("%s: - Sensor type 0x%02X is Electrical resistance \r\n", __FUNCTION__, aucMultilevelSensor_SensorType);
+    break;
+  default:
+    LOG("%s: - *** WARNING *** Multilevel Sensor sensor type 0x%02X UNKNOWN \r\n", __FUNCTION__, aucMultilevelSensor_SensorType);
+    break;
+  } // end switch
+}
+// end ZWave_Identify_Multilevel_Sensor_SensorType
 
 /** *****************************************************************************************************************************
   * @brief  Identify Z-Wave Specific device type for a given Generic device type
@@ -7280,9 +7399,11 @@ void ZWave_REQ_CMD_4A_ZW_Add_Node_To_Network(void)
 
     LOG("%s: Generic device type    = 0x%02X\r\n", __FUNCTION__, ZWaveSerialFrame->payload[6]);
     ZWave_Identify_Generic_Device_Type(ZWaveSerialFrame->payload[6]);
+    gtNodeConnectionList[gucProcessingDSK].GenericDeviceType = ZWaveSerialFrame->payload[6];
 
     LOG("%s: Specific device type   = 0x%02X\r\n", __FUNCTION__, ZWaveSerialFrame->payload[7]);
     ZWave_Identify_Specific_Device_Type(ZWaveSerialFrame->payload[6], ZWaveSerialFrame->payload[7]);
+    gtNodeConnectionList[gucProcessingDSK].SpecificDeviceType = ZWaveSerialFrame->payload[7];
     LOG("-----------------------  Supported Command Classes START -----------------------\r\n");
     PrintBytes(&ZWaveSerialFrame->payload[8], ZWaveSerialFrame->payload[4] - 3, false, 0);
     LOG("-----------------------  Supported Command Classes  END  -----------------------\r\n");
@@ -8101,6 +8222,7 @@ void ZWave_Rx_CC_31_Sensor_Multilevel_V11(void)
   {
     PrintBytes(&pgucCCBuffer[2], gucReceivedCiphertextLength-2, false, 0);
     uint8_t lucSensorType = 0;
+    uint8_t lucSupportedSensorIndex = 0;
 
     for (uint8_t lucByteIndex = 0; lucByteIndex < gucReceivedCiphertextLength-2; ++lucByteIndex)
     {
@@ -8110,7 +8232,8 @@ void ZWave_Rx_CC_31_Sensor_Multilevel_V11(void)
         ++lucSensorType;
         if (pgucCCBuffer[2+lucByteIndex] & (0x01 << lucBitIndex))
         {
-          LOG("%s: - Sensor type 0x%02X is present \r\n", __FUNCTION__, lucSensorType);
+          ZWave_Identify_Multilevel_Sensor_SensorType(lucSensorType);
+          gtNodeConnectionList[gucProcessingDSK].SensorTypes[lucSupportedSensorIndex++] = lucSensorType;
         }
       }
     }
@@ -9295,6 +9418,46 @@ void ZWave_Send_Encrypted_Data_Temporary(uint16_t auiNodeID, uint8_t* paucPlaint
 // end ZWave_Send_Encrypted_Data_Temporary
 
 /** *****************************************************************************************************************************
+  * @brief  Prepare and send Multilevel Sensor Get Supported Scale
+  * @param  uint16_t auiNodeID - 2-byte NodeID to search in provisioning list (or 0xFFFF for Temporary REI)
+  * @param  uint8_t  aucSensorType - Multilevel Sensor sensor type
+  * @retval None
+  */
+void ZWave_Send_Multilevel_Sensor_Get_Supported_Scale(uint16_t auiNodeID, uint8_t aucSensorType)
+{
+  uint8_t lucMultilevelSensorGetSupportedScale[3];
+  uint8_t lucDSKIndex;
+
+  lucDSKIndex = ZWave_Scan_ProvisioningList_For_NodeID(auiNodeID);
+  if (lucDSKIndex >= NODE_PROVISIONING_LIST_COUNT )
+  {
+    LOG("%s: *** ERROR *** invalid DSK index \r\n", __FUNCTION__);
+  }
+  else
+  {
+    //LOG("%s: NodeID 0x%04X \t DSK %d \r\n", __FUNCTION__, auiNodeID, lucDSKIndex);
+
+    // Enqueue encrypted Multilevel Sensor Get Supported Scale
+    LOG("%s: Enqueue encrypted Multilevel Sensor Get Supported Scale \r\n", __FUNCTION__);
+
+    // (Prep the Multilevel Sensor Get Supported Scale)
+    lucMultilevelSensorGetSupportedScale[0] = COMMAND_CLASS_SENSOR_MULTILEVEL_V11;
+    lucMultilevelSensorGetSupportedScale[1] = SENSOR_MULTILEVEL_SUPPORTED_GET_SCALE_V11;
+    lucMultilevelSensorGetSupportedScale[2] = aucSensorType;
+    LOG("-----------------------  Multilevel Sensor Get Supported Scale START -----------------------\r\n");
+    // Invoke the command class handler
+    pgucCCBuffer = lucMultilevelSensorGetSupportedScale;
+    gucCCBufferLength = sizeof(lucMultilevelSensorGetSupportedScale);
+    gtZWave_CC_Handler[pgucCCBuffer[0]]();
+    LOG("-----------------------  Multilevel Sensor Get Supported Sensor  END  -----------------------\r\n");
+
+
+    ZWave_TxQ_Enqueue(auiNodeID, lucMultilevelSensorGetSupportedScale, sizeof(lucMultilevelSensorGetSupportedScale), COMMAND_CLASS_SENSOR_MULTILEVEL_V11, SENSOR_MULTILEVEL_SUPPORTED_SCALE_REPORT_V11);
+  }
+}
+// end ZWave_Send_Multilevel_Sensor_Get_Supported_Scale
+
+/** *****************************************************************************************************************************
   * @brief  Prepare and send Multilevel Sensor Get Supported Sensor
   * @param  uint16_t auiNodeID - 2-byte NodeID to search in provisioning list (or 0xFFFF for Temporary REI)
   * @retval None
@@ -9313,8 +9476,8 @@ void ZWave_Send_Multilevel_Sensor_Get_Supported_Sensor(uint16_t auiNodeID)
   {
     //LOG("%s: NodeID 0x%04X \t DSK %d \r\n", __FUNCTION__, auiNodeID, lucDSKIndex);
 
-    // Send encrypted Multilevel Sensor Get Supported Sensor
-    LOG("%s: Send encrypted Multilevel Sensor Get Supported Sensor \r\n", __FUNCTION__);
+    // Enqueue encrypted Multilevel Sensor Get Supported Sensor
+    LOG("%s: Enqueue encrypted Multilevel Sensor Get Supported Sensor \r\n", __FUNCTION__);
 
     // (Prep the Multilevel Sensor Get Supported Sensor Get)
     lucMultilevelSensorGetSupportedSensor[0] = COMMAND_CLASS_SENSOR_MULTILEVEL_V11;
@@ -9354,8 +9517,8 @@ void ZWave_Send_Nonce_Report(uint16_t auiNodeID)
     // the DSK index will still be DSK_UNAVAILABLE
   }
 
-  // Send Nonce Report, with REI
-  LOG("%s: Send Nonce Report, with REI \r\n", __FUNCTION__);
+  // Enqueue Nonce Report, with REI
+  LOG("%s: Enqueue Nonce Report, with REI \r\n", __FUNCTION__);
   gucSessionID = ZWave_SessionID_Update(gucSessionID);
   memset(lucSendDataBuffer, 0x00, sizeof(lucSendDataBuffer));
   lucSendDataBuffer[0] = COMMAND_CLASS_SECURITY_2_V2;
@@ -9423,8 +9586,8 @@ void ZWave_Send_Switch_Multilevel_Get(uint16_t auiNodeID)
   {
     //LOG("%s: NodeID 0x%04X \t DSK %d \r\n", __FUNCTION__, auiNodeID, lucDSKIndex);
 
-    // Send encrypted Switch Multilevel Get
-    LOG("%s: Send encrypted Switch Multilevel Get \r\n", __FUNCTION__);
+    // Enqueue encrypted Switch Multilevel Get
+    LOG("%s: Enqueue encrypted Switch Multilevel Get \r\n", __FUNCTION__);
 
     // (Prep the Switch Multilevel Get)
     lucSwitchMultilevelGet[0] = COMMAND_CLASS_SWITCH_MULTILEVEL;
@@ -9463,8 +9626,8 @@ void ZWave_Send_Switch_Multilevel_Set(uint16_t auiNodeID, uint8_t aucSwitchLevel
   {
     //LOG("%s: NodeID 0x%04X \t DSK %d \r\n", __FUNCTION__, auiNodeID, lucDSKIndex);
 
-    // Send encrypted Switch Multilevel Set with the requested value
-    LOG("%s: Send encrypted Switch Multilevel Set with value %02d \r\n", __FUNCTION__, aucSwitchLevelState);
+    // Enqueue encrypted Switch Multilevel Set with the requested value
+    LOG("%s: Enqueue encrypted Switch Multilevel Set with value %02d \r\n", __FUNCTION__, aucSwitchLevelState);
 
     // (Prep the Switch Multilevel Set)
     lucSwitchMultilevelSet[0] = COMMAND_CLASS_SWITCH_MULTILEVEL;
@@ -9503,8 +9666,8 @@ void ZWave_Send_Wakeup_Interval_Get(uint16_t auiNodeID)
   {
     //LOG("%s: NodeID 0x%04X \t DSK %d \r\n", __FUNCTION__, auiNodeID, lucDSKIndex);
 
-    // Send encrypted Wakeup Interval_Get
-    LOG("%s: Send encrypted Wakeup Interval_Get \r\n", __FUNCTION__);
+    // Enqueue encrypted Wakeup Interval_Get
+    LOG("%s: Enqueue encrypted Wakeup Interval_Get \r\n", __FUNCTION__);
 
     // (Prep the Wakeup Interval_Get)
     lucWakeupIntervalGet[0] = COMMAND_CLASS_WAKE_UP_V3;
@@ -9541,8 +9704,8 @@ void ZWave_Send_Wakeup_No_More_Information(uint16_t auiNodeID)
   {
     //LOG("%s: NodeID 0x%04X \t DSK %d \r\n", __FUNCTION__, auiNodeID, lucDSKIndex);
 
-    // Send encrypted Wakeup No More Information
-    LOG("%s: Send encrypted Wakeup No More Information \r\n", __FUNCTION__);
+    // Enqueue encrypted Wakeup No More Information
+    LOG("%s: Enqueue encrypted Wakeup No More Information \r\n", __FUNCTION__);
 
     // (Prep the Wakeup No More Information)
     lucWakeupNoMoreInformation[0] = COMMAND_CLASS_WAKE_UP_V3;
@@ -10896,10 +11059,6 @@ SmartStartState ZWave_SmartStart_StateMachine(SmartStartStateMachineCommand stat
 
         // Node is connected now, save its NodeID to the connection list
         gtNodeConnectionList[gucProcessingDSK].NodeID = gtNodeProvisioningList[gucProcessingDSK].NodeID;
-
-        // Node is connected now, clear global "pointers" to it
-        guiSourceNodeID = NODE_ID_UNAVAILABLE;
-        gucProcessingDSK = DSK_UNAVAILABLE;
       }
       // ENDIF
     }
@@ -11453,9 +11612,10 @@ static void ZWave_TxQ_SendHead(uint8_t aucDSKIndex)
   */
 void ZWave_TxQ_Service(uint8_t aucDSKIndex)
 {
+  // Assumption: the DSK index has already been verified at CONNECTED state
+
   cl_entry_t* pltNodeConnectionEntry = &gtNodeConnectionList[aucDSKIndex];
-  uint8_t isSleeping = !(gtNodeProvisioningList[aucDSKIndex].CC_list_length &&
-                         /* TODO: listening flag / FLiRS from NIF */ 1);
+  uint8_t isSleeping = ZWave_DSK_IsSleeping(aucDSKIndex);
 
   if (pltNodeConnectionEntry->isResendRequested && pltNodeConnectionEntry->TxQCount && pltNodeConnectionEntry->isResendAllowed)   // S2 SOS: resend head
   {
@@ -11762,12 +11922,6 @@ void MainTask(void *argument)
   // For the sake of the Sensaphone ZWave Sentinel Diagnostic tool,
   // display the firmware version
   LOG("%s: ZWave Sentinel firmware version is v%s.%s.%s\r\n", __FUNCTION__, VERSION_A,VERSION_B,VERSION_C);
-
-  /////////////////////////////////////////////////////////////////////////
-  //// TEST MAB 2026.10.19
-  //// Request RTC sync from the ZWave Sentinel Diagnostic Tool
-  LOG("%s: Request RTC sync \r\n", __FUNCTION__);
-  /////////////////////////////////////////////////////////////////////////
 
   /* ************************************************** Infinite loop ************************************************** */
   for(;;)
@@ -12470,6 +12624,12 @@ void ZWaveTask(void *argument)
 //  }
 //  //////////////////////////////////////////////////////////////////////////////////////////////
 
+  /////////////////////////////////////////////////////////////////////////
+  //// TEST MAB 2026.10.19
+  //// Request RTC sync from the ZWave Sentinel Diagnostic Tool
+  LOG("%s: Request RTC sync \r\n", __FUNCTION__);
+  /////////////////////////////////////////////////////////////////////////
+
 
   /* Infinite loop */
   for(;;)
@@ -12596,6 +12756,41 @@ void ZWaveTask(void *argument)
       if ( (SMARTSTART_CONNECTED == geSmartStartState) && (SMARTSTART_CONNECTED != leSmartStartStateOLD) )
       {
         lulCountdownToConnectedActivity_seconds = 0; // For a newly connected end node, trigger activity immediately
+        /////////////////////////////////////////////////////////////////
+        //// TEST MAB 2026.10.22
+        //// Preload CC commands for transmit when it connects
+        //// NOTE: By the time execution comes here, both guiSourceNodeID
+        ////       and gucProcessingDSK are erased. Perhaps erase them
+        ////       here instead of the SmartStart state machine...
+        ////
+        ///////////////////////////////////////////////////
+        // Multilevel Sensor
+        ///////////////////////////////////////////////////
+        if (GENERIC_TYPE_SENSOR_MULTILEVEL == gtNodeConnectionList[gucProcessingDSK].GenericDeviceType &&
+            SPECIFIC_TYPE_ROUTING_SENSOR_MULTILEVEL == gtNodeConnectionList[gucProcessingDSK].SpecificDeviceType)
+        {
+          // Clear the supported sensor types
+          memset(gtNodeConnectionList[gucProcessingDSK].SensorTypes, 0x00, sizeof(gtNodeConnectionList[gucProcessingDSK].SensorTypes));
+          // Send the initial CC commands
+          ZWave_Send_Wakeup_Interval_Get(guiSourceNodeID);
+          ZWave_Send_Multilevel_Sensor_Get_Supported_Sensor(guiSourceNodeID);
+          // Sensor just connected, so should still be awake
+          gtNodeConnectionList[gucProcessingDSK].isAwake = TRUE;
+        }
+        ///////////////////////////////////////////////////
+        // Switch Multilevel, Color Tunable; LEDBulb
+        ///////////////////////////////////////////////////
+        if (GENERIC_TYPE_SWITCH_MULTILEVEL == gtNodeConnectionList[gucProcessingDSK].GenericDeviceType &&
+            SPECIFIC_TYPE_COLOR_TUNABLE_MULTILEVEL == gtNodeConnectionList[gucProcessingDSK].SpecificDeviceType)
+        {
+          ZWave_Send_Switch_Multilevel_Get(guiSourceNodeID);
+        }
+        ///////////////////////////////////////////////////
+        // Node is connected now, clear global "pointers" to it
+        ///////////////////////////////////////////////////
+        guiSourceNodeID = NODE_ID_UNAVAILABLE;
+        gucProcessingDSK = DSK_UNAVAILABLE;
+        /////////////////////////////////////////////////////////////////
       }
 
       leSmartStartStateOLD = geSmartStartState;
@@ -12760,6 +12955,7 @@ void ZWaveTask(void *argument)
     //////////////////////////////////////////////////////////////////////////////
     //// TEST MAB 2026.10.21
     //// Per Claude AI, call once per ZWaveTask loop, replacing the "retransmit if Nonce Report" block
+    //// Transmit queued CC commands for/to CONNECTED end nodes
     for (uint8_t lucDSKIndex = 0; lucDSKIndex < NODE_PROVISIONING_LIST_COUNT; ++lucDSKIndex)
     {
       if (ZWave_DSK_IsConnected(lucDSKIndex))
@@ -13065,8 +13261,8 @@ void ZWaveTask(void *argument)
             // If any messages to the remote sensor are pending,
             // send them now while the remote sensor is awake
             //
-            ZWave_Send_Wakeup_Interval_Get(guiSourceNodeID);
-            ZWave_Send_Multilevel_Sensor_Get_Supported_Sensor(guiSourceNodeID);
+            //ZWave_Send_Wakeup_Interval_Get(guiSourceNodeID);
+            //ZWave_Send_Multilevel_Sensor_Get_Supported_Sensor(guiSourceNodeID);
           }
           /////////////////////////////////////////////////////////////////////
           //
@@ -13082,6 +13278,8 @@ void ZWaveTask(void *argument)
             gucCCBufferLength = gucReceivedCiphertextLength;
             gtZWave_CC_Handler[pgucCCBuffer[0]]();
             LOG("-----------------------  Multilevel Sensor Supported Sensor Report  END  -----------------------\r\n");
+            LOG("%s: Raw dump of supported sensor types for DSK %d \r\n", __FUNCTION__, gucProcessingDSK);
+            PrintBytes(gtNodeConnectionList[gucProcessingDSK].SensorTypes, sizeof(gtNodeConnectionList[gucProcessingDSK].SensorTypes), false, 0);
           }
           /////////////////////////////////////////////////////////////////////
           //
