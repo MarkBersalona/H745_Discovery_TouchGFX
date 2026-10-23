@@ -439,6 +439,7 @@ typedef struct {
   uint8_t  isResendAllowed;        // one S2 SOS resend per transmission of the head item
   uint8_t  isResendRequested;      // set by the Nonce Report handler, consumed by ZWaveTask
   uint8_t     isAwake;             // sleeping node: TRUE between WakeUp Notification and No More Info
+  uint8_t  isSleepCapable;         // sleeping node: TRUE if supports Wakeup CC; FALSE otherwise
 } cl_entry_t;
 
 
