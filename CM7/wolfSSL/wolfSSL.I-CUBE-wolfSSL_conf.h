@@ -323,7 +323,7 @@
         WOLFSSL_STM32F7, WOLFSSL_STM32H7, WOLFSSL_STM32L4, WOLFSSL_STM32L5,
         WOLFSSL_STM32G0, WOLFSSL_STM32G4, WOLFSSL_STM32WB, WOLFSSL_STM32U5 and
         WOLFSSL_STM32MP13 */
-    #define WOLFSSL_STM32H7
+    #define WOLFSSL_STM32F4
 
     /* Debug UART used for printf */
     /* The UART interface number varies for each board/CPU */

@@ -252,6 +252,14 @@ const osMutexAttr_t DiagnosticMutex_attributes = {
   .cb_mem = &DiagnosticMutexControlBlock,
   .cb_size = sizeof(DiagnosticMutexControlBlock),
 };
+/* Definitions for RngMutex */
+osMutexId_t RngMutexHandle;
+osStaticMutexDef_t RngMutexControlBlock;
+const osMutexAttr_t RngMutex_attributes = {
+  .name = "RngMutex",
+  .cb_mem = &RngMutexControlBlock,
+  .cb_size = sizeof(RngMutexControlBlock),
+};
 /* USER CODE BEGIN PV */
 /* ***************************************************************************************************************************** */
 /* ***************************************************************************************************************************** */
@@ -707,6 +715,7 @@ cl_entry_t gtTemporaryConnection;
 
 // Index of DSK currently being processed (may be NO DSK being processed)
 uint8_t gucProcessingDSK = DSK_UNAVAILABLE;
+uint8_t gucTxQInFlightDSK;
 
 // Session ID
 uint8_t gucSessionID;
@@ -915,6 +924,7 @@ uint8_t ZWave_Scan_ProvisioningList_For_DSK(uint8_t* paucDSKBuffer, uint8_t aucN
 uint8_t ZWave_Scan_ProvisioningList_For_NodeID(uint16_t auiNodeID);
 uint8_t ZWave_Scan_ProvisioningList_For_NWIHomeID(uint32_t aulNWIHomeID);
 void ZWave_Send_Encrypted_Data_Temporary(uint16_t auiNodeID, uint8_t* paucPlaintextBuffer, uint8_t aucPlaintextLength);
+void ZWave_Send_Multilevel_Sensor_Get(uint16_t auiNodeID, uint8_t aucSensorType, uint8_t aucSensorScale);
 void ZWave_Send_Multilevel_Sensor_Get_Supported_Scale(uint16_t auiNodeID, uint8_t aucSensorType);
 void ZWave_Send_Nonce_Report(uint16_t auiNodeID);
 #if ENABLE_ZWAVE_CONTROLLER_HOST
@@ -1065,6 +1075,9 @@ int main(void)
   /* Create the mutex(es) */
   /* creation of DiagnosticMutex */
   DiagnosticMutexHandle = osMutexNew(&DiagnosticMutex_attributes);
+
+  /* creation of RngMutex */
+  RngMutexHandle = osMutexNew(&RngMutex_attributes);
 
   /* USER CODE BEGIN RTOS_MUTEX */
   /* add mutexes, ... */
@@ -1886,7 +1899,9 @@ uint16_t Convert_Bytes_uint16(uint8_t* paucInputArray)
   */
 uint32_t Convert_Bytes_uint32(uint8_t* paucInputArray)
 {
-  return (0x1000000*paucInputArray[0]) + (0x10000*paucInputArray[1]) +(0x100*paucInputArray[2]) + paucInputArray[3]; // STM32 word order is little-endian}
+  // STM32 word order is little-endian
+  return ((uint32_t)paucInputArray[0] << 24) | ((uint32_t)paucInputArray[1] << 16) |
+         ((uint32_t)paucInputArray[2] << 8)  |  (uint32_t)paucInputArray[3];
 }
 // end Convert_Bytes_uint32
 
@@ -2342,12 +2357,29 @@ uint32_t Swap_Bytes_uint32(uint32_t aulInputValue)
   */
 uint32_t RandomValue(void)
 {
-  static uint32_t lulReturnValue;
+  uint32_t lulValue = 0;
+  osMutexWait(RngMutexHandle, 1000);
+  HAL_StatusTypeDef lStatus = HAL_RNG_GenerateRandomNumber(&hrng, &lulValue);
+  osMutexRelease(RngMutexHandle);
 
-  // Using HAL library and STM32H7xx random number generator
-  HAL_RNG_GenerateRandomNumber(&hrng, &lulReturnValue);
+  if (HAL_OK != lStatus)
+  {
+    LOG("%s: *** ERROR *** RNG FAIL status=%d err=0x%08lX SR=0x%08lX\r\n",
+        __FUNCTION__, lStatus, hrng.ErrorCode, RNG->SR);
 
-  return lulReturnValue;
+    // Seed/clock error recovery (no CONDRST on H745): clear flags, restart RNG
+    CLEAR_BIT(RNG->SR, RNG_SR_SEIS | RNG_SR_CEIS);   // rc_w0 bits
+    __HAL_RCC_RNG_CLK_ENABLE(); // If anything else gates the clock, the next call recovers it
+    __HAL_RNG_DISABLE(&hrng);
+    __HAL_RNG_ENABLE(&hrng);
+    hrng.State = HAL_RNG_STATE_READY;
+    __HAL_UNLOCK(&hrng);
+
+    osMutexWait(RngMutexHandle, 1000);
+    (void)HAL_RNG_GenerateRandomNumber(&hrng, &lulValue);
+    osMutexRelease(RngMutexHandle);
+  }
+  return lulValue;
 }
 // end RandomValue
 
@@ -2973,6 +3005,34 @@ void Main_Diagnostic_ProcessCommand(uint8_t aucCommandByte)
   } // end switch
 }
 // end Main_Diagnostic_ProcessCommand
+
+/** *****************************************************************************************************************************
+  * @brief  Generate seed for wolfSSL (so wolfSSL won't shut down the STM32 RNG)
+  * @param  unsigned char* output - pointer to output buffer
+  * @param  unsigned int sz       - number of bytes to generate in output buffer (ideally a multiple of 4)
+  * @retval 0 if OK; -1 otherwise
+  */
+int Main_GenerateSeed(unsigned char* output, unsigned int sz)
+{
+  //// MAB 2026.10.23 Designed by Claude AI
+  //// Requires setup in user_settings.h, to #define CUSTOM_RAND_GENERATE_SEED as this function
+
+  while (sz)
+  {
+    uint32_t lulValue;
+    HAL_StatusTypeDef ltRNGResult;
+    osMutexWait(RngMutexHandle, 1000);
+    ltRNGResult = HAL_RNG_GenerateRandomNumber(&hrng, &lulValue);
+    osMutexRelease(RngMutexHandle);
+    if (HAL_OK != ltRNGResult)
+      return -1;                       // wolfSSL treats nonzero as failure
+    uint32_t n = (sz < 4) ? sz : 4;
+    memcpy(output, &lulValue, n);
+    output += n;
+    sz     -= n;
+  }
+  return 0;
+}
 
 /** *****************************************************************************************************************************
   * @brief  Diagnostic mode state machine
@@ -6766,7 +6826,7 @@ void ZWave_RSQ_CMD_13_ZW_Send_Data(void)
     //uint8_t lucSessionID = ZWaveSerialFrame->payload[0];
     uint8_t lucTxStatus = ZWaveSerialFrame->payload[1];
     gucSerialApiTxBusy = FALSE;
-    ZWave_TxQ_On_TxDone(gucProcessingDSK, lucTxStatus);
+    ZWave_TxQ_On_TxDone(gucTxQInFlightDSK, lucTxStatus);
   }
 }
 // end ZWave_RSQ_CMD_13_ZW_Send_Data
@@ -8240,6 +8300,29 @@ void ZWave_Rx_CC_31_Sensor_Multilevel_V11(void)
         }
       }
     }
+
+    //////////////////////////////////////////////////////////////////////////////////////////
+    //// TEST MAB 2026.10.23
+    //// Get some immediate readings
+    uint8_t lucSensorTypeIndex = 0;
+    while ((0x00 != gtNodeConnectionList[gucProcessingDSK].SensorTypes[lucSensorTypeIndex]) && (lucSensorTypeIndex < sizeof(gtNodeConnectionList[gucProcessingDSK].SensorTypes)))
+    {
+      if (gtNodeConnectionList[gucProcessingDSK].SensorTypes[lucSensorTypeIndex])
+      {
+        if (SENSOR_MULTILEVEL_GET_TEMPERATURE_VERSION_1_V11 == gtNodeConnectionList[gucProcessingDSK].SensorTypes[lucSensorTypeIndex])
+        {
+          ZWave_Send_Multilevel_Sensor_Get(guiSourceNodeID, gtNodeConnectionList[gucProcessingDSK].SensorTypes[lucSensorTypeIndex], 1);
+        }
+        else
+        {
+          ZWave_Send_Multilevel_Sensor_Get(guiSourceNodeID, gtNodeConnectionList[gucProcessingDSK].SensorTypes[lucSensorTypeIndex], 0);
+        }
+      }
+
+      ++lucSensorTypeIndex;
+    } // end while
+    //////////////////////////////////////////////////////////////////////////////////////////
+
   }
 
   //  ------------------- SENSOR_MULTILEVEL_GET_V11 -----------------------------------------
@@ -11683,6 +11766,7 @@ static void ZWave_TxQ_SendHead(uint8_t aucDSKIndex)
   pltNodeConnectionEntry->TxQState = TXQ_WAIT_TX_DONE;
   pltNodeConnectionEntry->TxQTick  = HAL_GetTick();
   gucSerialApiTxBusy = TRUE;
+  gucTxQInFlightDSK = aucDSKIndex;
 
   ZWave_S2_Encapsulate_And_Send(aucDSKIndex, it->Plaintext, it->Length);
 }
@@ -11936,55 +12020,56 @@ void MainTask(void *argument)
 //
 //  LOG("%s: Testing random number generator...\r\n", __FUNCTION__);
 //
-//  // Initialize wolfSSL random number generator
-//  int liInitRngResult = wc_InitRng(&gtWolfSSLRng);
-//  if (0!=liInitRngResult)
-//  {
-//    LOG("%s: *** WARNING *** wc_InitRng() returned %d \r\n", __FUNCTION__, liInitRngResult);
-//  }
+////  // Initialize wolfSSL random number generator
+////  int liInitRngResult = wc_InitRng(&gtWolfSSLRng);
+////  if (0!=liInitRngResult)
+////  {
+////    LOG("%s: *** WARNING *** wc_InitRng() returned %d \r\n", __FUNCTION__, liInitRngResult);
+////  }
 //
 //  // Initialize random bin counters
 //  memset(luiRandomBinCount, 0x00, sizeof(luiRandomBinCount));
 //
 //  // Generate N random numbers
-////  for (int i = 0; i < 20; ++i)
+//  for (int i = 0; i < 20; ++i)
+//  {
+//    for (int j = 0; j < 10; ++j)
+//    {
+//      luiRandomValue = RandomValue() % 0xFFFF;
+//      LOG("0x%04X \t", luiRandomValue);
+//      lucRandomBinIndex = luiRandomValue / 0x1000;
+//      ++luiRandomBinCount[lucRandomBinIndex];
+//    }
+//    LOG("\r\n");
+//  }
+//
+////  int liRngGenerateResult = wc_RNG_GenerateBlock(&gtWolfSSLRng, lucRandomValues, sizeof(lucRandomValues));
+////  if (0!=liRngGenerateResult)
 ////  {
-////    for (int j = 0; j < 10; ++j)
-////    {
-////      luiRandomValue = RandomValue() % 0xFFFF;
-////      LOG("0x%04X \t", luiRandomValue);
-////      lucRandomBinIndex = luiRandomValue / 0x1000;
-////      ++luiRandomBinCount[lucRandomBinIndex];
-////    }
-////    LOG("\r\n");
+////    LOG("%s: *** WARNING *** wc_RNG_GenerateBlock() returned %d \r\n", __FUNCTION__, liRngGenerateResult);
 ////  }
-//  int liRngGenerateResult = wc_RNG_GenerateBlock(&gtWolfSSLRng, lucRandomValues, sizeof(lucRandomValues));
-//  if (0!=liRngGenerateResult)
-//  {
-//    LOG("%s: *** WARNING *** wc_RNG_GenerateBlock() returned %d \r\n", __FUNCTION__, liRngGenerateResult);
-//  }
-//  int liFreeRngResult = wc_FreeRng(&gtWolfSSLRng);
-//  if (0!=liFreeRngResult)
-//  {
-//    LOG("%s: *** WARNING *** wc_FreeRng() returned %d \r\n", __FUNCTION__, liFreeRngResult);
-//  }
-//  PrintBytes(lucRandomValues, sizeof(lucRandomValues), FALSE, 0);
-//
-//  // Determine bin counts
-//  for (uint16_t i = 0; i < sizeof(lucRandomValues); ++i)
-//  {
-//    lucRandomBinIndex = lucRandomValues[i] / 0x10;
-//    ++luiRandomBinCount[lucRandomBinIndex];
-//  }
-//
-//  // Display bin counts
-//  LOG("%s: Random bin counts...\r\n", __FUNCTION__);
-//  for (int i = 0; i < 16; ++i)
-//  {
-//    if (i == 8) LOG("     ");
-//    LOG("0x%02X ", luiRandomBinCount[i]);
-//  }
-//  LOG("\r\n");
+////  int liFreeRngResult = wc_FreeRng(&gtWolfSSLRng);
+////  if (0!=liFreeRngResult)
+////  {
+////    LOG("%s: *** WARNING *** wc_FreeRng() returned %d \r\n", __FUNCTION__, liFreeRngResult);
+////  }
+////  PrintBytes(lucRandomValues, sizeof(lucRandomValues), FALSE, 0);
+////
+////  // Determine bin counts
+////  for (uint16_t i = 0; i < sizeof(lucRandomValues); ++i)
+////  {
+////    lucRandomBinIndex = lucRandomValues[i] / 0x10;
+////    ++luiRandomBinCount[lucRandomBinIndex];
+////  }
+////
+////  // Display bin counts
+////  LOG("%s: Random bin counts...\r\n", __FUNCTION__);
+////  for (int i = 0; i < 16; ++i)
+////  {
+////    if (i == 8) LOG("     ");
+////    LOG("0x%02X ", luiRandomBinCount[i]);
+////  }
+////  LOG("\r\n");
 //  /////////////////////////////////////////////////////////
 
 //  /////////////////////////////////////////////////////////////////////////////////
@@ -12471,6 +12556,7 @@ void ZWaveTask(void *argument)
   static uint8_t lucDSKIndex;
   static uint16_t luiMessageQueueBuffer;
   static uint8_t lucRTCString[20];
+  static int32_t llSensorValue;
 
 
   LOG("%s: initializing...\r\n", __FUNCTION__);
@@ -12700,16 +12786,6 @@ void ZWaveTask(void *argument)
   LOG("%s: =====================================================================================\r\n");
 
 
-
-//  //////////////////////////////////////////////////////////////////////////////////////////////
-//  //// TEST MAB 2026.10.15
-//  //// Display all CC names
-//  for (int i = 0; i < 256; ++i)
-//  {
-//    LOG("%s:  CC command 0x%02X is %s \r\n", __FUNCTION__, i, pgcZWave_CC_Names[i]);
-//  }
-//  //////////////////////////////////////////////////////////////////////////////////////////////
-
   /////////////////////////////////////////////////////////////////////////
   //// TEST MAB 2026.10.19
   //// Request RTC sync from the ZWave Sentinel Diagnostic Tool
@@ -12818,7 +12894,7 @@ void ZWaveTask(void *argument)
 
     //////////////////////////////////////////////
     //
-    // Run the Z-Wave state machine
+    // Run the Z-Wave serial state machine
     //
     //////////////////////////////////////////////
     geZWaveState = ZWave_SerialAPI_StateMachine(ZWAVE_SM_CMD_RUN);
@@ -12834,20 +12910,20 @@ void ZWaveTask(void *argument)
     {
       geSmartStartState = ZWave_SmartStart_StateMachine(SMARTSTART_SM_CMD_RUN);
 
+      // Transition to DETECTED
       if ( (SMARTSTART_DETECTED == geSmartStartState) && (SMARTSTART_DETECTED != leSmartStartStateOLD) )
       {
         lucCountdownToUpdateNodeIDList_minutes = 5;
         lucCountdownToNodeProvisioningListStatus_minutes = 1;
       }
+
+      // Transition to CONNECTED
       if ( (SMARTSTART_CONNECTED == geSmartStartState) && (SMARTSTART_CONNECTED != leSmartStartStateOLD) )
       {
         lulCountdownToConnectedActivity_seconds = 0; // For a newly connected end node, trigger activity immediately
         /////////////////////////////////////////////////////////////////
         //// TEST MAB 2026.10.22
         //// Preload CC commands for transmit when it connects
-        //// NOTE: By the time execution comes here, both guiSourceNodeID
-        ////       and gucProcessingDSK are erased. Perhaps erase them
-        ////       here instead of the SmartStart state machine...
         ////
         ///////////////////////////////////////////////////
         // Multilevel Sensor
@@ -13058,7 +13134,6 @@ void ZWaveTask(void *argument)
     if (0 == lucCountdownToUpdateNodeIDList_minutes)
     {
       lucCountdownToUpdateNodeIDList_minutes = NODE_PL_UPDATE_INTERVAL_MINUTES;
-      //// TEST MAB 2026.10.06 lucCountdownToUpdateNodeIDList_minutes = 10;
 
       #if ENABLE_ZWAVE_CONTROLLER_HOST
       // Fetch latest LR node list
@@ -13164,7 +13239,7 @@ void ZWaveTask(void *argument)
     {
       lulCountdownToSwitchMultilevelSet_seconds = SWITCH_MULTILEVEL_SET_INTERVAL_SECONDS;
 
-      for (int lucDSKIndex = 0; lucDSKIndex < NODE_PROVISIONING_LIST_COUNT; ++lucDSKIndex)
+      for (uint8_t lucDSKIndex = 0; lucDSKIndex < NODE_PROVISIONING_LIST_COUNT; ++lucDSKIndex)
       {
         if (ZWave_DSK_IsConnected(lucDSKIndex))
         {
@@ -13320,7 +13395,7 @@ void ZWaveTask(void *argument)
             sprintf(lucRTCString, "20%02d.%02d.%02d %02d:%02d:%02d",
                      sMainRTCDate.Year,  sMainRTCDate.Month,   sMainRTCDate.Date,
                      sMainRTCTime.Hours, sMainRTCTime.Minutes, sMainRTCTime.Seconds  );
-            LOG("%s: Zone=%d Timestamp=%s type=%d Value=%d \r\n", __FUNCTION__, lucDSKIndex+1, lucRTCString, 0, gucDecryptedPlaintext[2]);
+            LOG("%s: Zone=%d Timestamp=%s type=%d Value=%d \r\n", __FUNCTION__, lucDSKIndex+1, lucRTCString, 36, gucDecryptedPlaintext[2]);
 
           }
           /////////////////////////////////////////////////////////////////////
@@ -13350,9 +13425,17 @@ void ZWaveTask(void *argument)
             uint8_t lucSensorTypeIndex = 0;
             while (gtNodeConnectionList[gucProcessingDSK].SensorTypes[lucSensorTypeIndex] && lucSensorTypeIndex<sizeof(gtNodeConnectionList[gucProcessingDSK].SensorTypes))
             {
-              ZWave_Send_Multilevel_Sensor_Get(guiSourceNodeID, gtNodeConnectionList[gucProcessingDSK].SensorTypes[lucSensorTypeIndex], 0);
+              if (SENSOR_MULTILEVEL_GET_TEMPERATURE_VERSION_1_V11 == gtNodeConnectionList[gucProcessingDSK].SensorTypes[lucSensorTypeIndex])
+              {
+                ZWave_Send_Multilevel_Sensor_Get(guiSourceNodeID, gtNodeConnectionList[gucProcessingDSK].SensorTypes[lucSensorTypeIndex], 1);
+              }
+              else
+              {
+                ZWave_Send_Multilevel_Sensor_Get(guiSourceNodeID, gtNodeConnectionList[gucProcessingDSK].SensorTypes[lucSensorTypeIndex], 0);
+              }
+
               ++lucSensorTypeIndex;
-            }
+            } // end while
           }
           /////////////////////////////////////////////////////////////////////
           //
@@ -13371,13 +13454,27 @@ void ZWaveTask(void *argument)
             sprintf(lucRTCString, "20%02d.%02d.%02d %02d:%02d:%02d",
                      sMainRTCDate.Year,  sMainRTCDate.Month,   sMainRTCDate.Date,
                      sMainRTCTime.Hours, sMainRTCTime.Minutes, sMainRTCTime.Seconds  );
+            llSensorValue = (int32_t)Convert_Bytes_uint32(&gucDecryptedPlaintext[4]);
             if (SENSOR_MULTILEVEL_GET_TEMPERATURE_VERSION_1_V11 == gucDecryptedPlaintext[2])
             {
-              LOG("%s: Zone=%d Timestamp=%s type=%d Value=%d \r\n", __FUNCTION__, (10*lucDSKIndex)+1, lucRTCString, 3, 0x100*gucDecryptedPlaintext[6] + gucDecryptedPlaintext[7]);
+              LOG("%s: Zone=%d Timestamp=%s type=%d Value=%d \r\n", __FUNCTION__, (10*lucDSKIndex)+1, lucRTCString,  2, llSensorValue);
+            }
+            if (SENSOR_MULTILEVEL_GET_LUMINANCE_VERSION_1_V11 == gucDecryptedPlaintext[2])
+            {
+//              /////////////////////////////////////////////////////
+//              //// TEST MAB 2026.10.23
+//              //// Test negative values
+//              gucDecryptedPlaintext[4] = 0xFF;
+//              gucDecryptedPlaintext[5] = RandomValue() & 0xFF;
+//              gucDecryptedPlaintext[6] = RandomValue() & 0xFF;
+//              gucDecryptedPlaintext[7] = RandomValue() & 0xFF;
+//              llSensorValue = (int32_t)Convert_Bytes_uint32(&gucDecryptedPlaintext[4]);
+//              /////////////////////////////////////////////////////
+              LOG("%s: Zone=%d Timestamp=%s type=%d Value=%d \r\n", __FUNCTION__, (10*lucDSKIndex)+3, lucRTCString, 36, llSensorValue);
             }
             if (SENSOR_MULTILEVEL_GET_RELATIVE_HUMIDITY_VERSION_2_V11 == gucDecryptedPlaintext[2])
             {
-              LOG("%s: Zone=%d Timestamp=%s type=%d Value=%d \r\n", __FUNCTION__, (10*lucDSKIndex)+2, lucRTCString, 10, 0x100*gucDecryptedPlaintext[6] + gucDecryptedPlaintext[7]);
+              LOG("%s: Zone=%d Timestamp=%s type=%d Value=%d \r\n", __FUNCTION__, (10*lucDSKIndex)+5, lucRTCString, 10, llSensorValue);
             }
           }
           /////////////////////////////////////////////////////////////////////

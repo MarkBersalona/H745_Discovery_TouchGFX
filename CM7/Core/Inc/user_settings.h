@@ -1,6 +1,12 @@
 /* Keep the Cube pack configuration */
 #include "wolfSSL.I-CUBE-wolfSSL_conf.h"
 
+/* H745 isn't in the Cube template; fix the platform it fell back to */
+#undef  WOLFSSL_STM32F4
+#ifndef WOLFSSL_STM32H7
+#define WOLFSSL_STM32H7
+#endif
+
 /* Include wolfSSL CMAC routines and definitions */
 #ifndef WOLFSSL_CMAC
 #define WOLFSSL_CMAC
@@ -22,4 +28,12 @@
 // Enable these defines to use static memory and possibly no fallback to dynamic
 //#define WOLFSSL_STATIC_MEMORY  // Use static instead of dynamically-allocated memory
 //#define WOLFSSL_NO_MALLOC      // If static memory runs out, don't fallback to dynamic
+////////////////////////////////////////////////////////////////////////////////////
+
+////////////////////////////////////////////////////////////////////////////////////
+// TEST MAB 2026.10.23
+// Per Claude AI, have wolfSSL get its seed from our own code instead of its
+// init/deinit, which gets its seed from the STM32 RNG and then shuts it down!
+extern int Main_GenerateSeed(unsigned char* output, unsigned int sz);
+#define CUSTOM_RAND_GENERATE_SEED  Main_GenerateSeed
 ////////////////////////////////////////////////////////////////////////////////////
