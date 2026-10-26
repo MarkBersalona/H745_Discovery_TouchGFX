@@ -877,6 +877,9 @@ void ZWave_DSK_Write(uint8_t aucDSKIndex, uint8_t* paucDSKBuffer);
 uint8_t ZWave_DSK_Write_From_String(uint8_t aucDSKIndex, char* paucDSKString);
 void ZWave_DSK_Write_To_String(uint8_t aucDSKIndex, char* paucDSKBuffer);
 void ZWave_DSK_Zeroize(uint8_t aucDSKIndex);
+void ZWave_Identify_Basic_Device_Type(uint8_t aucBasicDeviceType);
+void ZWave_Identify_Generic_Device_Type(uint8_t aucGenericDeviceType);
+void ZWave_Identify_Specific_Device_Type(uint8_t aucGenericDeviceType, uint8_t aucSpecificDeviceType);
 int ZWave_Network_Key_Expand(uint8_t aucDSKIndex, uint8_t* paucNetworkKey);
 int ZWave_Network_SPAN_Establish(uint8_t aucDSKIndex);
 void ZWave_REQ_CMD_0A_Serial_API_Started(void);
@@ -4252,6 +4255,159 @@ void ZWave_Display_CC_Names(uint8_t* paucCCBuffer, uint8_t aucCCBufferLength)
   //LOG("---------------------- Command class names  END  -----------------------------\r\n");
 }
 // end ZWave_Display_CC_Names
+
+/** *****************************************************************************************************************************
+  * @brief  Display node provisioning list
+  * @param  None
+  * @retval None
+  */
+void ZWave_Display_Node_Provisioning_List(void)
+{
+  uint8_t lucNWIAuthHomeIDBuffer[8];
+  uint32_t lulNWIHomeID;
+  uint32_t lulAuthHomeID;
+  char lucIntegerString[10];
+  char lucDSKString[60];
+  char lucDSKHexString[60];
+  uint16_t luiTempDSKInt;
+
+  for (int i = 0; i < NODE_PROVISIONING_LIST_COUNT; ++i)
+  {
+    if (!ZWave_DSK_IsZeroized(i))
+    {
+      // Display DSK
+      memset(lucDSKString,    0x00, sizeof(lucDSKString));
+      ZWave_DSK_Write_To_String(i, lucDSKString);
+      memset(lucDSKHexString, 0x00, sizeof(lucDSKHexString));
+      for (int j = 0; j < DSK_LENGTH_BYTES; j+=2)
+      {
+        luiTempDSKInt = 0x100*gtNodeProvisioningList[i].dsk[j] + gtNodeProvisioningList[i].dsk[j+1];
+        memset(lucIntegerString, 0x00, sizeof(lucIntegerString));
+        sprintf(lucIntegerString, "%04X", luiTempDSKInt);
+        strcat(lucDSKHexString, lucIntegerString);
+        if (j < DSK_LENGTH_BYTES-2) strcat(lucDSKHexString, "--");
+      }
+      LOG("%s: DSK %d: %s\r\n", __FUNCTION__, i, lucDSKString);
+      LOG("%s:         %s\r\n", __FUNCTION__,    lucDSKHexString);
+      // END Display DSK
+
+      // Display NWI and Auth HomeIDs
+      if (ZWave_DSK_Extract_NWIAuthHomeID(i, lucNWIAuthHomeIDBuffer))
+      {
+        lulNWIHomeID  = Convert_Bytes_uint32(&lucNWIAuthHomeIDBuffer[0]);
+        lulAuthHomeID = Convert_Bytes_uint32(&lucNWIAuthHomeIDBuffer[4]);
+        LOG("%s: - NWI  HomeID:                   %08X \r\n",             __FUNCTION__, lulNWIHomeID);
+        LOG("%s: - Auth HomeID:                               %08X \r\n", __FUNCTION__, lulAuthHomeID);
+      }
+      // END Display NWI and Auth HomeIDs
+
+      // Test if zeroized
+      if (ZWave_DSK_IsZeroized(i))
+      {
+        LOG("%s: - Zeroized \r\n", __FUNCTION__);
+      }
+
+      // Display LR-capable or Mesh Only
+      switch (gtNodeProvisioningList[i].lr_capable)
+      {
+      case ZWAVE_NODE_PROVISIONING_LIST_LR_CAPABLE:
+        LOG("%s: - Long Range capable \r\n", __FUNCTION__);
+        break;
+      case ZWAVE_NODE_PROVISIONING_LIST_MESH_ONLY:
+        LOG("%s: - Mesh only\r\n", __FUNCTION__);
+        break;
+      default:
+        LOG("%s: - *** WARNING *** lr_capable value %d is UNKNOWN\r\n", __FUNCTION__, gtNodeProvisioningList[i].lr_capable);
+        break;
+      }
+      // END Display LR-capable or Mesh Only
+
+      // Display boot mode
+      switch (gtNodeProvisioningList[i].boot_mode)
+      {
+      case ZWAVE_NODE_PROVISIONING_LIST_SMARTSTART:
+        LOG("%s: - SmartStart \r\n", __FUNCTION__);
+        break;
+      case ZWAVE_NODE_PROVISIONING_LIST_S2_MANUAL:
+        LOG("%s: - S2 manual \r\n", __FUNCTION__);
+        break;
+      default:
+        LOG("%s: - *** WARNING *** boot_mode value %d is UNKNOWN\r\n", __FUNCTION__, gtNodeProvisioningList[i].boot_mode);
+        break;
+      }
+      // END Display boot mode
+
+      // Display status
+      switch (gtNodeProvisioningList[i].status)
+      {
+      case SMARTSTART_EMPTY:
+        LOG("%s: - EMPTY - DSK not written \r\n", __FUNCTION__);
+        break;
+      case SMARTSTART_READY:
+        LOG("%s: - READY - DSK written to node provisioning list; end node not connected \r\n", __FUNCTION__);
+        break;
+      case SMARTSTART_DETECTED:
+        LOG("%s: - DETECTED - End node with correlated DSK detected \r\n", __FUNCTION__);
+        break;
+      case SMARTSTART_INCLUSION:
+        LOG("%s: - INCLUSION - End node joining home network \r\n", __FUNCTION__);
+        break;
+      case SMARTSTART_EXCLUSION:
+        LOG("%s: - EXCLUSION - End node removed from home network \r\n", __FUNCTION__);
+        break;
+      case SMARTSTART_BOOTSTRAP:
+        LOG("%s: - BOOTSTRAP - End node sharing key information \r\n", __FUNCTION__);
+        break;
+      case SMARTSTART_CONNECTED:
+        LOG("%s: - CONNECTED - End node fully connected, including security \r\n", __FUNCTION__);
+        break;
+      case SMARTSTART_REMOVED:
+        LOG("%s: - REMOVED - End node being removed from home network; DSK being erased from node provisioning list \r\n", __FUNCTION__);
+        break;
+      default:
+        LOG("%s: - *** WARNING *** status value %d is UNKNOWN\r\n", __FUNCTION__, gtNodeProvisioningList[i].status);
+        break;
+      }
+      // END Display status
+
+      // Display NodeID (may be 0x0000)
+      LOG("%s: - NodeID: 0x%04X \r\n", __FUNCTION__, gtNodeProvisioningList[i].NodeID);
+      // END Display NodeID
+
+      if (gtNodeProvisioningList[i].CC_list_length && NODE_ID_UNAVAILABLE!=gtNodeProvisioningList[i].NodeID)
+      {
+        // Display basic, generic and specific device types
+        ZWave_Identify_Basic_Device_Type(gtNodeProvisioningList[i].basic_device_type);
+        ZWave_Identify_Generic_Device_Type(gtNodeProvisioningList[i].generic_device_type);
+        ZWave_Identify_Specific_Device_Type(gtNodeProvisioningList[i].generic_device_type, gtNodeProvisioningList[i].specific_device_type);
+        // END Display basic, generic and specific device types
+
+        // Display supported Command Classes
+        LOG("----------------------- Supported Command Class list START -----------------------\r\n");
+        //PrintBytes(gtNodeProvisioningList[i].CC_list_buffer, gtNodeProvisioningList[i].CC_list_length, false, 0);
+        ZWave_Display_CC_Names(gtNodeProvisioningList[i].CC_list_buffer, gtNodeProvisioningList[i].CC_list_length);
+        LOG("----------------------- Supported Command Class list  END  -----------------------\r\n");
+        // END Display supported Command Classes
+      }
+    }
+    // END not zeroized DSK
+  }
+  // END for NODE_PROVISIONING_LIST_COUNT
+
+  // Also check for the first zeroized DSK, if any
+  uint8_t lucFirstZeroizedDSKIndex;
+  lucFirstZeroizedDSKIndex = ZWave_DSK_Find_Zeroized();
+  if (lucFirstZeroizedDSKIndex == DSK_UNAVAILABLE)
+  {
+    LOG("%s: *** WARNING *** no zeroized DSK is available in the node provisioning list \r\n", __FUNCTION__);
+  }
+  else
+  {
+    LOG("%s: DSK %d is zeroized \r\n", __FUNCTION__, lucFirstZeroizedDSKIndex);
+  }
+
+}
+// end ZWave_Display_Node_Provisioning_List
 
 /** *****************************************************************************************************************************
   * @brief  Display received frame data (to debug port)
@@ -8301,28 +8457,6 @@ void ZWave_Rx_CC_31_Sensor_Multilevel_V11(void)
       }
     }
 
-    //////////////////////////////////////////////////////////////////////////////////////////
-    //// TEST MAB 2026.10.23
-    //// Get some immediate readings
-    uint8_t lucSensorTypeIndex = 0;
-    while ((0x00 != gtNodeConnectionList[gucProcessingDSK].SensorTypes[lucSensorTypeIndex]) && (lucSensorTypeIndex < sizeof(gtNodeConnectionList[gucProcessingDSK].SensorTypes)))
-    {
-      if (gtNodeConnectionList[gucProcessingDSK].SensorTypes[lucSensorTypeIndex])
-      {
-        if (SENSOR_MULTILEVEL_GET_TEMPERATURE_VERSION_1_V11 == gtNodeConnectionList[gucProcessingDSK].SensorTypes[lucSensorTypeIndex])
-        {
-          ZWave_Send_Multilevel_Sensor_Get(guiSourceNodeID, gtNodeConnectionList[gucProcessingDSK].SensorTypes[lucSensorTypeIndex], 1);
-        }
-        else
-        {
-          ZWave_Send_Multilevel_Sensor_Get(guiSourceNodeID, gtNodeConnectionList[gucProcessingDSK].SensorTypes[lucSensorTypeIndex], 0);
-        }
-      }
-
-      ++lucSensorTypeIndex;
-    } // end while
-    //////////////////////////////////////////////////////////////////////////////////////////
-
   }
 
   //  ------------------- SENSOR_MULTILEVEL_GET_V11 -----------------------------------------
@@ -8404,8 +8538,9 @@ void ZWave_Rx_CC_84_Wake_Up_V3(void)
     break;
   }
 
+  //  ------------------- WAKE_UP_INTERVAL_SET_V3 -----------------------------------------
   //  ------------------- WAKE_UP_INTERVAL_REPORT_V3 -----------------------------------------
-  if (WAKE_UP_INTERVAL_REPORT_V3             == pgucCCBuffer[1])
+  if (WAKE_UP_INTERVAL_REPORT_V3 == pgucCCBuffer[1] || WAKE_UP_INTERVAL_SET_V3 == pgucCCBuffer[1])
   {
     LOG("%s: Seconds (MSB)   = 0x%02X \r\n", __FUNCTION__, pgucCCBuffer[2]);
     LOG("%s: Seconds         = 0x%02X \r\n", __FUNCTION__, pgucCCBuffer[3]);
@@ -9551,7 +9686,7 @@ void ZWave_Send_Multilevel_Sensor_Get(uint16_t auiNodeID, uint8_t aucSensorType,
   {
     LOG("%s: *** ERROR *** invalid DSK index \r\n", __FUNCTION__);
   }
-  else
+  else if (aucSensorType)
   {
     //LOG("%s: NodeID 0x%04X \t DSK %d \r\n", __FUNCTION__, auiNodeID, lucDSKIndex);
 
@@ -9843,6 +9978,50 @@ void ZWave_Send_Wakeup_Interval_Get(uint16_t auiNodeID)
   }
 }
 // end ZWave_Send_Wakeup_Interval_Get
+
+/** *****************************************************************************************************************************
+  * @brief  Prepare and send Wakeup Interval_Set
+  * @param  uint16_t auiNodeID - 2-byte NodeID to search in provisioning list
+  * @param  uint32_t aulWakeInterval - 4-byte (3 bytes active) wakeup interval in seconds [1-16777215]
+  * @param  uint8_t aucHostNodeID - single byte NodeID of Wakeup *destination* i.e. host NodeID
+  * @retval None
+  */
+void ZWave_Send_Wakeup_Interval_Set(uint16_t auiNodeID, uint32_t aulWakeInterval, uint8_t aucHostNodeID)
+{
+  uint8_t lucWakeupIntervalSet[6];
+  uint8_t lucDSKIndex;
+
+  lucDSKIndex = ZWave_Scan_ProvisioningList_For_NodeID(auiNodeID);
+  if (lucDSKIndex >= NODE_PROVISIONING_LIST_COUNT )
+  {
+    LOG("%s: *** ERROR *** invalid DSK index \r\n", __FUNCTION__);
+  }
+  else
+  {
+    //LOG("%s: NodeID 0x%04X \t DSK %d \r\n", __FUNCTION__, auiNodeID, lucDSKIndex);
+
+    // Enqueue encrypted Wakeup Interval_Get
+    LOG("%s: Enqueue encrypted Wakeup Interval_Set \r\n", __FUNCTION__);
+
+    // (Prep the Wakeup Interval_Get)
+    lucWakeupIntervalSet[0] = COMMAND_CLASS_WAKE_UP_V3;
+    lucWakeupIntervalSet[1] = WAKE_UP_INTERVAL_SET_V3;
+    lucWakeupIntervalSet[2] = (aulWakeInterval >> 16) & 0xFF; // (MSB)
+    lucWakeupIntervalSet[3] = (aulWakeInterval >>  8) & 0xFF;
+    lucWakeupIntervalSet[4] = (aulWakeInterval        & 0xFF);      // (LSB)
+    lucWakeupIntervalSet[5] = aucHostNodeID;
+    LOG("-----------------------  Wakeup Interval_Set START -----------------------\r\n");
+    // Invoke the command class handler
+    pgucCCBuffer = lucWakeupIntervalSet;
+    gucCCBufferLength = sizeof(lucWakeupIntervalSet);
+    gtZWave_CC_Handler[pgucCCBuffer[0]]();
+    LOG("-----------------------  Wakeup Interval_Set  END  -----------------------\r\n");
+
+
+    ZWave_TxQ_Enqueue(auiNodeID, lucWakeupIntervalSet, sizeof(lucWakeupIntervalSet), 0, 0);
+  }
+}
+// end ZWave_Send_Wakeup_Interval_Set
 
 /** *****************************************************************************************************************************
   * @brief  Prepare and send Wakeup No More Information
@@ -11717,8 +11896,10 @@ void ZWave_TxQ_On_TxDone(uint8_t aucDSKIndex, uint8_t aucTxStatus)
   }
   else if (0 == pltNodeConnectionEntry->TxQ[pltNodeConnectionEntry->TxQHead].ExpectCC)
   {
-    ZWave_TxQ_Pop(pltNodeConnectionEntry);   // nothing to wait for
-  }
+    // No CC response/report expected, but wait for a possible Nonce Report
+    pltNodeConnectionEntry->TxQState = TXQ_WAIT_SOS;
+    pltNodeConnectionEntry->TxQTick  = HAL_GetTick();
+ }
   else
   {
     pltNodeConnectionEntry->TxQState = TXQ_WAIT_REPORT;
@@ -11828,6 +12009,14 @@ void ZWave_TxQ_Service(uint8_t aucDSKIndex)
       }
     }
     break;
+
+  case TXQ_WAIT_SOS:
+    if ((HAL_GetTick() - pltNodeConnectionEntry->TxQTick) >= NODE_TXQ_SOS_GRACE_MS)   // ~300-500 ms
+    {
+      ZWave_TxQ_Pop(pltNodeConnectionEntry);
+    }
+    break;
+
   } // end switch
 }
 // end ZWave_TxQ_Service
@@ -12653,10 +12842,7 @@ void ZWaveTask(void *argument)
   //////////////////////////////////////////////////////////////////////////////
   // Initialize Z-Wave node provisioning list
   //////////////////////////////////////////////////////////////////////////////
-  static char lucIntegerString[10];
   static char lucDSKString[60];
-  static uint16_t luiTempDSKInt;
-  static char lucDSKHexString[60];
   LOG("%s: --------- Initializing Node Provisioning list... ---------\r\n", __FUNCTION__);
   // ----- Zeroize DSKs (initialize any valid DSKs later)
   LOG("%s: Zeroized DSKs\r\n", __FUNCTION__);
@@ -12931,13 +13117,16 @@ void ZWaveTask(void *argument)
         if (GENERIC_TYPE_SENSOR_MULTILEVEL == gtNodeConnectionList[gucProcessingDSK].GenericDeviceType &&
             SPECIFIC_TYPE_ROUTING_SENSOR_MULTILEVEL == gtNodeConnectionList[gucProcessingDSK].SpecificDeviceType)
         {
-          // Clear the supported sensor types
-          memset(gtNodeConnectionList[gucProcessingDSK].SensorTypes, 0x00, sizeof(gtNodeConnectionList[gucProcessingDSK].SensorTypes));
-          // Send the initial CC commands
-          ZWave_Send_Wakeup_Interval_Get(guiSourceNodeID);
-          ZWave_Send_Multilevel_Sensor_Get_Supported_Sensor(guiSourceNodeID);
           // Sensor just connected, so should still be awake
           gtNodeConnectionList[gucProcessingDSK].isAwake = TRUE;
+
+          // Clear the supported sensor types in the DSK's connection list
+          memset(gtNodeConnectionList[gucProcessingDSK].SensorTypes, 0x00, sizeof(gtNodeConnectionList[gucProcessingDSK].SensorTypes));
+
+          // Send the initial CC commands
+          ZWave_Send_Wakeup_Interval_Set(guiSourceNodeID, 60, (uint8_t)guiDestinationNodeID);
+          ZWave_Send_Wakeup_Interval_Get(guiSourceNodeID);
+          ZWave_Send_Multilevel_Sensor_Get_Supported_Sensor(guiSourceNodeID);
         }
         ///////////////////////////////////////////////////
         // Switch Multilevel, Color Tunable; LEDBulb
@@ -12966,148 +13155,12 @@ void ZWaveTask(void *argument)
     //// Every N minutes display the node provisioning list
     //// TEST MAB 2025.12.30
     //// Also check for the 1st zeroized DSK, if any
-    uint8_t lucNWIAuthHomeIDBuffer[8];
-    uint32_t lulNWIHomeID;
-    uint32_t lulAuthHomeID;
     if (lucCountdownToNodeProvisioningListStatus_minutes == 0)
     {
       lucCountdownToNodeProvisioningListStatus_minutes = ZWave_DSK_Count_Live_NodeIDs() ? NODE_PL_DISPLAY_INTERVAL_MINUTES : 60;
       //lucCountdownToNodeProvisioningListStatus_minutes = ZWave_DSK_Count_Live_NodeIDs() ? NODE_PL_DISPLAY_INTERVAL_MINUTES : 2*NODE_PL_DISPLAY_INTERVAL_MINUTES;
 
-      for (int i = 0; i < NODE_PROVISIONING_LIST_COUNT; ++i)
-      {
-        if (!ZWave_DSK_IsZeroized(i))
-        {
-          // Display DSK
-          memset(lucDSKString,    0x00, sizeof(lucDSKString));
-          ZWave_DSK_Write_To_String(i, lucDSKString);
-          memset(lucDSKHexString, 0x00, sizeof(lucDSKHexString));
-          for (int j = 0; j < DSK_LENGTH_BYTES; j+=2)
-          {
-            luiTempDSKInt = 0x100*gtNodeProvisioningList[i].dsk[j] + gtNodeProvisioningList[i].dsk[j+1];
-            memset(lucIntegerString, 0x00, sizeof(lucIntegerString));
-            sprintf(lucIntegerString, "%04X", luiTempDSKInt);
-            strcat(lucDSKHexString, lucIntegerString);
-            if (j < DSK_LENGTH_BYTES-2) strcat(lucDSKHexString, "--");
-          }
-          LOG("%s: DSK %d: %s\r\n", __FUNCTION__, i, lucDSKString);
-          LOG("%s:         %s\r\n", __FUNCTION__,    lucDSKHexString);
-          // END Display DSK
-
-          // Display NWI and Auth HomeIDs
-          if (ZWave_DSK_Extract_NWIAuthHomeID(i, lucNWIAuthHomeIDBuffer))
-          {
-            lulNWIHomeID  = Convert_Bytes_uint32(&lucNWIAuthHomeIDBuffer[0]);
-            lulAuthHomeID = Convert_Bytes_uint32(&lucNWIAuthHomeIDBuffer[4]);
-            LOG("%s: - NWI  HomeID:                   %08X \r\n",             __FUNCTION__, lulNWIHomeID);
-            LOG("%s: - Auth HomeID:                               %08X \r\n", __FUNCTION__, lulAuthHomeID);
-          }
-          // END Display NWI and Auth HomeIDs
-
-          // Test if zeroized
-          if (ZWave_DSK_IsZeroized(i))
-          {
-            LOG("%s: - Zeroized \r\n", __FUNCTION__);
-          }
-
-          // Display LR-capable or Mesh Only
-          switch (gtNodeProvisioningList[i].lr_capable)
-          {
-          case ZWAVE_NODE_PROVISIONING_LIST_LR_CAPABLE:
-            LOG("%s: - Long Range capable \r\n", __FUNCTION__);
-            break;
-          case ZWAVE_NODE_PROVISIONING_LIST_MESH_ONLY:
-            LOG("%s: - Mesh only\r\n", __FUNCTION__);
-            break;
-          default:
-            LOG("%s: - *** WARNING *** lr_capable value %d is UNKNOWN\r\n", __FUNCTION__, gtNodeProvisioningList[i].lr_capable);
-            break;
-          }
-          // END Display LR-capable or Mesh Only
-
-          // Display boot mode
-          switch (gtNodeProvisioningList[i].boot_mode)
-          {
-          case ZWAVE_NODE_PROVISIONING_LIST_SMARTSTART:
-            LOG("%s: - SmartStart \r\n", __FUNCTION__);
-            break;
-          case ZWAVE_NODE_PROVISIONING_LIST_S2_MANUAL:
-            LOG("%s: - S2 manual \r\n", __FUNCTION__);
-            break;
-          default:
-            LOG("%s: - *** WARNING *** boot_mode value %d is UNKNOWN\r\n", __FUNCTION__, gtNodeProvisioningList[i].boot_mode);
-            break;
-          }
-          // END Display boot mode
-
-          // Display status
-          switch (gtNodeProvisioningList[i].status)
-          {
-          case SMARTSTART_EMPTY:
-            LOG("%s: - EMPTY - DSK not written \r\n", __FUNCTION__);
-            break;
-          case SMARTSTART_READY:
-            LOG("%s: - READY - DSK written to node provisioning list; end node not connected \r\n", __FUNCTION__);
-            break;
-          case SMARTSTART_DETECTED:
-            LOG("%s: - DETECTED - End node with correlated DSK detected \r\n", __FUNCTION__);
-            break;
-          case SMARTSTART_INCLUSION:
-            LOG("%s: - INCLUSION - End node joining home network \r\n", __FUNCTION__);
-            break;
-          case SMARTSTART_EXCLUSION:
-            LOG("%s: - EXCLUSION - End node removed from home network \r\n", __FUNCTION__);
-            break;
-          case SMARTSTART_BOOTSTRAP:
-            LOG("%s: - BOOTSTRAP - End node sharing key information \r\n", __FUNCTION__);
-            break;
-          case SMARTSTART_CONNECTED:
-            LOG("%s: - CONNECTED - End node fully connected, including security \r\n", __FUNCTION__);
-            break;
-          case SMARTSTART_REMOVED:
-            LOG("%s: - REMOVED - End node being removed from home network; DSK being erased from node provisioning list \r\n", __FUNCTION__);
-            break;
-          default:
-            LOG("%s: - *** WARNING *** status value %d is UNKNOWN\r\n", __FUNCTION__, gtNodeProvisioningList[i].status);
-            break;
-          }
-          // END Display status
-
-          // Display NodeID (may be 0x0000)
-          LOG("%s: - NodeID: 0x%04X \r\n", __FUNCTION__, gtNodeProvisioningList[i].NodeID);
-          // END Display NodeID
-
-          if (gtNodeProvisioningList[i].CC_list_length && NODE_ID_UNAVAILABLE!=gtNodeProvisioningList[i].NodeID)
-          {
-            // Display basic, generic and specific device types
-            ZWave_Identify_Basic_Device_Type(gtNodeProvisioningList[i].basic_device_type);
-            ZWave_Identify_Generic_Device_Type(gtNodeProvisioningList[i].generic_device_type);
-            ZWave_Identify_Specific_Device_Type(gtNodeProvisioningList[i].generic_device_type, gtNodeProvisioningList[i].specific_device_type);
-            // END Display basic, generic and specific device types
-
-            // Display supported Command Classes
-            LOG("----------------------- Supported Command Class list START -----------------------\r\n");
-            //PrintBytes(gtNodeProvisioningList[i].CC_list_buffer, gtNodeProvisioningList[i].CC_list_length, false, 0);
-            ZWave_Display_CC_Names(gtNodeProvisioningList[i].CC_list_buffer, gtNodeProvisioningList[i].CC_list_length);
-            LOG("----------------------- Supported Command Class list  END  -----------------------\r\n");
-            // END Display supported Command Classes
-          }
-        }
-        // END not zeroized DSK
-      }
-      // END for NODE_PROVISIONING_LIST_COUNT
-
-      // Also check for the first zeroized DSK, if any
-      uint8_t lucFirstZeroizedDSKIndex;
-      lucFirstZeroizedDSKIndex = ZWave_DSK_Find_Zeroized();
-      if (lucFirstZeroizedDSKIndex == DSK_UNAVAILABLE)
-      {
-        LOG("%s: *** WARNING *** no zeroized DSK is available in the node provisioning list \r\n", __FUNCTION__);
-      }
-      else
-      {
-        LOG("%s: DSK %d is zeroized \r\n", __FUNCTION__, lucFirstZeroizedDSKIndex);
-      }
+      ZWave_Display_Node_Provisioning_List();
     }
     // END display the node provisioning list
     //////////////////////////////////////////////////////////////////////////////
@@ -13493,6 +13546,21 @@ void ZWaveTask(void *argument)
             LOG("-----------------------  Multilevel Sensor Supported Sensor Report  END  -----------------------\r\n");
             LOG("%s: Raw dump of supported sensor types for DSK %d \r\n", __FUNCTION__, gucProcessingDSK);
             PrintBytes(gtNodeConnectionList[gucProcessingDSK].SensorTypes, sizeof(gtNodeConnectionList[gucProcessingDSK].SensorTypes), false, 0);
+            //// Get some immediate readings
+            uint8_t lucSensorTypeIndex = 0;
+            while ((0x00 != gtNodeConnectionList[gucProcessingDSK].SensorTypes[lucSensorTypeIndex]) && (lucSensorTypeIndex < sizeof(gtNodeConnectionList[gucProcessingDSK].SensorTypes)))
+            {
+              if (SENSOR_MULTILEVEL_GET_TEMPERATURE_VERSION_1_V11 == gtNodeConnectionList[gucProcessingDSK].SensorTypes[lucSensorTypeIndex])
+              {
+                ZWave_Send_Multilevel_Sensor_Get(guiSourceNodeID, gtNodeConnectionList[gucProcessingDSK].SensorTypes[lucSensorTypeIndex], 1);
+              }
+              else
+              {
+                ZWave_Send_Multilevel_Sensor_Get(guiSourceNodeID, gtNodeConnectionList[gucProcessingDSK].SensorTypes[lucSensorTypeIndex], 0);
+              }
+
+              ++lucSensorTypeIndex;
+            } // end while
           }
           /////////////////////////////////////////////////////////////////////
           //

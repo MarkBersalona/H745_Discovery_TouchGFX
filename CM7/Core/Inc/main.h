@@ -405,11 +405,12 @@ typedef struct {
 #define S2_MAX_PLAINTEXT_LENGTH  (50)    // 80-byte tx buffer - 22 (header + SPAN ext) - 8 (tag)
 #define S2_RESEND_WINDOW_MS      (3000)  // a Nonce Report later than this isn't tied to our send
 
-#define NODE_TXQ_DEPTH          (4)
+#define NODE_TXQ_DEPTH          (5)
 #define NODE_TXQ_REPORT_TMO_MS  (S2_RESEND_WINDOW_MS + 2000)   // must exceed S2_RESEND_WINDOW_MS (SOS + resend round trip)
 #define NODE_TXQ_RETRIES        (2)
+#define NODE_TXQ_SOS_GRACE_MS   (500)
 
-typedef enum { TXQ_IDLE, TXQ_WAIT_TX_DONE, TXQ_WAIT_REPORT } txq_state_t;
+typedef enum { TXQ_IDLE, TXQ_WAIT_TX_DONE, TXQ_WAIT_REPORT, TXQ_WAIT_SOS } txq_state_t;
 
 typedef struct {
   uint8_t  Plaintext[S2_MAX_PLAINTEXT_LENGTH];
