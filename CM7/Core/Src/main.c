@@ -882,6 +882,7 @@ void ZWave_Identify_Generic_Device_Type(uint8_t aucGenericDeviceType);
 void ZWave_Identify_Specific_Device_Type(uint8_t aucGenericDeviceType, uint8_t aucSpecificDeviceType);
 int ZWave_Network_Key_Expand(uint8_t aucDSKIndex, uint8_t* paucNetworkKey);
 int ZWave_Network_SPAN_Establish(uint8_t aucDSKIndex);
+void ZWave_Process_Command_Class(uint8_t* paucCCBuffer, uint8_t aucCCLength);
 void ZWave_REQ_CMD_0A_Serial_API_Started(void);
 void ZWave_RES_CMD_02_Get_Init_Data(void);
 void ZWave_RES_CMD_05_ZW_Get_Controller_Capabilities(void);
@@ -3673,9 +3674,7 @@ BootstrapState ZWave_Bootstrap_StateMachine(BootstrapStateMachineCommand stateMa
           {
             LOG("-----------------------  KEX Set START -----------------------\r\n");
             // Invoke the command class handler
-            pgucCCBuffer = lucKexSet;
-            gucCCBufferLength = gucReceivedCiphertextLength;
-            gtZWave_CC_Handler[pgucCCBuffer[0]]();
+            ZWave_Process_Command_Class(lucKexSet, gucReceivedCiphertextLength);
             LOG("-----------------------  KEX Set  END  -----------------------\r\n");
 
             // Reset elapsed time for next state
@@ -3689,9 +3688,7 @@ BootstrapState ZWave_Bootstrap_StateMachine(BootstrapStateMachineCommand stateMa
             LOG("-----------------------  Original KEX Report with Echo START -----------------------\r\n");
             PrintBytes(gucKEXReport, sizeof(gucKEXReport), false, 0);
             // Invoke the command class handler
-            pgucCCBuffer = gucKEXReport;
-            gucCCBufferLength = sizeof(gucKEXReport);
-            gtZWave_CC_Handler[pgucCCBuffer[0]]();
+            ZWave_Process_Command_Class(gucKEXReport, sizeof(gucKEXReport));
             LOG("-----------------------  Original KEX Report with Echo  END  -----------------------\r\n");
 
 
@@ -3750,9 +3747,7 @@ BootstrapState ZWave_Bootstrap_StateMachine(BootstrapStateMachineCommand stateMa
 
           LOG("-----------------------  Network Key Get START -----------------------\r\n");
           // Invoke the command class handler
-          pgucCCBuffer = lucNetworkKeyGet;
-          gucCCBufferLength = gucReceivedCiphertextLength;
-          gtZWave_CC_Handler[pgucCCBuffer[0]]();
+          ZWave_Process_Command_Class(lucNetworkKeyGet, gucReceivedCiphertextLength);
           LOG("-----------------------  Network Key Get  END  -----------------------\r\n");
 
           // Send encrypted Network Key Report with requested key
@@ -3882,9 +3877,7 @@ BootstrapState ZWave_Bootstrap_StateMachine(BootstrapStateMachineCommand stateMa
 
           LOG("-----------------------  Network Key Verify START -----------------------\r\n");
           // Invoke the command class handler
-          pgucCCBuffer = lucNetworkKeyVerify;
-          gucCCBufferLength = gucReceivedCiphertextLength;
-          gtZWave_CC_Handler[pgucCCBuffer[0]]();
+          ZWave_Process_Command_Class(lucNetworkKeyVerify, gucReceivedCiphertextLength);
           LOG("-----------------------  Network Key Verify  END  -----------------------\r\n");
 
 
@@ -3976,9 +3969,7 @@ BootstrapState ZWave_Bootstrap_StateMachine(BootstrapStateMachineCommand stateMa
         {
           LOG("-----------------------  Transfer End START -----------------------\r\n");
           // Invoke the command class handler
-          pgucCCBuffer = lucTransferEnd;
-          gucCCBufferLength = gucReceivedCiphertextLength;
-          gtZWave_CC_Handler[pgucCCBuffer[0]]();
+          ZWave_Process_Command_Class(lucTransferEnd, gucReceivedCiphertextLength);
           LOG("-----------------------  Transfer End  END  -----------------------\r\n");
 
           // Set state to COMPLETE
@@ -4076,16 +4067,16 @@ int ZWave_Controller_Keys_Generate(uint8_t* paucPrivateKey, uint8_t* paucPublicK
   LOG("%s: - Export raw 32-byte private key \r\n", __FUNCTION__);
   LOG("%s: ------------------------------- \r\n", __FUNCTION__);
   liReturnValue = wc_curve25519_export_private_raw_ex(&ltKey, paucPrivateKey, &luiPrivateSize, EC25519_LITTLE_ENDIAN);
-  PrintBytes(paucPrivateKey, 32, false, 0);
-  PrintBytes(gucControllerPrivateKey, 32, false, 0);
+  //PrintBytes(paucPrivateKey, 32, false, 0);
+  //PrintBytes(gucControllerPrivateKey, 32, false, 0);
   if (liReturnValue == 0)
   {
     LOG("%s: ------------------------------- \r\n", __FUNCTION__);
     LOG("%s: - Export raw 32-byte public key \r\n", __FUNCTION__);
     LOG("%s: ------------------------------- \r\n", __FUNCTION__);
     liReturnValue = wc_curve25519_export_public_ex(&ltKey, paucPublicKey, &luiPublicSize, EC25519_LITTLE_ENDIAN);
-    PrintBytes(paucPublicKey, 32, false, 0);
-    PrintBytes(gucControllerPublicKey, 32, false, 0);
+    //PrintBytes(paucPublicKey, 32, false, 0);
+    //PrintBytes(gucControllerPublicKey, 32, false, 0);
   }
 
 
@@ -6019,17 +6010,17 @@ int ZWave_Network_Key_Expand(uint8_t aucDSKIndex, uint8_t* paucNetworkKey)
   ///////////////////////////////////////////////////
   memcpy(gtNodeConnectionList[aucDSKIndex].KeyCCM, lucT1, 16);
   LOG("%s: - saved KeyCCM for DSK %d \r\n", __FUNCTION__, aucDSKIndex);
-  PrintBytes(gtNodeConnectionList[aucDSKIndex].KeyCCM, sizeof(lucT1), false, 0);
+  //PrintBytes(gtNodeConnectionList[aucDSKIndex].KeyCCM, sizeof(lucT1), false, 0);
 
   memcpy(lucMsgExpand2,    lucT2, 16);
   memcpy(lucMsgExpand2+16, lucT3, 16);
   memcpy(gtNodeConnectionList[aucDSKIndex].PersonalizationString, lucMsgExpand2, 32);
   LOG("%s: - saved PersonalizationString for DSK %d \r\n", __FUNCTION__, aucDSKIndex);
-  PrintBytes(gtNodeConnectionList[aucDSKIndex].PersonalizationString, sizeof(lucMsgExpand2), false, 0);
+  //PrintBytes(gtNodeConnectionList[aucDSKIndex].PersonalizationString, sizeof(lucMsgExpand2), false, 0);
 
   memcpy(gtNodeConnectionList[aucDSKIndex].KeyMPAN, lucT4, 16);
   LOG("%s: - saved KeyMPAN for DSK %d \r\n", __FUNCTION__, aucDSKIndex);
-  PrintBytes(gtNodeConnectionList[aucDSKIndex].KeyMPAN, sizeof(lucT4), false, 0);
+  //PrintBytes(gtNodeConnectionList[aucDSKIndex].KeyMPAN, sizeof(lucT4), false, 0);
 
 
   exit:
@@ -6311,6 +6302,21 @@ void ZWave_Pop_Command_Queue(void)
   // ENDIF
 }
 // end ZWave_Pop_Command_Queue
+
+/** *****************************************************************************************************************************
+  * @brief  Process Command Class command
+  * @param  uint8_t* paucCCBuffer - pointer to buffer containing Command Class command
+  * @param  uint8_t aucCCLength   - length (in bytes) of Command Class command
+  * @retval None
+  */
+void ZWave_Process_Command_Class(uint8_t* paucCCBuffer, uint8_t aucCCLength)
+{
+  // Invoke the command class handler
+  pgucCCBuffer = paucCCBuffer;
+  gucCCBufferLength = aucCCLength;
+  gtZWave_CC_Handler[pgucCCBuffer[0]]();
+}
+// end ZWave_Process_Command_Class
 
 /** *****************************************************************************************************************************
   * @brief  Command handler for CMD 0x02 FUNC_ID_SERIAL_API_GET_INIT_DATA ZW->HOST: Cmd | ver | capabilities | 29 | nodes[29] | chip_type | chip_version
@@ -8070,9 +8076,7 @@ void ZWave_RES_CMD_A8_Application_Command_Handler_Bridge(void)
     LOG("-----------------------  Command data START -----------------------\r\n");
     PrintBytes(&ZWaveSerialFrame->payload[6], i, false, 0);
     // Invoke the command class handler
-    pgucCCBuffer = &ZWaveSerialFrame->payload[6];
-    gucCCBufferLength = i;
-    gtZWave_CC_Handler[pgucCCBuffer[0]]();
+    ZWave_Process_Command_Class(&ZWaveSerialFrame->payload[6], i);
     LOG("-----------------------  Command data  END  -----------------------\r\n");
   }
   LOG("%s: Multicast destination node mask length = 0x%02X\r\n", __FUNCTION__, ZWaveSerialFrame->payload[6+i]);
@@ -8403,10 +8407,6 @@ void ZWave_Rx_CC_26_Switch_Multilevel_V4(void)
   */
 void ZWave_Rx_CC_31_Sensor_Multilevel_V11(void)
 {
-  uint8_t lucExtensionLength;
-  uint8_t* plucExtensionLocation;
-  uint8_t lucExtensionOptions;
-
   // Assume pgucCCBuffer and gucCCBufferLength have already been assigned
 
   LOG("%s: Command class   = 0x%02X \r\n", __FUNCTION__, pgucCCBuffer[0]);
@@ -8499,16 +8499,54 @@ void ZWave_Rx_CC_31_Sensor_Multilevel_V11(void)
 // end ZWave_Rx_CC_31_Sensor_Multilevel_V11
 
 /** *****************************************************************************************************************************
+  * @brief  Command class handler for CC 0x80 COMMAND_CLASS_BATTERY_V3
+  * @param  None
+  * @retval None
+  */
+void ZWave_Rx_CC_80_Battery_V3(void)
+{
+  // Assume pgucCCBuffer and gucCCBufferLength have already been assigned
+
+  LOG("%s: Command class   = 0x%02X \r\n", __FUNCTION__, pgucCCBuffer[0]);
+  LOG("%s: - COMMAND_CLASS_BATTERY_V3 \r\n", __FUNCTION__);
+
+  LOG("%s: Security header = 0x%02X \r\n", __FUNCTION__, pgucCCBuffer[1]);
+  switch (pgucCCBuffer[1])
+  {
+  case BATTERY_GET_V3:
+    LOG("%s: - BATTERY_GET_V3 \r\n", __FUNCTION__)
+    break;
+  case BATTERY_REPORT_V3:
+    LOG("%s: - BATTERY_REPORT_V3 \r\n", __FUNCTION__)
+    break;
+  case BATTERY_HEALTH_GET_V3:
+    LOG("%s: - BATTERY_HEALTH_GET_V3 \r\n", __FUNCTION__)
+    break;
+  case BATTERY_HEALTH_REPORT_V3:
+    LOG("%s: - BATTERY_HEALTH_REPORT_V3 \r\n", __FUNCTION__)
+    break;
+  default:
+    LOG("%s: - *** WARNING *** Security header UNKNOWN \r\n", __FUNCTION__)
+    break;
+  }
+
+  //  ------------------- BATTERY_REPORT_V3 -----------------------------------------
+  if ( BATTERY_REPORT_V3    == pgucCCBuffer[1] )
+  {
+    LOG("%s: Battery level    = 0x%02X \r\n", __FUNCTION__, pgucCCBuffer[2]);
+    LOG("%s: - %d %% \r\n", __FUNCTION__, pgucCCBuffer[2]);
+  }
+
+}
+// end ZWave_Rx_CC_80_Battery_V3
+
+/** *****************************************************************************************************************************
   * @brief  Command class handler for CC 0x84 COMMAND_CLASS_WAKE_UP_V3
   * @param  None
   * @retval None
   */
 void ZWave_Rx_CC_84_Wake_Up_V3(void)
 {
-  uint8_t lucExtensionLength;
-  uint8_t* plucExtensionLocation;
-  uint8_t lucExtensionOptions;
-
   // Assume pgucCCBuffer and gucCCBufferLength have already been assigned
 
   LOG("%s: Command class   = 0x%02X \r\n", __FUNCTION__, pgucCCBuffer[0]);
@@ -9144,7 +9182,7 @@ void ZWave_Rx_CC_9F_Security_2_V2(void)
     }
 
     LOG("%s: ECDH Public key (1st 16 bytes: DSK with some bytes possibly obfuscated with 0x00)... \r\n", __FUNCTION__);
-    PrintBytes(&pgucCCBuffer[3], 32, false, 0);
+    //PrintBytes(&pgucCCBuffer[3], 32, false, 0);
 
     // Try to detect DSK in node provisioning list
     uint8_t lucDetectedDSKIndex;
@@ -9157,7 +9195,7 @@ void ZWave_Rx_CC_9F_Security_2_V2(void)
       LOG("%s: Copying ECDH Public Key for DSK %d \r\n", __FUNCTION__, lucDetectedDSKIndex);
       memcpy(&gtNodeProvisioningList[lucDetectedDSKIndex].ECDHPublicKey[ 0], gtNodeProvisioningList[lucDetectedDSKIndex].dsk, DSK_LENGTH_BYTES);
       memcpy(&gtNodeProvisioningList[lucDetectedDSKIndex].ECDHPublicKey[16], &pgucCCBuffer[3+DSK_LENGTH_BYTES],               DSK_LENGTH_BYTES);
-      PrintBytes(gtNodeProvisioningList[lucDetectedDSKIndex].ECDHPublicKey, 32, false, 0);
+      //PrintBytes(gtNodeProvisioningList[lucDetectedDSKIndex].ECDHPublicKey, 32, false, 0);
     }
 
   }
@@ -9625,6 +9663,43 @@ uint8_t ZWave_Scan_ProvisioningList_For_NWIHomeID(uint32_t aulNWIHomeID)
 #if ENABLE_ZWAVE_CONTROLLER_HOST
 
 /** *****************************************************************************************************************************
+  * @brief  Prepare and send Battery Get
+  * @param  uint16_t auiNodeID - 2-byte NodeID to search in provisioning list
+  * @retval None
+  */
+void ZWave_Send_Battery_Get(uint16_t auiNodeID)
+{
+  uint8_t lucBatteryGet[2];
+  uint8_t lucDSKIndex;
+
+  lucDSKIndex = ZWave_Scan_ProvisioningList_For_NodeID(auiNodeID);
+  if (lucDSKIndex >= NODE_PROVISIONING_LIST_COUNT )
+  {
+    LOG("%s: *** ERROR *** invalid DSK index \r\n", __FUNCTION__);
+  }
+  else
+  {
+    //LOG("%s: NodeID 0x%04X \t DSK %d \r\n", __FUNCTION__, auiNodeID, lucDSKIndex);
+
+    // Enqueue encrypted Battery Get
+    LOG("%s: Enqueue encrypted Battery Get \r\n", __FUNCTION__);
+
+    // (Prep the Battery Get)
+    lucBatteryGet[0] = COMMAND_CLASS_BATTERY_V3;
+    lucBatteryGet[1] = BATTERY_GET_V3;
+    LOG("-----------------------  Battery Get START -----------------------\r\n");
+    // Invoke the command class handler
+    ZWave_Process_Command_Class(lucBatteryGet, sizeof(lucBatteryGet));
+    LOG("-----------------------  Battery Get  END  -----------------------\r\n");
+
+
+    ZWave_TxQ_Enqueue(auiNodeID, lucBatteryGet, sizeof(lucBatteryGet), COMMAND_CLASS_BATTERY_V3, BATTERY_REPORT_V3);
+  }
+
+}
+// end ZWave_Send_Battery_Get
+
+/** *****************************************************************************************************************************
   * @brief  Prepare and send encrypted data to an end node, using temporary key and SPAN
   * @param  uint16_t auiNodeID - 2-byte NodeID to search in provisioning list
   * @param  uint8_t* paucPlaintextBuffer - pointer to plaintext to be encrypted and transmitted
@@ -9705,9 +9780,7 @@ void ZWave_Send_Multilevel_Sensor_Get(uint16_t auiNodeID, uint8_t aucSensorType,
     lucMultilevelSensorGet[3] = aucSensorScale << SENSOR_MULTILEVEL_GET_PROPERTIES1_SCALE_SHIFT_V11;
     LOG("-----------------------  Multilevel Sensor Get START -----------------------\r\n");
     // Invoke the command class handler
-    pgucCCBuffer = lucMultilevelSensorGet;
-    gucCCBufferLength = sizeof(lucMultilevelSensorGet);
-    gtZWave_CC_Handler[pgucCCBuffer[0]]();
+    ZWave_Process_Command_Class(lucMultilevelSensorGet, sizeof(lucMultilevelSensorGet));
     LOG("-----------------------  Multilevel Sensor Get  END  -----------------------\r\n");
 
 
@@ -9745,9 +9818,7 @@ void ZWave_Send_Multilevel_Sensor_Get_Supported_Scale(uint16_t auiNodeID, uint8_
     lucMultilevelSensorGetSupportedScale[2] = aucSensorType;
     LOG("-----------------------  Multilevel Sensor Get Supported Scale START -----------------------\r\n");
     // Invoke the command class handler
-    pgucCCBuffer = lucMultilevelSensorGetSupportedScale;
-    gucCCBufferLength = sizeof(lucMultilevelSensorGetSupportedScale);
-    gtZWave_CC_Handler[pgucCCBuffer[0]]();
+    ZWave_Process_Command_Class(lucMultilevelSensorGetSupportedScale, sizeof(lucMultilevelSensorGetSupportedScale));
     LOG("-----------------------  Multilevel Sensor Get Supported Sensor  END  -----------------------\r\n");
 
 
@@ -9783,9 +9854,7 @@ void ZWave_Send_Multilevel_Sensor_Get_Supported_Sensor(uint16_t auiNodeID)
     lucMultilevelSensorGetSupportedSensor[1] = SENSOR_MULTILEVEL_SUPPORTED_GET_SENSOR_V11;
     LOG("-----------------------  Multilevel Sensor Get Supported Sensor START -----------------------\r\n");
     // Invoke the command class handler
-    pgucCCBuffer = lucMultilevelSensorGetSupportedSensor;
-    gucCCBufferLength = sizeof(lucMultilevelSensorGetSupportedSensor);
-    gtZWave_CC_Handler[pgucCCBuffer[0]]();
+    ZWave_Process_Command_Class(lucMultilevelSensorGetSupportedSensor, sizeof(lucMultilevelSensorGetSupportedSensor));
     LOG("-----------------------  Multilevel Sensor Get Supported Sensor  END  -----------------------\r\n");
 
 
@@ -9893,9 +9962,7 @@ void ZWave_Send_Switch_Multilevel_Get(uint16_t auiNodeID)
     lucSwitchMultilevelGet[1] = SWITCH_MULTILEVEL_GET;
     LOG("-----------------------  Switch Multilevel Get START -----------------------\r\n");
     // Invoke the command class handler
-    pgucCCBuffer = lucSwitchMultilevelGet;
-    gucCCBufferLength = sizeof(lucSwitchMultilevelGet);
-    gtZWave_CC_Handler[pgucCCBuffer[0]]();
+    ZWave_Process_Command_Class(lucSwitchMultilevelGet, sizeof(lucSwitchMultilevelGet));
     LOG("-----------------------  Switch Multilevel Get  END  -----------------------\r\n");
 
 
@@ -9935,9 +10002,7 @@ void ZWave_Send_Switch_Multilevel_Set(uint16_t auiNodeID, uint8_t aucSwitchLevel
     lucSwitchMultilevelSet[3] = SWITCH_BINARY_SET_INSTANTLY_V2;
     LOG("-----------------------  Switch Multilevel Set START -----------------------\r\n");
     // Invoke the command class handler
-    pgucCCBuffer = lucSwitchMultilevelSet;
-    gucCCBufferLength = sizeof(lucSwitchMultilevelSet);
-    gtZWave_CC_Handler[pgucCCBuffer[0]]();
+    ZWave_Process_Command_Class(lucSwitchMultilevelSet, sizeof(lucSwitchMultilevelSet));
     LOG("-----------------------  Switch Multilevel Set  END  -----------------------\r\n");
 
 
@@ -9973,9 +10038,7 @@ void ZWave_Send_Wakeup_Interval_Get(uint16_t auiNodeID)
     lucWakeupIntervalGet[1] = WAKE_UP_INTERVAL_GET_V3;
     LOG("-----------------------  Wakeup Interval_Get START -----------------------\r\n");
     // Invoke the command class handler
-    pgucCCBuffer = lucWakeupIntervalGet;
-    gucCCBufferLength = sizeof(lucWakeupIntervalGet);
-    gtZWave_CC_Handler[pgucCCBuffer[0]]();
+    ZWave_Process_Command_Class(lucWakeupIntervalGet, sizeof(lucWakeupIntervalGet));
     LOG("-----------------------  Wakeup Interval_Get  END  -----------------------\r\n");
 
 
@@ -10017,9 +10080,7 @@ void ZWave_Send_Wakeup_Interval_Set(uint16_t auiNodeID, uint32_t aulWakeInterval
     lucWakeupIntervalSet[5] = aucHostNodeID;
     LOG("-----------------------  Wakeup Interval_Set START -----------------------\r\n");
     // Invoke the command class handler
-    pgucCCBuffer = lucWakeupIntervalSet;
-    gucCCBufferLength = sizeof(lucWakeupIntervalSet);
-    gtZWave_CC_Handler[pgucCCBuffer[0]]();
+    ZWave_Process_Command_Class(lucWakeupIntervalSet, sizeof(lucWakeupIntervalSet));
     LOG("-----------------------  Wakeup Interval_Set  END  -----------------------\r\n");
 
 
@@ -10055,9 +10116,7 @@ void ZWave_Send_Wakeup_No_More_Information(uint16_t auiNodeID)
     lucWakeupNoMoreInformation[1] = WAKE_UP_NO_MORE_INFORMATION_V3;
     LOG("-----------------------  Wakeup No More Information START -----------------------\r\n");
     // Invoke the command class handler
-    pgucCCBuffer = lucWakeupNoMoreInformation;
-    gucCCBufferLength = sizeof(lucWakeupNoMoreInformation);
-    gtZWave_CC_Handler[pgucCCBuffer[0]]();
+    ZWave_Process_Command_Class(lucWakeupNoMoreInformation, sizeof(lucWakeupNoMoreInformation));
     LOG("-----------------------  Wakeup No More Information  END  -----------------------\r\n");
 
 
@@ -11800,10 +11859,10 @@ void ZWave_Transmit_Frame(uint8_t aucCMD, uint8_t aucType, const uint8_t* paucPa
 
   // Transmit the frame
   HAL_UART_Transmit(&huart2, (uint8_t *)&ltFrame, ltFrame.len + 2, 100);
-  LOG("%s: Transmitting to Z-Wave controller\r\n", __FUNCTION__);
-  LOG("******************** Transmitting to Z-Wave controller START ******************** \r\n");
-  PrintBytes((uint8_t *)&ltFrame, ltFrame.len + 2, false, 0);
-  LOG("******************** Transmitting to Z-Wave controller  END  ******************** \r\n");
+//  LOG("%s: Transmitting to Z-Wave controller\r\n", __FUNCTION__);
+//  LOG("******************** Transmitting to Z-Wave controller START ******************** \r\n");
+//  PrintBytes((uint8_t *)&ltFrame, ltFrame.len + 2, false, 0);
+//  LOG("******************** Transmitting to Z-Wave controller  END  ******************** \r\n");
 
   // Start the ACK and buffer check timers
   gtZWaveRxInterface.ack_timeout_ms = 1; // start the timer
@@ -12826,6 +12885,7 @@ void ZWaveTask(void *argument)
   // Also fill in the entries for supported command class handler routines
   gtZWave_CC_Handler[COMMAND_CLASS_SWITCH_MULTILEVEL_V4]          = ZWave_Rx_CC_26_Switch_Multilevel_V4;
   gtZWave_CC_Handler[COMMAND_CLASS_SENSOR_MULTILEVEL_V11]         = ZWave_Rx_CC_31_Sensor_Multilevel_V11;
+  gtZWave_CC_Handler[COMMAND_CLASS_BATTERY_V3]                    = ZWave_Rx_CC_80_Battery_V3;
   gtZWave_CC_Handler[COMMAND_CLASS_WAKE_UP_V3]                    = ZWave_Rx_CC_84_Wake_Up_V3;
   gtZWave_CC_Handler[COMMAND_CLASS_SECURITY_2_V2]                 = ZWave_Rx_CC_9F_Security_2_V2;
   // Here's a handy template when implementing command class handlers in the future
@@ -12997,6 +13057,12 @@ void ZWaveTask(void *argument)
       if (lulCountdownToConnectedActivity_seconds) --lulCountdownToConnectedActivity_seconds;
       if (lulCountdownToSwitchMultilevelSet_seconds) --lulCountdownToSwitchMultilevelSet_seconds;
 
+      // Decrement any battery poll countdown timers
+      for (uint8_t lucDSKIndex = 0; lucDSKIndex < NODE_PROVISIONING_LIST_COUNT; ++lucDSKIndex)
+      {
+        if (gtNodeConnectionList[lucDSKIndex].BatteryPollCountdown) --gtNodeConnectionList[lucDSKIndex].BatteryPollCountdown;
+      }
+
     } // updates on seconds
     ///////////////////////////////
     // updates on minutes
@@ -13132,6 +13198,10 @@ void ZWaveTask(void *argument)
           ZWave_Send_Wakeup_Interval_Set(guiSourceNodeID, 60, (uint8_t)guiDestinationNodeID);
           ZWave_Send_Wakeup_Interval_Get(guiSourceNodeID);
           ZWave_Send_Multilevel_Sensor_Get_Supported_Sensor(guiSourceNodeID);
+          ZWave_Send_Battery_Get(guiSourceNodeID);
+
+          // Initialize countdown to next battery poll
+          gtNodeConnectionList[gucProcessingDSK].BatteryPollCountdown = NODE_BATTERY_POLL_INTERVAL_SECONDS;
         }
         ///////////////////////////////////////////////////
         // Switch Multilevel, Color Tunable; LEDBulb
@@ -13436,6 +13506,10 @@ void ZWaveTask(void *argument)
           // Retire the in-flight transaction (pop it from the TX queue) if this is the report it was waiting for
           ZWave_TxQ_On_Report(gucProcessingDSK, gucDecryptedPlaintext);
 
+          sprintf(lucRTCString, "20%02d.%02d.%02d %02d:%02d:%02d",
+                   sMainRTCDate.Year,  sMainRTCDate.Month,   sMainRTCDate.Date,
+                   sMainRTCTime.Hours, sMainRTCTime.Minutes, sMainRTCTime.Seconds  );
+
           /////////////////////////////////////////////////////////////////////
           //
           // Switch Multilevel Report
@@ -13446,19 +13520,15 @@ void ZWaveTask(void *argument)
           {
             LOG("-----------------------  Switch Multilevel Report START -----------------------\r\n");
             // Invoke the command class handler
-            pgucCCBuffer = gucDecryptedPlaintext;
-            gucCCBufferLength = gucReceivedCiphertextLength;
-            gtZWave_CC_Handler[pgucCCBuffer[0]]();
+            ZWave_Process_Command_Class(gucDecryptedPlaintext, gucReceivedCiphertextLength);
             LOG("-----------------------  Switch Multilevel Report  END  -----------------------\r\n");
-            sprintf(lucRTCString, "20%02d.%02d.%02d %02d:%02d:%02d",
-                     sMainRTCDate.Year,  sMainRTCDate.Month,   sMainRTCDate.Date,
-                     sMainRTCTime.Hours, sMainRTCTime.Minutes, sMainRTCTime.Seconds  );
             LOG("%s: Zone=%d Timestamp=%s type=%d Value=%d \r\n", __FUNCTION__, lucDSKIndex+1, lucRTCString, 36, gucDecryptedPlaintext[2]);
 
           }
           /////////////////////////////////////////////////////////////////////
           //
           // Wakeup Notification
+          // (expect this periodically)
           //
           /////////////////////////////////////////////////////////////////////
           else if (COMMAND_CLASS_WAKE_UP_V3 == gucDecryptedPlaintext[0] &&
@@ -13466,9 +13536,7 @@ void ZWaveTask(void *argument)
           {
             LOG("-----------------------  Wakeup Notification START -----------------------\r\n");
             // Invoke the command class handler
-            pgucCCBuffer = gucDecryptedPlaintext;
-            gucCCBufferLength = gucReceivedCiphertextLength;
-            gtZWave_CC_Handler[pgucCCBuffer[0]]();
+            ZWave_Process_Command_Class(gucDecryptedPlaintext, gucReceivedCiphertextLength);
             LOG("-----------------------  Wakeup Notification  END  -----------------------\r\n");
 
             //
@@ -13480,24 +13548,19 @@ void ZWaveTask(void *argument)
             // If any messages to the remote sensor are pending,
             // send them now while the remote sensor is awake
             //
-            uint8_t lucSensorTypeIndex = 0;
-            while (gtNodeConnectionList[gucProcessingDSK].SensorTypes[lucSensorTypeIndex] && lucSensorTypeIndex<sizeof(gtNodeConnectionList[gucProcessingDSK].SensorTypes))
-            {
-              if (SENSOR_MULTILEVEL_GET_TEMPERATURE_VERSION_1_V11 == gtNodeConnectionList[gucProcessingDSK].SensorTypes[lucSensorTypeIndex])
-              {
-                ZWave_Send_Multilevel_Sensor_Get(guiSourceNodeID, gtNodeConnectionList[gucProcessingDSK].SensorTypes[lucSensorTypeIndex], 1);
-              }
-              else
-              {
-                ZWave_Send_Multilevel_Sensor_Get(guiSourceNodeID, gtNodeConnectionList[gucProcessingDSK].SensorTypes[lucSensorTypeIndex], 0);
-              }
+            ZWave_Send_Multilevel_Sensor_Get(guiSourceNodeID, SENSOR_MULTILEVEL_GET_TEMPERATURE_VERSION_1_V11,       1); // Fahrenheit
+            ZWave_Send_Multilevel_Sensor_Get(guiSourceNodeID, SENSOR_MULTILEVEL_GET_RELATIVE_HUMIDITY_VERSION_2_V11, 0);
 
-              ++lucSensorTypeIndex;
-            } // end while
+            // Request Battery Report if battery poll countdown = 0
+            if (0 == gtNodeConnectionList[gucProcessingDSK].BatteryPollCountdown)
+            {
+              ZWave_Send_Battery_Get(guiSourceNodeID);
+            }
           }
           /////////////////////////////////////////////////////////////////////
           //
           // Multilevel Sensor Report
+          // (expect this periodically)
           //
           /////////////////////////////////////////////////////////////////////
           else if (COMMAND_CLASS_SENSOR_MULTILEVEL_V11 == gucDecryptedPlaintext[0] &&
@@ -13505,29 +13568,15 @@ void ZWaveTask(void *argument)
           {
             LOG("-----------------------  Multilevel Sensor Report START -----------------------\r\n");
             // Invoke the command class handler
-            pgucCCBuffer = gucDecryptedPlaintext;
-            gucCCBufferLength = gucReceivedCiphertextLength;
-            gtZWave_CC_Handler[pgucCCBuffer[0]]();
+            ZWave_Process_Command_Class(gucDecryptedPlaintext, gucReceivedCiphertextLength);
             LOG("-----------------------  Multilevel Sensor Report  END  -----------------------\r\n");
-            sprintf(lucRTCString, "20%02d.%02d.%02d %02d:%02d:%02d",
-                     sMainRTCDate.Year,  sMainRTCDate.Month,   sMainRTCDate.Date,
-                     sMainRTCTime.Hours, sMainRTCTime.Minutes, sMainRTCTime.Seconds  );
             llSensorValue = (int32_t)Convert_Bytes_uint32(&gucDecryptedPlaintext[4]);
             if (SENSOR_MULTILEVEL_GET_TEMPERATURE_VERSION_1_V11 == gucDecryptedPlaintext[2])
             {
-              LOG("%s: Zone=%d Timestamp=%s type=%d Value=%d \r\n", __FUNCTION__, (10*lucDSKIndex)+1, lucRTCString,  2, llSensorValue);
+              LOG("%s: Zone=%d Timestamp=%s type=%d Value=%d \r\n", __FUNCTION__, (10*lucDSKIndex)+1, lucRTCString,  2, llSensorValue); // Temperature Fahrenheit
             }
             if (SENSOR_MULTILEVEL_GET_LUMINANCE_VERSION_1_V11 == gucDecryptedPlaintext[2])
             {
-//              /////////////////////////////////////////////////////
-//              //// TEST MAB 2026.10.23
-//              //// Test negative values
-//              gucDecryptedPlaintext[4] = 0xFF;
-//              gucDecryptedPlaintext[5] = RandomValue() & 0xFF;
-//              gucDecryptedPlaintext[6] = RandomValue() & 0xFF;
-//              gucDecryptedPlaintext[7] = RandomValue() & 0xFF;
-//              llSensorValue = (int32_t)Convert_Bytes_uint32(&gucDecryptedPlaintext[4]);
-//              /////////////////////////////////////////////////////
               LOG("%s: Zone=%d Timestamp=%s type=%d Value=%d \r\n", __FUNCTION__, (10*lucDSKIndex)+3, lucRTCString, 36, llSensorValue);
             }
             if (SENSOR_MULTILEVEL_GET_RELATIVE_HUMIDITY_VERSION_2_V11 == gucDecryptedPlaintext[2])
@@ -13545,13 +13594,11 @@ void ZWaveTask(void *argument)
           {
             LOG("-----------------------  Multilevel Sensor Supported Sensor Report START -----------------------\r\n");
             // Invoke the command class handler
-            pgucCCBuffer = gucDecryptedPlaintext;
-            gucCCBufferLength = gucReceivedCiphertextLength;
-            gtZWave_CC_Handler[pgucCCBuffer[0]]();
+            ZWave_Process_Command_Class(gucDecryptedPlaintext, gucReceivedCiphertextLength);
             LOG("-----------------------  Multilevel Sensor Supported Sensor Report  END  -----------------------\r\n");
             LOG("%s: Raw dump of supported sensor types for DSK %d \r\n", __FUNCTION__, gucProcessingDSK);
             PrintBytes(gtNodeConnectionList[gucProcessingDSK].SensorTypes, sizeof(gtNodeConnectionList[gucProcessingDSK].SensorTypes), false, 0);
-            //// Get some immediate readings
+            //// Get some immediate readings from ALL sensor types
             uint8_t lucSensorTypeIndex = 0;
             while ((0x00 != gtNodeConnectionList[gucProcessingDSK].SensorTypes[lucSensorTypeIndex]) && (lucSensorTypeIndex < sizeof(gtNodeConnectionList[gucProcessingDSK].SensorTypes)))
             {
@@ -13577,10 +13624,27 @@ void ZWaveTask(void *argument)
           {
             LOG("-----------------------  Wakeup Interval Report START -----------------------\r\n");
             // Invoke the command class handler
-            pgucCCBuffer = gucDecryptedPlaintext;
-            gucCCBufferLength = gucReceivedCiphertextLength;
-            gtZWave_CC_Handler[pgucCCBuffer[0]]();
+            ZWave_Process_Command_Class(gucDecryptedPlaintext, gucReceivedCiphertextLength);
             LOG("-----------------------  Wakeup Interval Report  END  -----------------------\r\n");
+          }
+          /////////////////////////////////////////////////////////////////////
+          //
+          // Battery Report
+          // (expect this periodically)
+          //
+          /////////////////////////////////////////////////////////////////////
+          else if (COMMAND_CLASS_BATTERY_V3 == gucDecryptedPlaintext[0] &&
+                    BATTERY_REPORT  == gucDecryptedPlaintext[1]     )
+          {
+            // Reset countdown to next battery poll
+            gtNodeConnectionList[lucDSKIndex].BatteryPollCountdown = NODE_BATTERY_POLL_INTERVAL_SECONDS;
+
+            LOG("-----------------------  Battery Report START -----------------------\r\n");
+            // Invoke the command class handler
+            ZWave_Process_Command_Class(gucDecryptedPlaintext, gucReceivedCiphertextLength);
+            LOG("-----------------------  Battery Report  END  -----------------------\r\n");
+            uint8_t lucBatteryPercentage = gucDecryptedPlaintext[2];
+            LOG("%s: Zone=%d Timestamp=%s type=%d Value=%d%% \r\n", __FUNCTION__, (10*lucDSKIndex), lucRTCString, 12, lucBatteryPercentage);
           }
           /////////////////////////////////////////////////////////////////////
           //

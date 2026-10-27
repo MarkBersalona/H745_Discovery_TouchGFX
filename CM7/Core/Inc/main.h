@@ -410,6 +410,8 @@ typedef struct {
 #define NODE_TXQ_RETRIES        (2)
 #define NODE_TXQ_SOS_GRACE_MS   (500)
 
+#define NODE_BATTERY_POLL_INTERVAL_SECONDS (60*60)
+
 typedef enum { TXQ_IDLE, TXQ_WAIT_TX_DONE, TXQ_WAIT_REPORT, TXQ_WAIT_SOS } txq_state_t;
 
 typedef struct {
@@ -432,6 +434,7 @@ typedef struct {
   uint8_t  GenericDeviceType;
   uint8_t  SpecificDeviceType;
   uint8_t  SensorTypes[10];             // Supported sensor types
+  uint32_t BatteryPollCountdown;        // Seconds before polling end node battery
   // --- per-node transaction queue; TxQ[TxQHead] is the in-flight item ---
   txq_item_t  TxQ[NODE_TXQ_DEPTH];
   uint8_t     TxQHead, TxQCount;
