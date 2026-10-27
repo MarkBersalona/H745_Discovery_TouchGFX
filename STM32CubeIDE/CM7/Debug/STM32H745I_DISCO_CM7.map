@@ -13680,286 +13680,286 @@ LOAD C:/ST/STM32CubeIDE_1.19.0/STM32CubeIDE/plugins/com.st.stm32cube.ide.mcu.ext
                 0x08005504       0x54 ./Application/User/Core/main.o
                 0x08005504                Main_GenerateSeed
  .text.Main_Diagnostic_StateMachine
-                0x08005558      0x36c ./Application/User/Core/main.o
+                0x08005558      0x398 ./Application/User/Core/main.o
                 0x08005558                Main_Diagnostic_StateMachine
  .text.MainTask
-                0x080058c4      0x810 ./Application/User/Core/main.o
-                0x080058c4                MainTask
+                0x080058f0      0x810 ./Application/User/Core/main.o
+                0x080058f0                MainTask
  .text.ZWave_Controller_Keys_Generate
-                0x080060d4      0x324 ./Application/User/Core/main.o
-                0x080060d4                ZWave_Controller_Keys_Generate
+                0x08006100      0x324 ./Application/User/Core/main.o
+                0x08006100                ZWave_Controller_Keys_Generate
  .text.ZWave_Display_CC_Names
-                0x080063f8       0x6c ./Application/User/Core/main.o
-                0x080063f8                ZWave_Display_CC_Names
+                0x08006424       0x6c ./Application/User/Core/main.o
+                0x08006424                ZWave_Display_CC_Names
  .text.ZWave_Display_Tx_Report
-                0x08006464      0x778 ./Application/User/Core/main.o
-                0x08006464                ZWave_Display_Tx_Report
+                0x08006490      0x778 ./Application/User/Core/main.o
+                0x08006490                ZWave_Display_Tx_Report
  .text.ZWave_DSK_Count_Live_NodeIDs
-                0x08006bdc       0x6c ./Application/User/Core/main.o
-                0x08006bdc                ZWave_DSK_Count_Live_NodeIDs
+                0x08006c08       0x6c ./Application/User/Core/main.o
+                0x08006c08                ZWave_DSK_Count_Live_NodeIDs
  .text.ZWave_DSK_Extract_NWIAuthHomeID
-                0x08006c48       0x90 ./Application/User/Core/main.o
-                0x08006c48                ZWave_DSK_Extract_NWIAuthHomeID
+                0x08006c74       0x90 ./Application/User/Core/main.o
+                0x08006c74                ZWave_DSK_Extract_NWIAuthHomeID
  .text.ZWave_DSK_Find_Zeroized
-                0x08006cd8       0x80 ./Application/User/Core/main.o
-                0x08006cd8                ZWave_DSK_Find_Zeroized
+                0x08006d04       0x80 ./Application/User/Core/main.o
+                0x08006d04                ZWave_DSK_Find_Zeroized
  .text.ZWave_DSK_IsConnected
-                0x08006d58       0x68 ./Application/User/Core/main.o
-                0x08006d58                ZWave_DSK_IsConnected
+                0x08006d84       0x68 ./Application/User/Core/main.o
+                0x08006d84                ZWave_DSK_IsConnected
  .text.ZWave_DSK_IsProcessing
-                0x08006dc0       0x24 ./Application/User/Core/main.o
-                0x08006dc0                ZWave_DSK_IsProcessing
+                0x08006dec       0x24 ./Application/User/Core/main.o
+                0x08006dec                ZWave_DSK_IsProcessing
  .text.ZWave_DSK_IsSleepCapable
-                0x08006de4       0x80 ./Application/User/Core/main.o
-                0x08006de4                ZWave_DSK_IsSleepCapable
+                0x08006e10       0x80 ./Application/User/Core/main.o
+                0x08006e10                ZWave_DSK_IsSleepCapable
  .text.ZWave_DSK_IsZeroized
-                0x08006e64       0x78 ./Application/User/Core/main.o
-                0x08006e64                ZWave_DSK_IsZeroized
+                0x08006e90       0x78 ./Application/User/Core/main.o
+                0x08006e90                ZWave_DSK_IsZeroized
  .text.ZWave_DSK_Validate_String
-                0x08006edc      0x1d4 ./Application/User/Core/main.o
-                0x08006edc                ZWave_DSK_Validate_String
+                0x08006f08      0x1d4 ./Application/User/Core/main.o
+                0x08006f08                ZWave_DSK_Validate_String
  .text.ZWave_DSK_Write
-                0x080070b0       0x80 ./Application/User/Core/main.o
-                0x080070b0                ZWave_DSK_Write
+                0x080070dc       0x80 ./Application/User/Core/main.o
+                0x080070dc                ZWave_DSK_Write
  .text.ZWave_DSK_Write_From_String
-                0x08007130      0x17c ./Application/User/Core/main.o
-                0x08007130                ZWave_DSK_Write_From_String
+                0x0800715c      0x17c ./Application/User/Core/main.o
+                0x0800715c                ZWave_DSK_Write_From_String
  .text.ZWave_DSK_Write_To_String
-                0x080072ac       0x84 ./Application/User/Core/main.o
-                0x080072ac                ZWave_DSK_Write_To_String
+                0x080072d8       0x84 ./Application/User/Core/main.o
+                0x080072d8                ZWave_DSK_Write_To_String
  .text.ZWave_DSK_Zeroize
-                0x08007330      0x144 ./Application/User/Core/main.o
-                0x08007330                ZWave_DSK_Zeroize
+                0x0800735c      0x144 ./Application/User/Core/main.o
+                0x0800735c                ZWave_DSK_Zeroize
  .text.ZWave_Enqueue_Request
-                0x08007474      0x108 ./Application/User/Core/main.o
-                0x08007474                ZWave_Enqueue_Request
+                0x080074a0      0x108 ./Application/User/Core/main.o
+                0x080074a0                ZWave_Enqueue_Request
  .text.ZWave_Enqueue_Request_Unsolicited
-                0x0800757c      0x108 ./Application/User/Core/main.o
-                0x0800757c                ZWave_Enqueue_Request_Unsolicited
+                0x080075a8      0x108 ./Application/User/Core/main.o
+                0x080075a8                ZWave_Enqueue_Request_Unsolicited
  .text.ZWave_Handle_CMD
-                0x08007684       0x2c ./Application/User/Core/main.o
-                0x08007684                ZWave_Handle_CMD
- .text.ZWave_Handle_DATA
                 0x080076b0       0x2c ./Application/User/Core/main.o
-                0x080076b0                ZWave_Handle_DATA
+                0x080076b0                ZWave_Handle_CMD
+ .text.ZWave_Handle_DATA
+                0x080076dc       0x2c ./Application/User/Core/main.o
+                0x080076dc                ZWave_Handle_DATA
  .text.ZWave_Handle_Default
-                0x080076dc       0x5c ./Application/User/Core/main.o
-                0x080076dc                ZWave_Handle_Default
+                0x08007708       0x5c ./Application/User/Core/main.o
+                0x08007708                ZWave_Handle_Default
  .text.ZWave_Handle_LEN
-                0x08007738       0x74 ./Application/User/Core/main.o
-                0x08007738                ZWave_Handle_LEN
+                0x08007764       0x74 ./Application/User/Core/main.o
+                0x08007764                ZWave_Handle_LEN
  .text.ZWave_Handle_SOF
-                0x080077ac      0x1f0 ./Application/User/Core/main.o
-                0x080077ac                ZWave_Handle_SOF
+                0x080077d8      0x1f0 ./Application/User/Core/main.o
+                0x080077d8                ZWave_Handle_SOF
  .text.ZWave_Handle_TYPE
-                0x0800799c       0xdc ./Application/User/Core/main.o
-                0x0800799c                ZWave_Handle_TYPE
+                0x080079c8       0xdc ./Application/User/Core/main.o
+                0x080079c8                ZWave_Handle_TYPE
  .text.ZWave_Identify_Basic_Device_Type
-                0x08007a78       0x98 ./Application/User/Core/main.o
-                0x08007a78                ZWave_Identify_Basic_Device_Type
+                0x08007aa4       0x98 ./Application/User/Core/main.o
+                0x08007aa4                ZWave_Identify_Basic_Device_Type
  .text.ZWave_Identify_Generic_Device_Type
-                0x08007b10      0x2c4 ./Application/User/Core/main.o
-                0x08007b10                ZWave_Identify_Generic_Device_Type
+                0x08007b3c      0x2c4 ./Application/User/Core/main.o
+                0x08007b3c                ZWave_Identify_Generic_Device_Type
  .text.ZWave_Identify_Multilevel_Sensor_SensorType
-                0x08007dd4      0x1e4 ./Application/User/Core/main.o
-                0x08007dd4                ZWave_Identify_Multilevel_Sensor_SensorType
+                0x08007e00      0x1e4 ./Application/User/Core/main.o
+                0x08007e00                ZWave_Identify_Multilevel_Sensor_SensorType
  .text.ZWave_Rx_CC_31_Sensor_Multilevel_V11
-                0x08007fb8      0x4e4 ./Application/User/Core/main.o
-                0x08007fb8                ZWave_Rx_CC_31_Sensor_Multilevel_V11
+                0x08007fe4      0x4e4 ./Application/User/Core/main.o
+                0x08007fe4                ZWave_Rx_CC_31_Sensor_Multilevel_V11
  .text.ZWave_Identify_Specific_Device_Type
-                0x0800849c      0x574 ./Application/User/Core/main.o
-                0x0800849c                ZWave_Identify_Specific_Device_Type
+                0x080084c8      0x574 ./Application/User/Core/main.o
+                0x080084c8                ZWave_Identify_Specific_Device_Type
  .text.ZWave_Display_Node_Provisioning_List
-                0x08008a10      0x478 ./Application/User/Core/main.o
-                0x08008a10                ZWave_Display_Node_Provisioning_List
+                0x08008a3c      0x478 ./Application/User/Core/main.o
+                0x08008a3c                ZWave_Display_Node_Provisioning_List
  .text.ZWave_REQ_CMD_3F_ZW_Remove_Node_ID_From_Network
-                0x08008e88      0x334 ./Application/User/Core/main.o
-                0x08008e88                ZWave_REQ_CMD_3F_ZW_Remove_Node_ID_From_Network
+                0x08008eb4      0x334 ./Application/User/Core/main.o
+                0x08008eb4                ZWave_REQ_CMD_3F_ZW_Remove_Node_ID_From_Network
  .text.ZWave_RES_CMD_41_ZW_Get_Node_Protocol_Info
-                0x080091bc      0x2dc ./Application/User/Core/main.o
-                0x080091bc                ZWave_RES_CMD_41_ZW_Get_Node_Protocol_Info
+                0x080091e8      0x2dc ./Application/User/Core/main.o
+                0x080091e8                ZWave_RES_CMD_41_ZW_Get_Node_Protocol_Info
  .text.ZWave_REQ_CMD_4A_ZW_Add_Node_To_Network
-                0x08009498      0x434 ./Application/User/Core/main.o
-                0x08009498                ZWave_REQ_CMD_4A_ZW_Add_Node_To_Network
+                0x080094c4      0x434 ./Application/User/Core/main.o
+                0x080094c4                ZWave_REQ_CMD_4A_ZW_Add_Node_To_Network
  .text.ZWave_Network_Key_Expand
-                0x080098cc      0x538 ./Application/User/Core/main.o
-                0x080098cc                ZWave_Network_Key_Expand
+                0x080098f8      0x538 ./Application/User/Core/main.o
+                0x080098f8                ZWave_Network_Key_Expand
  .text.ZWave_Network_SPAN_Establish
-                0x08009e04      0x344 ./Application/User/Core/main.o
-                0x08009e04                ZWave_Network_SPAN_Establish
+                0x08009e30      0x344 ./Application/User/Core/main.o
+                0x08009e30                ZWave_Network_SPAN_Establish
  .text.ZWave_Pop_Callback_Queue
-                0x0800a148       0x24 ./Application/User/Core/main.o
-                0x0800a148                ZWave_Pop_Callback_Queue
+                0x0800a174       0x24 ./Application/User/Core/main.o
+                0x0800a174                ZWave_Pop_Callback_Queue
  .text.ZWave_Pop_Command_Queue
-                0x0800a16c       0x24 ./Application/User/Core/main.o
-                0x0800a16c                ZWave_Pop_Command_Queue
+                0x0800a198       0x24 ./Application/User/Core/main.o
+                0x0800a198                ZWave_Pop_Command_Queue
  .text.ZWave_Scan_ProvisioningList_For_DSK
-                0x0800a190       0xb8 ./Application/User/Core/main.o
-                0x0800a190                ZWave_Scan_ProvisioningList_For_DSK
+                0x0800a1bc       0xb8 ./Application/User/Core/main.o
+                0x0800a1bc                ZWave_Scan_ProvisioningList_For_DSK
  .text.ZWave_Scan_ProvisioningList_For_NodeID
-                0x0800a248       0x70 ./Application/User/Core/main.o
-                0x0800a248                ZWave_Scan_ProvisioningList_For_NodeID
+                0x0800a274       0x70 ./Application/User/Core/main.o
+                0x0800a274                ZWave_Scan_ProvisioningList_For_NodeID
  .text.ZWave_REQ_CMD_4B_ZW_Remove_Node_From_Network
-                0x0800a2b8      0x3dc ./Application/User/Core/main.o
-                0x0800a2b8                ZWave_REQ_CMD_4B_ZW_Remove_Node_From_Network
+                0x0800a2e4      0x3dc ./Application/User/Core/main.o
+                0x0800a2e4                ZWave_REQ_CMD_4B_ZW_Remove_Node_From_Network
  .text.ZWave_RES_CMD_A8_Application_Command_Handler_Bridge
-                0x0800a694      0x328 ./Application/User/Core/main.o
-                0x0800a694                ZWave_RES_CMD_A8_Application_Command_Handler_Bridge
+                0x0800a6c0      0x328 ./Application/User/Core/main.o
+                0x0800a6c0                ZWave_RES_CMD_A8_Application_Command_Handler_Bridge
  .text.ZWave_Rx_CC_9F_Security_2_V2
-                0x0800a9bc     0x178c ./Application/User/Core/main.o
-                0x0800a9bc                ZWave_Rx_CC_9F_Security_2_V2
+                0x0800a9e8     0x178c ./Application/User/Core/main.o
+                0x0800a9e8                ZWave_Rx_CC_9F_Security_2_V2
  .text.ZWave_Scan_ProvisioningList_For_NWIHomeID
-                0x0800c148       0xdc ./Application/User/Core/main.o
-                0x0800c148                ZWave_Scan_ProvisioningList_For_NWIHomeID
+                0x0800c174       0xdc ./Application/User/Core/main.o
+                0x0800c174                ZWave_Scan_ProvisioningList_For_NWIHomeID
  .text.ZWave_REQ_CMD_49_ZW_Application_Update
-                0x0800c224      0x748 ./Application/User/Core/main.o
-                0x0800c224                ZWave_REQ_CMD_49_ZW_Application_Update
+                0x0800c250      0x748 ./Application/User/Core/main.o
+                0x0800c250                ZWave_REQ_CMD_49_ZW_Application_Update
  .text.ZWave_Send_REQ_CMD_02_Serial_API_Get_Init_Data
-                0x0800c96c       0x58 ./Application/User/Core/main.o
-                0x0800c96c                ZWave_Send_REQ_CMD_02_Serial_API_Get_Init_Data
+                0x0800c998       0x58 ./Application/User/Core/main.o
+                0x0800c998                ZWave_Send_REQ_CMD_02_Serial_API_Get_Init_Data
  .text.ZWave_Send_REQ_CMD_05_Get_Controller_Capabilities
-                0x0800c9c4       0x58 ./Application/User/Core/main.o
-                0x0800c9c4                ZWave_Send_REQ_CMD_05_Get_Controller_Capabilities
+                0x0800c9f0       0x58 ./Application/User/Core/main.o
+                0x0800c9f0                ZWave_Send_REQ_CMD_05_Get_Controller_Capabilities
  .text.ZWave_Send_REQ_CMD_07_Serial_API_Get_Capabilities
-                0x0800ca1c       0x58 ./Application/User/Core/main.o
-                0x0800ca1c                ZWave_Send_REQ_CMD_07_Serial_API_Get_Capabilities
+                0x0800ca48       0x58 ./Application/User/Core/main.o
+                0x0800ca48                ZWave_Send_REQ_CMD_07_Serial_API_Get_Capabilities
  .text.ZWave_Send_REQ_CMD_08_Serial_API_Soft_Reset
-                0x0800ca74       0x58 ./Application/User/Core/main.o
-                0x0800ca74                ZWave_Send_REQ_CMD_08_Serial_API_Soft_Reset
+                0x0800caa0       0x58 ./Application/User/Core/main.o
+                0x0800caa0                ZWave_Send_REQ_CMD_08_Serial_API_Soft_Reset
  .text.ZWave_Send_REQ_CMD_0B_Serial_API_Setup
-                0x0800cacc      0x1f4 ./Application/User/Core/main.o
-                0x0800cacc                ZWave_Send_REQ_CMD_0B_Serial_API_Setup
+                0x0800caf8      0x1f4 ./Application/User/Core/main.o
+                0x0800caf8                ZWave_Send_REQ_CMD_0B_Serial_API_Setup
  .text.ZWave_Send_REQ_CMD_13_Send_Data
-                0x0800ccc0       0x7c ./Application/User/Core/main.o
-                0x0800ccc0                ZWave_Send_REQ_CMD_13_Send_Data
+                0x0800ccec       0x7c ./Application/User/Core/main.o
+                0x0800ccec                ZWave_Send_REQ_CMD_13_Send_Data
  .text.ZWave_Send_Nonce_Report
-                0x0800cd3c      0x30c ./Application/User/Core/main.o
-                0x0800cd3c                ZWave_Send_Nonce_Report
+                0x0800cd68      0x30c ./Application/User/Core/main.o
+                0x0800cd68                ZWave_Send_Nonce_Report
  .text.ZWave_S2_Encapsulate_And_Send
-                0x0800d048      0x368 ./Application/User/Core/main.o
+                0x0800d074      0x368 ./Application/User/Core/main.o
  .text.ZWave_TxQ_SendHead
-                0x0800d3b0       0x60 ./Application/User/Core/main.o
+                0x0800d3dc       0x60 ./Application/User/Core/main.o
  .text.ZWave_Send_REQ_CMD_20_Memory_Get_ID
-                0x0800d410       0x58 ./Application/User/Core/main.o
-                0x0800d410                ZWave_Send_REQ_CMD_20_Memory_Get_ID
+                0x0800d43c       0x58 ./Application/User/Core/main.o
+                0x0800d43c                ZWave_Send_REQ_CMD_20_Memory_Get_ID
  .text.ZWave_Send_REQ_CMD_41_Get_Node_Protocol_Info
-                0x0800d468       0x7c ./Application/User/Core/main.o
-                0x0800d468                ZWave_Send_REQ_CMD_41_Get_Node_Protocol_Info
+                0x0800d494       0x7c ./Application/User/Core/main.o
+                0x0800d494                ZWave_Send_REQ_CMD_41_Get_Node_Protocol_Info
  .text.ZWave_Send_REQ_CMD_4A_Add_Node_to_Network
-                0x0800d4e4       0x78 ./Application/User/Core/main.o
-                0x0800d4e4                ZWave_Send_REQ_CMD_4A_Add_Node_to_Network
+                0x0800d510       0x78 ./Application/User/Core/main.o
+                0x0800d510                ZWave_Send_REQ_CMD_4A_Add_Node_to_Network
  .text.ZWave_Send_REQ_CMD_4B_Remove_Node_from_Network
-                0x0800d55c       0x5c ./Application/User/Core/main.o
-                0x0800d55c                ZWave_Send_REQ_CMD_4B_Remove_Node_from_Network
+                0x0800d588       0x5c ./Application/User/Core/main.o
+                0x0800d588                ZWave_Send_REQ_CMD_4B_Remove_Node_from_Network
  .text.ZWave_Send_REQ_CMD_56_Get_SUC_Node_ID
-                0x0800d5b8       0x58 ./Application/User/Core/main.o
-                0x0800d5b8                ZWave_Send_REQ_CMD_56_Get_SUC_Node_ID
+                0x0800d5e4       0x58 ./Application/User/Core/main.o
+                0x0800d5e4                ZWave_Send_REQ_CMD_56_Get_SUC_Node_ID
  .text.ZWave_Send_REQ_CMD_61_Remove_Failed_Node
-                0x0800d610       0x60 ./Application/User/Core/main.o
-                0x0800d610                ZWave_Send_REQ_CMD_61_Remove_Failed_Node
+                0x0800d63c       0x60 ./Application/User/Core/main.o
+                0x0800d63c                ZWave_Send_REQ_CMD_61_Remove_Failed_Node
  .text.ZWave_Send_REQ_CMD_62_Is_Node_Failed
-                0x0800d670       0x5c ./Application/User/Core/main.o
-                0x0800d670                ZWave_Send_REQ_CMD_62_Is_Node_Failed
+                0x0800d69c       0x5c ./Application/User/Core/main.o
+                0x0800d69c                ZWave_Send_REQ_CMD_62_Is_Node_Failed
  .text.ZWave_Send_REQ_CMD_DA_Serial_API_Get_LR_Nodes
-                0x0800d6cc       0x5c ./Application/User/Core/main.o
-                0x0800d6cc                ZWave_Send_REQ_CMD_DA_Serial_API_Get_LR_Nodes
+                0x0800d6f8       0x5c ./Application/User/Core/main.o
+                0x0800d6f8                ZWave_Send_REQ_CMD_DA_Serial_API_Get_LR_Nodes
  .text.ZWave_Send_REQ_CMD_DE_Get_DCDC_Config
-                0x0800d728       0x58 ./Application/User/Core/main.o
-                0x0800d728                ZWave_Send_REQ_CMD_DE_Get_DCDC_Config
+                0x0800d754       0x58 ./Application/User/Core/main.o
+                0x0800d754                ZWave_Send_REQ_CMD_DE_Get_DCDC_Config
  .text.ZWave_Send_REQ_CMD_DF_Set_DCDC_Config
-                0x0800d780       0x58 ./Application/User/Core/main.o
-                0x0800d780                ZWave_Send_REQ_CMD_DF_Set_DCDC_Config
+                0x0800d7ac       0x58 ./Application/User/Core/main.o
+                0x0800d7ac                ZWave_Send_REQ_CMD_DF_Set_DCDC_Config
  .text.ZWave_Send_REQ_CMD_E8_Get_Radio_PTI
-                0x0800d7d8       0x58 ./Application/User/Core/main.o
-                0x0800d7d8                ZWave_Send_REQ_CMD_E8_Get_Radio_PTI
+                0x0800d804       0x58 ./Application/User/Core/main.o
+                0x0800d804                ZWave_Send_REQ_CMD_E8_Get_Radio_PTI
  .text.ZWave_REQ_CMD_0A_Serial_API_Started
-                0x0800d830      0x588 ./Application/User/Core/main.o
-                0x0800d830                ZWave_REQ_CMD_0A_Serial_API_Started
+                0x0800d85c      0x588 ./Application/User/Core/main.o
+                0x0800d85c                ZWave_REQ_CMD_0A_Serial_API_Started
  .text.ZWave_SessionID_Randomize
-                0x0800ddb8        0xe ./Application/User/Core/main.o
-                0x0800ddb8                ZWave_SessionID_Randomize
- *fill*         0x0800ddc6        0x2 
+                0x0800dde4        0xe ./Application/User/Core/main.o
+                0x0800dde4                ZWave_SessionID_Randomize
+ *fill*         0x0800ddf2        0x2 
  .text.ZWave_RES_CMD_20_Memory_Get_ID
-                0x0800ddc8       0xf0 ./Application/User/Core/main.o
-                0x0800ddc8                ZWave_RES_CMD_20_Memory_Get_ID
+                0x0800ddf4       0xf0 ./Application/User/Core/main.o
+                0x0800ddf4                ZWave_RES_CMD_20_Memory_Get_ID
  .text.ZWave_Temporary_Key_Generate
-                0x0800deb8      0x5b0 ./Application/User/Core/main.o
-                0x0800deb8                ZWave_Temporary_Key_Generate
+                0x0800dee4      0x5b0 ./Application/User/Core/main.o
+                0x0800dee4                ZWave_Temporary_Key_Generate
  .text.ZWave_Temporary_SPAN_Establish
-                0x0800e468      0x324 ./Application/User/Core/main.o
-                0x0800e468                ZWave_Temporary_SPAN_Establish
+                0x0800e494      0x324 ./Application/User/Core/main.o
+                0x0800e494                ZWave_Temporary_SPAN_Establish
  .text.ZWave_Decrypt_Received_Data
-                0x0800e78c      0x590 ./Application/User/Core/main.o
-                0x0800e78c                ZWave_Decrypt_Received_Data
+                0x0800e7b8      0x590 ./Application/User/Core/main.o
+                0x0800e7b8                ZWave_Decrypt_Received_Data
  .text.ZWave_S2_Encapsulate_And_Send_Temporary
-                0x0800ed1c      0x320 ./Application/User/Core/main.o
+                0x0800ed48      0x320 ./Application/User/Core/main.o
  .text.ZWave_Send_Encrypted_Data_Temporary
-                0x0800f03c      0x140 ./Application/User/Core/main.o
-                0x0800f03c                ZWave_Send_Encrypted_Data_Temporary
+                0x0800f068      0x140 ./Application/User/Core/main.o
+                0x0800f068                ZWave_Send_Encrypted_Data_Temporary
  .text.ZWave_Bootstrap_StateMachine
-                0x0800f17c     0x1254 ./Application/User/Core/main.o
-                0x0800f17c                ZWave_Bootstrap_StateMachine
+                0x0800f1a8     0x1254 ./Application/User/Core/main.o
+                0x0800f1a8                ZWave_Bootstrap_StateMachine
  .text.ZWave_SmartStart_StateMachine
-                0x080103d0      0xb04 ./Application/User/Core/main.o
-                0x080103d0                ZWave_SmartStart_StateMachine
+                0x080103fc      0xb04 ./Application/User/Core/main.o
+                0x080103fc                ZWave_SmartStart_StateMachine
  .text.ZWave_TxQ_Enqueue
-                0x08010ed4       0xc8 ./Application/User/Core/main.o
-                0x08010ed4                ZWave_TxQ_Enqueue
+                0x08010f00       0xc8 ./Application/User/Core/main.o
+                0x08010f00                ZWave_TxQ_Enqueue
  .text.ZWave_Send_Multilevel_Sensor_Get
-                0x08010f9c      0x138 ./Application/User/Core/main.o
-                0x08010f9c                ZWave_Send_Multilevel_Sensor_Get
+                0x08010fc8      0x138 ./Application/User/Core/main.o
+                0x08010fc8                ZWave_Send_Multilevel_Sensor_Get
  .text.ZWave_Send_Multilevel_Sensor_Get_Supported_Sensor
-                0x080110d4      0x11c ./Application/User/Core/main.o
-                0x080110d4                ZWave_Send_Multilevel_Sensor_Get_Supported_Sensor
+                0x08011100      0x11c ./Application/User/Core/main.o
+                0x08011100                ZWave_Send_Multilevel_Sensor_Get_Supported_Sensor
  .text.ZWave_Send_Switch_Multilevel_Get
-                0x080111f0      0x120 ./Application/User/Core/main.o
-                0x080111f0                ZWave_Send_Switch_Multilevel_Get
+                0x0801121c      0x120 ./Application/User/Core/main.o
+                0x0801121c                ZWave_Send_Switch_Multilevel_Get
  .text.ZWave_Send_Switch_Multilevel_Set
-                0x08011310      0x130 ./Application/User/Core/main.o
-                0x08011310                ZWave_Send_Switch_Multilevel_Set
+                0x0801133c      0x130 ./Application/User/Core/main.o
+                0x0801133c                ZWave_Send_Switch_Multilevel_Set
  .text.ZWave_Send_Wakeup_Interval_Get
-                0x08011440      0x120 ./Application/User/Core/main.o
-                0x08011440                ZWave_Send_Wakeup_Interval_Get
+                0x0801146c      0x120 ./Application/User/Core/main.o
+                0x0801146c                ZWave_Send_Wakeup_Interval_Get
  .text.ZWave_Send_Wakeup_Interval_Set
-                0x08011560      0x134 ./Application/User/Core/main.o
-                0x08011560                ZWave_Send_Wakeup_Interval_Set
+                0x0801158c      0x134 ./Application/User/Core/main.o
+                0x0801158c                ZWave_Send_Wakeup_Interval_Set
  .text.ZWave_Send_Wakeup_No_More_Information
-                0x08011694      0x11c ./Application/User/Core/main.o
-                0x08011694                ZWave_Send_Wakeup_No_More_Information
+                0x080116c0      0x11c ./Application/User/Core/main.o
+                0x080116c0                ZWave_Send_Wakeup_No_More_Information
  .text.ZWave_TxQ_On_Report
-                0x080117b0       0x48 ./Application/User/Core/main.o
-                0x080117b0                ZWave_TxQ_On_Report
+                0x080117dc       0x48 ./Application/User/Core/main.o
+                0x080117dc                ZWave_TxQ_On_Report
  .text.ZWave_TxQ_On_TxDone
-                0x080117f8       0x54 ./Application/User/Core/main.o
-                0x080117f8                ZWave_TxQ_On_TxDone
+                0x08011824       0x54 ./Application/User/Core/main.o
+                0x08011824                ZWave_TxQ_On_TxDone
  .text.ZWave_RSQ_CMD_13_ZW_Send_Data
-                0x0801184c       0xdc ./Application/User/Core/main.o
-                0x0801184c                ZWave_RSQ_CMD_13_ZW_Send_Data
+                0x08011878       0xdc ./Application/User/Core/main.o
+                0x08011878                ZWave_RSQ_CMD_13_ZW_Send_Data
  .text.ZWave_RES_CMD_A9_ZW_Send_Data_Bridge
-                0x08011928       0xdc ./Application/User/Core/main.o
-                0x08011928                ZWave_RES_CMD_A9_ZW_Send_Data_Bridge
+                0x08011954       0xdc ./Application/User/Core/main.o
+                0x08011954                ZWave_RES_CMD_A9_ZW_Send_Data_Bridge
  .text.ZWave_TxQ_Service
-                0x08011a04      0x17c ./Application/User/Core/main.o
-                0x08011a04                ZWave_TxQ_Service
+                0x08011a30      0x17c ./Application/User/Core/main.o
+                0x08011a30                ZWave_TxQ_Service
  .text.ZWave_XOR_Checksum
-                0x08011b80       0x12 ./Application/User/Core/main.o
-                0x08011b80                ZWave_XOR_Checksum
- *fill*         0x08011b92        0x2 
+                0x08011bac       0x12 ./Application/User/Core/main.o
+                0x08011bac                ZWave_XOR_Checksum
+ *fill*         0x08011bbe        0x2 
  .text.ZWave_Handle_CHECKSUM
-                0x08011b94      0x190 ./Application/User/Core/main.o
-                0x08011b94                ZWave_Handle_CHECKSUM
+                0x08011bc0      0x190 ./Application/User/Core/main.o
+                0x08011bc0                ZWave_Handle_CHECKSUM
  .text.ZWave_Parse_Rx_Data
-                0x08011d24      0x10c ./Application/User/Core/main.o
-                0x08011d24                ZWave_Parse_Rx_Data
+                0x08011d50      0x10c ./Application/User/Core/main.o
+                0x08011d50                ZWave_Parse_Rx_Data
  .text.ZWave_Transmit_Frame
-                0x08011e30      0x190 ./Application/User/Core/main.o
-                0x08011e30                ZWave_Transmit_Frame
+                0x08011e5c      0x190 ./Application/User/Core/main.o
+                0x08011e5c                ZWave_Transmit_Frame
  .text.ZWave_SerialAPI_StateMachine
-                0x08011fc0      0x3d4 ./Application/User/Core/main.o
-                0x08011fc0                ZWave_SerialAPI_StateMachine
+                0x08011fec      0x3d4 ./Application/User/Core/main.o
+                0x08011fec                ZWave_SerialAPI_StateMachine
  .text.ZWaveTask
-                0x08012394     0x1430 ./Application/User/Core/main.o
-                0x08012394                ZWaveTask
+                0x080123c0     0x1404 ./Application/User/Core/main.o
+                0x080123c0                ZWaveTask
  .text.HAL_TIM_PeriodElapsedCallback
                 0x080137c4       0x14 ./Application/User/Core/main.o
                 0x080137c4                HAL_TIM_PeriodElapsedCallback
@@ -19689,7 +19689,7 @@ LOAD C:/ST/STM32CubeIDE_1.19.0/STM32CubeIDE/plugins/com.st.stm32cube.ide.mcu.ext
  .rodata.Main_Diagnostic_ProcessCommand.str1.1
                 0x0805acbc      0x2b4 ./Application/User/Core/main.o
  .rodata.Main_Diagnostic_StateMachine.str1.1
-                0x0805acbc      0x17d ./Application/User/Core/main.o
+                0x0805acbc      0x195 ./Application/User/Core/main.o
  .rodata.MainTask.str1.1
                 0x0805acbc      0x454 ./Application/User/Core/main.o
  .rodata.ZWave_Controller_Keys_Generate.str1.1
@@ -19851,7 +19851,7 @@ LOAD C:/ST/STM32CubeIDE_1.19.0/STM32CubeIDE/plugins/com.st.stm32cube.ide.mcu.ext
  .rodata.ZWave_SerialAPI_StateMachine.str1.1
                 0x0805acbc      0x19c ./Application/User/Core/main.o
  .rodata.ZWaveTask.str1.1
-                0x0805acbc      0xa96 ./Application/User/Core/main.o
+                0x0805acbc      0xa7e ./Application/User/Core/main.o
  .rodata.__FUNCTION__.0
                 0x0805acbc        0xe ./Application/User/Core/main.o
  .rodata.__FUNCTION__.21
@@ -22981,145 +22981,145 @@ LOAD C:/ST/STM32CubeIDE_1.19.0/STM32CubeIDE/plugins/com.st.stm32cube.ide.mcu.ext
 LOAD C:/ST/STM32CubeIDE_1.19.0/STM32CubeIDE/plugins/com.st.stm32cube.ide.mcu.externaltools.gnu-tools-for-stm32.14.3.rel1.win32_1.0.100.202602081740/tools/bin/../lib/gcc/arm-none-eabi/14.3.1/../../../../arm-none-eabi/lib/thumb/v7e-m+dp/hard\libm.a
 LOAD C:/ST/STM32CubeIDE_1.19.0/STM32CubeIDE/plugins/com.st.stm32cube.ide.mcu.externaltools.gnu-tools-for-stm32.14.3.rel1.win32_1.0.100.202602081740/tools/bin/../lib/gcc/arm-none-eabi/14.3.1/thumb/v7e-m+dp/hard\libgcc.a
 
-.debug_info     0x00000000   0x1ec608
- .debug_info    0x00000000    0x2bcc5 ./Application/User/Core/main.o
- .debug_info    0x0002bcc5      0x8a5 ./Application/User/Core/main_user.o
- .debug_info    0x0002c56a     0x444d ./Application/User/Core/stm32h7xx_hal_msp.o
- .debug_info    0x000309b7     0x1167 ./Application/User/Core/stm32h7xx_hal_timebase_tim.o
- .debug_info    0x00031b1e     0x1e47 ./Application/User/Core/stm32h7xx_it.o
- .debug_info    0x00033965      0x7b1 ./Application/User/Core/syscalls.o
- .debug_info    0x00034116      0x171 ./Application/User/Core/sysmem.o
- .debug_info    0x00034287      0x5a6 ./Application/User/FATFS/App/fatfs.o
- .debug_info    0x0003482d      0x35e ./Application/User/FATFS/Target/user_diskio.o
- .debug_info    0x00034b8b       0x30 ./Application/User/Startup/startup_stm32h745xihx.o
- .debug_info    0x00034bbb       0xd0 ./Application/User/TouchGFX/App/app_touchgfx.o
- .debug_info    0x00034c8b     0x2324 ./Application/User/TouchGFX/target/STM32TouchController.o
- .debug_info    0x00036faf     0x18d7 ./Application/User/TouchGFX/target/TouchGFXGPIO.o
- .debug_info    0x00038886     0x7545 ./Application/User/TouchGFX/target/TouchGFXHAL.o
- .debug_info    0x0003fdcb     0x5e44 ./Application/User/TouchGFX/target/generated/HardwareMJPEGDecoder.o
- .debug_info    0x00045c0f      0x7a3 ./Application/User/TouchGFX/target/generated/OSWrappers.o
- .debug_info    0x000463b2     0xa042 ./Application/User/TouchGFX/target/generated/STM32DMA.o
- .debug_info    0x000503f4     0xe437 ./Application/User/TouchGFX/target/generated/TouchGFXConfiguration.o
- .debug_info    0x0005e82b    0x13148 ./Application/User/TouchGFX/target/generated/TouchGFXGeneratedHAL.o
- .debug_info    0x00071973     0x1153 ./Application/User/generated/ApplicationFontProvider.o
- .debug_info    0x00072ac6      0xf06 ./Application/User/generated/BitmapDatabase.o
- .debug_info    0x000739cc     0x266c ./Application/User/generated/CachedFont.o
- .debug_info    0x00076038     0x4422 ./Application/User/generated/FontCache.o
- .debug_info    0x0007a45a      0x1d1 ./Application/User/generated/Font_verdana_10_4bpp_0.o
- .debug_info    0x0007a62b      0x1d1 ./Application/User/generated/Font_verdana_14_4bpp_0.o
- .debug_info    0x0007a7fc      0x1d1 ./Application/User/generated/Font_verdana_18_4bpp_0.o
- .debug_info    0x0007a9cd      0x1d1 ./Application/User/generated/Font_verdana_20_4bpp_0.o
- .debug_info    0x0007ab9e      0x1d1 ./Application/User/generated/Font_verdana_40_4bpp_0.o
- .debug_info    0x0007ad6f    0x16b9a ./Application/User/generated/FrontendApplicationBase.o
- .debug_info    0x00091909     0x4866 ./Application/User/generated/GeneratedFont.o
- .debug_info    0x0009616f      0x6b7 ./Application/User/generated/Kerning_verdana_10_4bpp.o
- .debug_info    0x00096826      0x6b7 ./Application/User/generated/Kerning_verdana_14_4bpp.o
- .debug_info    0x00096edd      0x6b7 ./Application/User/generated/Kerning_verdana_18_4bpp.o
- .debug_info    0x00097594      0x6b7 ./Application/User/generated/Kerning_verdana_20_4bpp.o
- .debug_info    0x00097c4b      0x6b7 ./Application/User/generated/Kerning_verdana_40_4bpp.o
- .debug_info    0x00098302      0x204 ./Application/User/generated/LanguageDe.o
- .debug_info    0x00098506      0x204 ./Application/User/generated/LanguageGb.o
- .debug_info    0x0009870a     0x924f ./Application/User/generated/NumberPICKERBase.o
- .debug_info    0x000a1959     0xab2b ./Application/User/generated/ScreenAboutViewBase.o
- .debug_info    0x000ac484    0x17fa6 ./Application/User/generated/ScreenIPAddressesViewBase.o
- .debug_info    0x000c442a     0xa534 ./Application/User/generated/ScreenNewViewBase.o
- .debug_info    0x000ce95e     0xdc97 ./Application/User/generated/ScreenSettings1ViewBase.o
- .debug_info    0x000dc5f5     0xeeb5 ./Application/User/generated/ScreenStandbyViewBase.o
- .debug_info    0x000eb4aa     0x174e ./Application/User/generated/Table_verdana_10_4bpp.o
- .debug_info    0x000ecbf8     0x174e ./Application/User/generated/Table_verdana_14_4bpp.o
- .debug_info    0x000ee346     0x174d ./Application/User/generated/Table_verdana_18_4bpp.o
- .debug_info    0x000efa93     0x174e ./Application/User/generated/Table_verdana_20_4bpp.o
- .debug_info    0x000f11e1     0x1750 ./Application/User/generated/Table_verdana_40_4bpp.o
- .debug_info    0x000f2931     0x40bc ./Application/User/generated/Texts.o
- .debug_info    0x000f69ed     0x1721 ./Application/User/generated/TypedTextDatabase.o
- .debug_info    0x000f810e     0x194a ./Application/User/generated/VectorFontRendererBuffers.o
- .debug_info    0x000f9a58       0x5b ./Application/User/generated/image_alternate_theme_images_widgets_boxprogress_normal_tiny.o
- .debug_info    0x000f9ab3       0x5b ./Application/User/generated/image_alternate_theme_images_widgets_button_regular_height_36_medium_round_action.o
- .debug_info    0x000f9b0e       0x5b ./Application/User/generated/image_alternate_theme_images_widgets_button_regular_height_36_medium_round_pressed.o
- .debug_info    0x000f9b69       0x5b ./Application/User/generated/image_alternate_theme_images_widgets_button_regular_height_36_medium_rounded_action.o
- .debug_info    0x000f9bc4       0x5b ./Application/User/generated/image_alternate_theme_images_widgets_button_regular_height_36_medium_rounded_pressed.o
- .debug_info    0x000f9c1f       0x5b ./Application/User/generated/image_alternate_theme_images_widgets_button_regular_height_36_small_rounded_action.o
- .debug_info    0x000f9c7a       0x5b ./Application/User/generated/image_alternate_theme_images_widgets_button_regular_height_36_small_rounded_pressed.o
- .debug_info    0x000f9cd5       0x5b ./Application/User/generated/image_alternate_theme_images_widgets_button_regular_height_36_tiny_round_action.o
- .debug_info    0x000f9d30       0x5b ./Application/User/generated/image_alternate_theme_images_widgets_button_regular_height_36_tiny_round_pressed.o
- .debug_info    0x000f9d8b       0x5b ./Application/User/generated/image_alternate_theme_images_widgets_button_regular_height_36_tiny_rounded_action.o
- .debug_info    0x000f9de6       0x5b ./Application/User/generated/image_alternate_theme_images_widgets_button_regular_height_36_tiny_rounded_pressed.o
- .debug_info    0x000f9e41       0x5b ./Application/User/generated/image_alternate_theme_images_widgets_radiobutton_check_medium_round_off.o
- .debug_info    0x000f9e9c       0x5b ./Application/User/generated/image_alternate_theme_images_widgets_radiobutton_check_medium_round_off_pressed.o
- .debug_info    0x000f9ef7       0x5b ./Application/User/generated/image_alternate_theme_images_widgets_radiobutton_check_medium_round_on_active.o
- .debug_info    0x000f9f52       0x5b ./Application/User/generated/image_alternate_theme_images_widgets_radiobutton_check_medium_round_on_pressed.o
- .debug_info    0x000f9fad       0x5b ./Application/User/generated/image_icon_theme_images_content_add_50_50_000000.svg.o
- .debug_info    0x000fa008       0x5b ./Application/User/generated/image_icon_theme_images_content_add_50_50_E8F6FB.svg.o
- .debug_info    0x000fa063       0x5b ./Application/User/generated/image_icon_theme_images_content_remove_50_50_000000.svg.o
- .debug_info    0x000fa0be       0x5b ./Application/User/generated/image_icon_theme_images_content_remove_50_50_E8F6FB.svg.o
- .debug_info    0x000fa119       0x5d ./Application/User/generated/image_number-select.o
- .debug_info    0x000fa176     0x6fa7 ./Application/User/generated/numberTemplateScrollCustomContainerBase.o
- .debug_info    0x0010111d    0x22c46 ./Application/User/generated/screenMainViewBase.o
- .debug_info    0x00123d63     0x4020 ./Application/User/gui/FrontendApplication.o
- .debug_info    0x00127d83     0x239b ./Application/User/gui/Model.o
- .debug_info    0x0012a11e     0x76cf ./Application/User/gui/NumberPICKER.o
- .debug_info    0x001317ed     0x5e6f ./Application/User/gui/ScreenAboutPresenter.o
- .debug_info    0x0013765c     0x5d10 ./Application/User/gui/ScreenAboutView.o
- .debug_info    0x0013d36c     0x8b9d ./Application/User/gui/ScreenIPAddressesPresenter.o
- .debug_info    0x00145f09     0xeb5d ./Application/User/gui/ScreenIPAddressesView.o
- .debug_info    0x00154a66     0x6469 ./Application/User/gui/ScreenNewPresenter.o
- .debug_info    0x0015aecf     0x6395 ./Application/User/gui/ScreenNewView.o
- .debug_info    0x00161264     0x6659 ./Application/User/gui/ScreenSettings1Presenter.o
- .debug_info    0x001678bd     0x7d49 ./Application/User/gui/ScreenSettings1View.o
- .debug_info    0x0016f606     0x67c7 ./Application/User/gui/ScreenStandbyPresenter.o
- .debug_info    0x00175dcd     0x6668 ./Application/User/gui/ScreenStandbyView.o
- .debug_info    0x0017c435     0x5a49 ./Application/User/gui/numberTemplateScrollCustomContainer.o
- .debug_info    0x00181e7e     0x7432 ./Application/User/gui/screenMainPresenter.o
- .debug_info    0x001892b0     0x72a7 ./Application/User/gui/screenMainView.o
- .debug_info    0x00190557     0x1692 ./Drivers/BSP/Components/mt25tl01g.o
- .debug_info    0x00191be9      0xcf1 ./Drivers/BSP/Components/mt48lc4m32b2.o
- .debug_info    0x001928da     0x129e ./Drivers/BSP/STM32H745I-DISCO/stm32h745i_discovery.o
- .debug_info    0x00193b78     0x23d5 ./Drivers/BSP/STM32H745I-DISCO/stm32h745i_discovery_qspi.o
- .debug_info    0x00195f4d     0x163c ./Drivers/BSP/STM32H745I-DISCO/stm32h745i_discovery_sdram.o
- .debug_info    0x00197589      0xe9c ./Drivers/CMSIS/system_stm32h7xx_dualcore_boot_cm4_cm7.o
- .debug_info    0x00198425     0x1bd4 ./Drivers/STM32H7xx_HAL_Driver/stm32h7xx_hal.o
- .debug_info    0x00199ff9     0x1647 ./Drivers/STM32H7xx_HAL_Driver/stm32h7xx_hal_cortex.o
- .debug_info    0x0019b640      0x6b8 ./Drivers/STM32H7xx_HAL_Driver/stm32h7xx_hal_crc.o
- .debug_info    0x0019bcf8      0x3cc ./Drivers/STM32H7xx_HAL_Driver/stm32h7xx_hal_crc_ex.o
- .debug_info    0x0019c0c4     0x10c6 ./Drivers/STM32H7xx_HAL_Driver/stm32h7xx_hal_dma.o
- .debug_info    0x0019d18a     0x1880 ./Drivers/STM32H7xx_HAL_Driver/stm32h7xx_hal_dma2d.o
- .debug_info    0x0019ea0a      0xf5f ./Drivers/STM32H7xx_HAL_Driver/stm32h7xx_hal_gpio.o
- .debug_info    0x0019f969     0x4316 ./Drivers/STM32H7xx_HAL_Driver/stm32h7xx_hal_i2c.o
- .debug_info    0x001a3c7f      0xe97 ./Drivers/STM32H7xx_HAL_Driver/stm32h7xx_hal_i2c_ex.o
- .debug_info    0x001a4b16     0x289e ./Drivers/STM32H7xx_HAL_Driver/stm32h7xx_hal_jpeg.o
- .debug_info    0x001a73b4     0x1d1e ./Drivers/STM32H7xx_HAL_Driver/stm32h7xx_hal_ltdc.o
- .debug_info    0x001a90d2     0x125b ./Drivers/STM32H7xx_HAL_Driver/stm32h7xx_hal_mdma.o
- .debug_info    0x001aa32d     0x37a0 ./Drivers/STM32H7xx_HAL_Driver/stm32h7xx_hal_mmc.o
- .debug_info    0x001adacd      0xbcc ./Drivers/STM32H7xx_HAL_Driver/stm32h7xx_hal_pwr.o
- .debug_info    0x001ae699     0x1668 ./Drivers/STM32H7xx_HAL_Driver/stm32h7xx_hal_pwr_ex.o
- .debug_info    0x001afd01     0x21eb ./Drivers/STM32H7xx_HAL_Driver/stm32h7xx_hal_qspi.o
- .debug_info    0x001b1eec     0x164d ./Drivers/STM32H7xx_HAL_Driver/stm32h7xx_hal_rcc.o
- .debug_info    0x001b3539     0x1de6 ./Drivers/STM32H7xx_HAL_Driver/stm32h7xx_hal_rcc_ex.o
- .debug_info    0x001b531f      0x594 ./Drivers/STM32H7xx_HAL_Driver/stm32h7xx_hal_rng.o
- .debug_info    0x001b58b3     0x1b4f ./Drivers/STM32H7xx_HAL_Driver/stm32h7xx_hal_rtc.o
- .debug_info    0x001b7402     0x1332 ./Drivers/STM32H7xx_HAL_Driver/stm32h7xx_hal_sdram.o
- .debug_info    0x001b8734     0x5577 ./Drivers/STM32H7xx_HAL_Driver/stm32h7xx_hal_tim.o
- .debug_info    0x001bdcab     0x260e ./Drivers/STM32H7xx_HAL_Driver/stm32h7xx_hal_tim_ex.o
- .debug_info    0x001c02b9     0x6892 ./Drivers/STM32H7xx_HAL_Driver/stm32h7xx_hal_uart.o
- .debug_info    0x001c6b4b     0x1470 ./Drivers/STM32H7xx_HAL_Driver/stm32h7xx_hal_uart_ex.o
- .debug_info    0x001c7fbb     0x193b ./Drivers/STM32H7xx_HAL_Driver/stm32h7xx_ll_fmc.o
- .debug_info    0x001c98f6     0x238f ./Drivers/STM32H7xx_HAL_Driver/stm32h7xx_ll_sdmmc.o
- .debug_info    0x001cbc85      0x4cc ./Middlewares/FatFs/ff_gen_drv.o
- .debug_info    0x001cc151     0x57c4 ./Middlewares/FreeRTOS/cmsis_os2.o
- .debug_info    0x001d1915      0x627 ./Middlewares/FreeRTOS/heap_4.o
- .debug_info    0x001d1f3c      0x2bf ./Middlewares/FreeRTOS/list.o
- .debug_info    0x001d21fb      0x583 ./Middlewares/FreeRTOS/port.o
- .debug_info    0x001d277e     0x2a67 ./Middlewares/FreeRTOS/queue.o
- .debug_info    0x001d51e5     0x3a05 ./Middlewares/FreeRTOS/tasks.o
- .debug_info    0x001d8bea     0x2339 ./Middlewares/FreeRTOS/timers.o
- .debug_info    0x001daf23     0x4af3 ./Middlewares/wolfSSL/wolfSSL/wolfCrypt/Core/aes.o
- .debug_info    0x001dfa16     0x1d83 ./Middlewares/wolfSSL/wolfSSL/wolfCrypt/Core/cmac.o
- .debug_info    0x001e1799     0x20ba ./Middlewares/wolfSSL/wolfSSL/wolfCrypt/Core/curve25519.o
- .debug_info    0x001e3853     0x170f ./Middlewares/wolfSSL/wolfSSL/wolfCrypt/Core/fe_low_mem.o
- .debug_info    0x001e4f62      0xa67 ./Middlewares/wolfSSL/wolfSSL/wolfCrypt/Core/memory.o
- .debug_info    0x001e59c9     0x30e4 ./Middlewares/wolfSSL/wolfSSL/wolfCrypt/Core/random.o
- .debug_info    0x001e8aad     0x2241 ./Middlewares/wolfSSL/wolfSSL/wolfCrypt/Core/sha256.o
- .debug_info    0x001eacee     0x191a ./Middlewares/wolfSSL/wolfSSL/wolfCrypt/Core/wc_port.o
+.debug_info     0x00000000   0x1ec5fb
+ .debug_info    0x00000000    0x2bcb8 ./Application/User/Core/main.o
+ .debug_info    0x0002bcb8      0x8a5 ./Application/User/Core/main_user.o
+ .debug_info    0x0002c55d     0x444d ./Application/User/Core/stm32h7xx_hal_msp.o
+ .debug_info    0x000309aa     0x1167 ./Application/User/Core/stm32h7xx_hal_timebase_tim.o
+ .debug_info    0x00031b11     0x1e47 ./Application/User/Core/stm32h7xx_it.o
+ .debug_info    0x00033958      0x7b1 ./Application/User/Core/syscalls.o
+ .debug_info    0x00034109      0x171 ./Application/User/Core/sysmem.o
+ .debug_info    0x0003427a      0x5a6 ./Application/User/FATFS/App/fatfs.o
+ .debug_info    0x00034820      0x35e ./Application/User/FATFS/Target/user_diskio.o
+ .debug_info    0x00034b7e       0x30 ./Application/User/Startup/startup_stm32h745xihx.o
+ .debug_info    0x00034bae       0xd0 ./Application/User/TouchGFX/App/app_touchgfx.o
+ .debug_info    0x00034c7e     0x2324 ./Application/User/TouchGFX/target/STM32TouchController.o
+ .debug_info    0x00036fa2     0x18d7 ./Application/User/TouchGFX/target/TouchGFXGPIO.o
+ .debug_info    0x00038879     0x7545 ./Application/User/TouchGFX/target/TouchGFXHAL.o
+ .debug_info    0x0003fdbe     0x5e44 ./Application/User/TouchGFX/target/generated/HardwareMJPEGDecoder.o
+ .debug_info    0x00045c02      0x7a3 ./Application/User/TouchGFX/target/generated/OSWrappers.o
+ .debug_info    0x000463a5     0xa042 ./Application/User/TouchGFX/target/generated/STM32DMA.o
+ .debug_info    0x000503e7     0xe437 ./Application/User/TouchGFX/target/generated/TouchGFXConfiguration.o
+ .debug_info    0x0005e81e    0x13148 ./Application/User/TouchGFX/target/generated/TouchGFXGeneratedHAL.o
+ .debug_info    0x00071966     0x1153 ./Application/User/generated/ApplicationFontProvider.o
+ .debug_info    0x00072ab9      0xf06 ./Application/User/generated/BitmapDatabase.o
+ .debug_info    0x000739bf     0x266c ./Application/User/generated/CachedFont.o
+ .debug_info    0x0007602b     0x4422 ./Application/User/generated/FontCache.o
+ .debug_info    0x0007a44d      0x1d1 ./Application/User/generated/Font_verdana_10_4bpp_0.o
+ .debug_info    0x0007a61e      0x1d1 ./Application/User/generated/Font_verdana_14_4bpp_0.o
+ .debug_info    0x0007a7ef      0x1d1 ./Application/User/generated/Font_verdana_18_4bpp_0.o
+ .debug_info    0x0007a9c0      0x1d1 ./Application/User/generated/Font_verdana_20_4bpp_0.o
+ .debug_info    0x0007ab91      0x1d1 ./Application/User/generated/Font_verdana_40_4bpp_0.o
+ .debug_info    0x0007ad62    0x16b9a ./Application/User/generated/FrontendApplicationBase.o
+ .debug_info    0x000918fc     0x4866 ./Application/User/generated/GeneratedFont.o
+ .debug_info    0x00096162      0x6b7 ./Application/User/generated/Kerning_verdana_10_4bpp.o
+ .debug_info    0x00096819      0x6b7 ./Application/User/generated/Kerning_verdana_14_4bpp.o
+ .debug_info    0x00096ed0      0x6b7 ./Application/User/generated/Kerning_verdana_18_4bpp.o
+ .debug_info    0x00097587      0x6b7 ./Application/User/generated/Kerning_verdana_20_4bpp.o
+ .debug_info    0x00097c3e      0x6b7 ./Application/User/generated/Kerning_verdana_40_4bpp.o
+ .debug_info    0x000982f5      0x204 ./Application/User/generated/LanguageDe.o
+ .debug_info    0x000984f9      0x204 ./Application/User/generated/LanguageGb.o
+ .debug_info    0x000986fd     0x924f ./Application/User/generated/NumberPICKERBase.o
+ .debug_info    0x000a194c     0xab2b ./Application/User/generated/ScreenAboutViewBase.o
+ .debug_info    0x000ac477    0x17fa6 ./Application/User/generated/ScreenIPAddressesViewBase.o
+ .debug_info    0x000c441d     0xa534 ./Application/User/generated/ScreenNewViewBase.o
+ .debug_info    0x000ce951     0xdc97 ./Application/User/generated/ScreenSettings1ViewBase.o
+ .debug_info    0x000dc5e8     0xeeb5 ./Application/User/generated/ScreenStandbyViewBase.o
+ .debug_info    0x000eb49d     0x174e ./Application/User/generated/Table_verdana_10_4bpp.o
+ .debug_info    0x000ecbeb     0x174e ./Application/User/generated/Table_verdana_14_4bpp.o
+ .debug_info    0x000ee339     0x174d ./Application/User/generated/Table_verdana_18_4bpp.o
+ .debug_info    0x000efa86     0x174e ./Application/User/generated/Table_verdana_20_4bpp.o
+ .debug_info    0x000f11d4     0x1750 ./Application/User/generated/Table_verdana_40_4bpp.o
+ .debug_info    0x000f2924     0x40bc ./Application/User/generated/Texts.o
+ .debug_info    0x000f69e0     0x1721 ./Application/User/generated/TypedTextDatabase.o
+ .debug_info    0x000f8101     0x194a ./Application/User/generated/VectorFontRendererBuffers.o
+ .debug_info    0x000f9a4b       0x5b ./Application/User/generated/image_alternate_theme_images_widgets_boxprogress_normal_tiny.o
+ .debug_info    0x000f9aa6       0x5b ./Application/User/generated/image_alternate_theme_images_widgets_button_regular_height_36_medium_round_action.o
+ .debug_info    0x000f9b01       0x5b ./Application/User/generated/image_alternate_theme_images_widgets_button_regular_height_36_medium_round_pressed.o
+ .debug_info    0x000f9b5c       0x5b ./Application/User/generated/image_alternate_theme_images_widgets_button_regular_height_36_medium_rounded_action.o
+ .debug_info    0x000f9bb7       0x5b ./Application/User/generated/image_alternate_theme_images_widgets_button_regular_height_36_medium_rounded_pressed.o
+ .debug_info    0x000f9c12       0x5b ./Application/User/generated/image_alternate_theme_images_widgets_button_regular_height_36_small_rounded_action.o
+ .debug_info    0x000f9c6d       0x5b ./Application/User/generated/image_alternate_theme_images_widgets_button_regular_height_36_small_rounded_pressed.o
+ .debug_info    0x000f9cc8       0x5b ./Application/User/generated/image_alternate_theme_images_widgets_button_regular_height_36_tiny_round_action.o
+ .debug_info    0x000f9d23       0x5b ./Application/User/generated/image_alternate_theme_images_widgets_button_regular_height_36_tiny_round_pressed.o
+ .debug_info    0x000f9d7e       0x5b ./Application/User/generated/image_alternate_theme_images_widgets_button_regular_height_36_tiny_rounded_action.o
+ .debug_info    0x000f9dd9       0x5b ./Application/User/generated/image_alternate_theme_images_widgets_button_regular_height_36_tiny_rounded_pressed.o
+ .debug_info    0x000f9e34       0x5b ./Application/User/generated/image_alternate_theme_images_widgets_radiobutton_check_medium_round_off.o
+ .debug_info    0x000f9e8f       0x5b ./Application/User/generated/image_alternate_theme_images_widgets_radiobutton_check_medium_round_off_pressed.o
+ .debug_info    0x000f9eea       0x5b ./Application/User/generated/image_alternate_theme_images_widgets_radiobutton_check_medium_round_on_active.o
+ .debug_info    0x000f9f45       0x5b ./Application/User/generated/image_alternate_theme_images_widgets_radiobutton_check_medium_round_on_pressed.o
+ .debug_info    0x000f9fa0       0x5b ./Application/User/generated/image_icon_theme_images_content_add_50_50_000000.svg.o
+ .debug_info    0x000f9ffb       0x5b ./Application/User/generated/image_icon_theme_images_content_add_50_50_E8F6FB.svg.o
+ .debug_info    0x000fa056       0x5b ./Application/User/generated/image_icon_theme_images_content_remove_50_50_000000.svg.o
+ .debug_info    0x000fa0b1       0x5b ./Application/User/generated/image_icon_theme_images_content_remove_50_50_E8F6FB.svg.o
+ .debug_info    0x000fa10c       0x5d ./Application/User/generated/image_number-select.o
+ .debug_info    0x000fa169     0x6fa7 ./Application/User/generated/numberTemplateScrollCustomContainerBase.o
+ .debug_info    0x00101110    0x22c46 ./Application/User/generated/screenMainViewBase.o
+ .debug_info    0x00123d56     0x4020 ./Application/User/gui/FrontendApplication.o
+ .debug_info    0x00127d76     0x239b ./Application/User/gui/Model.o
+ .debug_info    0x0012a111     0x76cf ./Application/User/gui/NumberPICKER.o
+ .debug_info    0x001317e0     0x5e6f ./Application/User/gui/ScreenAboutPresenter.o
+ .debug_info    0x0013764f     0x5d10 ./Application/User/gui/ScreenAboutView.o
+ .debug_info    0x0013d35f     0x8b9d ./Application/User/gui/ScreenIPAddressesPresenter.o
+ .debug_info    0x00145efc     0xeb5d ./Application/User/gui/ScreenIPAddressesView.o
+ .debug_info    0x00154a59     0x6469 ./Application/User/gui/ScreenNewPresenter.o
+ .debug_info    0x0015aec2     0x6395 ./Application/User/gui/ScreenNewView.o
+ .debug_info    0x00161257     0x6659 ./Application/User/gui/ScreenSettings1Presenter.o
+ .debug_info    0x001678b0     0x7d49 ./Application/User/gui/ScreenSettings1View.o
+ .debug_info    0x0016f5f9     0x67c7 ./Application/User/gui/ScreenStandbyPresenter.o
+ .debug_info    0x00175dc0     0x6668 ./Application/User/gui/ScreenStandbyView.o
+ .debug_info    0x0017c428     0x5a49 ./Application/User/gui/numberTemplateScrollCustomContainer.o
+ .debug_info    0x00181e71     0x7432 ./Application/User/gui/screenMainPresenter.o
+ .debug_info    0x001892a3     0x72a7 ./Application/User/gui/screenMainView.o
+ .debug_info    0x0019054a     0x1692 ./Drivers/BSP/Components/mt25tl01g.o
+ .debug_info    0x00191bdc      0xcf1 ./Drivers/BSP/Components/mt48lc4m32b2.o
+ .debug_info    0x001928cd     0x129e ./Drivers/BSP/STM32H745I-DISCO/stm32h745i_discovery.o
+ .debug_info    0x00193b6b     0x23d5 ./Drivers/BSP/STM32H745I-DISCO/stm32h745i_discovery_qspi.o
+ .debug_info    0x00195f40     0x163c ./Drivers/BSP/STM32H745I-DISCO/stm32h745i_discovery_sdram.o
+ .debug_info    0x0019757c      0xe9c ./Drivers/CMSIS/system_stm32h7xx_dualcore_boot_cm4_cm7.o
+ .debug_info    0x00198418     0x1bd4 ./Drivers/STM32H7xx_HAL_Driver/stm32h7xx_hal.o
+ .debug_info    0x00199fec     0x1647 ./Drivers/STM32H7xx_HAL_Driver/stm32h7xx_hal_cortex.o
+ .debug_info    0x0019b633      0x6b8 ./Drivers/STM32H7xx_HAL_Driver/stm32h7xx_hal_crc.o
+ .debug_info    0x0019bceb      0x3cc ./Drivers/STM32H7xx_HAL_Driver/stm32h7xx_hal_crc_ex.o
+ .debug_info    0x0019c0b7     0x10c6 ./Drivers/STM32H7xx_HAL_Driver/stm32h7xx_hal_dma.o
+ .debug_info    0x0019d17d     0x1880 ./Drivers/STM32H7xx_HAL_Driver/stm32h7xx_hal_dma2d.o
+ .debug_info    0x0019e9fd      0xf5f ./Drivers/STM32H7xx_HAL_Driver/stm32h7xx_hal_gpio.o
+ .debug_info    0x0019f95c     0x4316 ./Drivers/STM32H7xx_HAL_Driver/stm32h7xx_hal_i2c.o
+ .debug_info    0x001a3c72      0xe97 ./Drivers/STM32H7xx_HAL_Driver/stm32h7xx_hal_i2c_ex.o
+ .debug_info    0x001a4b09     0x289e ./Drivers/STM32H7xx_HAL_Driver/stm32h7xx_hal_jpeg.o
+ .debug_info    0x001a73a7     0x1d1e ./Drivers/STM32H7xx_HAL_Driver/stm32h7xx_hal_ltdc.o
+ .debug_info    0x001a90c5     0x125b ./Drivers/STM32H7xx_HAL_Driver/stm32h7xx_hal_mdma.o
+ .debug_info    0x001aa320     0x37a0 ./Drivers/STM32H7xx_HAL_Driver/stm32h7xx_hal_mmc.o
+ .debug_info    0x001adac0      0xbcc ./Drivers/STM32H7xx_HAL_Driver/stm32h7xx_hal_pwr.o
+ .debug_info    0x001ae68c     0x1668 ./Drivers/STM32H7xx_HAL_Driver/stm32h7xx_hal_pwr_ex.o
+ .debug_info    0x001afcf4     0x21eb ./Drivers/STM32H7xx_HAL_Driver/stm32h7xx_hal_qspi.o
+ .debug_info    0x001b1edf     0x164d ./Drivers/STM32H7xx_HAL_Driver/stm32h7xx_hal_rcc.o
+ .debug_info    0x001b352c     0x1de6 ./Drivers/STM32H7xx_HAL_Driver/stm32h7xx_hal_rcc_ex.o
+ .debug_info    0x001b5312      0x594 ./Drivers/STM32H7xx_HAL_Driver/stm32h7xx_hal_rng.o
+ .debug_info    0x001b58a6     0x1b4f ./Drivers/STM32H7xx_HAL_Driver/stm32h7xx_hal_rtc.o
+ .debug_info    0x001b73f5     0x1332 ./Drivers/STM32H7xx_HAL_Driver/stm32h7xx_hal_sdram.o
+ .debug_info    0x001b8727     0x5577 ./Drivers/STM32H7xx_HAL_Driver/stm32h7xx_hal_tim.o
+ .debug_info    0x001bdc9e     0x260e ./Drivers/STM32H7xx_HAL_Driver/stm32h7xx_hal_tim_ex.o
+ .debug_info    0x001c02ac     0x6892 ./Drivers/STM32H7xx_HAL_Driver/stm32h7xx_hal_uart.o
+ .debug_info    0x001c6b3e     0x1470 ./Drivers/STM32H7xx_HAL_Driver/stm32h7xx_hal_uart_ex.o
+ .debug_info    0x001c7fae     0x193b ./Drivers/STM32H7xx_HAL_Driver/stm32h7xx_ll_fmc.o
+ .debug_info    0x001c98e9     0x238f ./Drivers/STM32H7xx_HAL_Driver/stm32h7xx_ll_sdmmc.o
+ .debug_info    0x001cbc78      0x4cc ./Middlewares/FatFs/ff_gen_drv.o
+ .debug_info    0x001cc144     0x57c4 ./Middlewares/FreeRTOS/cmsis_os2.o
+ .debug_info    0x001d1908      0x627 ./Middlewares/FreeRTOS/heap_4.o
+ .debug_info    0x001d1f2f      0x2bf ./Middlewares/FreeRTOS/list.o
+ .debug_info    0x001d21ee      0x583 ./Middlewares/FreeRTOS/port.o
+ .debug_info    0x001d2771     0x2a67 ./Middlewares/FreeRTOS/queue.o
+ .debug_info    0x001d51d8     0x3a05 ./Middlewares/FreeRTOS/tasks.o
+ .debug_info    0x001d8bdd     0x2339 ./Middlewares/FreeRTOS/timers.o
+ .debug_info    0x001daf16     0x4af3 ./Middlewares/wolfSSL/wolfSSL/wolfCrypt/Core/aes.o
+ .debug_info    0x001dfa09     0x1d83 ./Middlewares/wolfSSL/wolfSSL/wolfCrypt/Core/cmac.o
+ .debug_info    0x001e178c     0x20ba ./Middlewares/wolfSSL/wolfSSL/wolfCrypt/Core/curve25519.o
+ .debug_info    0x001e3846     0x170f ./Middlewares/wolfSSL/wolfSSL/wolfCrypt/Core/fe_low_mem.o
+ .debug_info    0x001e4f55      0xa67 ./Middlewares/wolfSSL/wolfSSL/wolfCrypt/Core/memory.o
+ .debug_info    0x001e59bc     0x30e4 ./Middlewares/wolfSSL/wolfSSL/wolfCrypt/Core/random.o
+ .debug_info    0x001e8aa0     0x2241 ./Middlewares/wolfSSL/wolfSSL/wolfCrypt/Core/sha256.o
+ .debug_info    0x001eace1     0x191a ./Middlewares/wolfSSL/wolfSSL/wolfCrypt/Core/wc_port.o
 
 .debug_abbrev   0x00000000    0x27ccc
  .debug_abbrev  0x00000000      0x7be ./Application/User/Core/main.o
@@ -23959,145 +23959,145 @@ LOAD C:/ST/STM32CubeIDE_1.19.0/STM32CubeIDE/plugins/com.st.stm32cube.ide.mcu.ext
  .debug_rnglists
                 0x00008520       0xaa ./Middlewares/wolfSSL/wolfSSL/wolfCrypt/Core/wc_port.o
 
-.debug_line     0x00000000    0x9ce58
- .debug_line    0x00000000    0x127d7 ./Application/User/Core/main.o
- .debug_line    0x000127d7      0x46b ./Application/User/Core/main_user.o
- .debug_line    0x00012c42      0xf87 ./Application/User/Core/stm32h7xx_hal_msp.o
- .debug_line    0x00013bc9      0x445 ./Application/User/Core/stm32h7xx_hal_timebase_tim.o
- .debug_line    0x0001400e      0x529 ./Application/User/Core/stm32h7xx_it.o
- .debug_line    0x00014537      0x547 ./Application/User/Core/syscalls.o
- .debug_line    0x00014a7e      0x36d ./Application/User/Core/sysmem.o
- .debug_line    0x00014deb      0x367 ./Application/User/FATFS/App/fatfs.o
- .debug_line    0x00015152      0x324 ./Application/User/FATFS/Target/user_diskio.o
- .debug_line    0x00015476       0x7b ./Application/User/Startup/startup_stm32h745xihx.o
- .debug_line    0x000154f1       0xd2 ./Application/User/TouchGFX/App/app_touchgfx.o
- .debug_line    0x000155c3      0xa7a ./Application/User/TouchGFX/target/STM32TouchController.o
- .debug_line    0x0001603d      0x936 ./Application/User/TouchGFX/target/TouchGFXGPIO.o
- .debug_line    0x00016973      0xe77 ./Application/User/TouchGFX/target/TouchGFXHAL.o
- .debug_line    0x000177ea     0x1cab ./Application/User/TouchGFX/target/generated/HardwareMJPEGDecoder.o
- .debug_line    0x00019495      0x779 ./Application/User/TouchGFX/target/generated/OSWrappers.o
- .debug_line    0x00019c0e     0x163c ./Application/User/TouchGFX/target/generated/STM32DMA.o
- .debug_line    0x0001b24a     0x19c9 ./Application/User/TouchGFX/target/generated/TouchGFXConfiguration.o
- .debug_line    0x0001cc13     0x2bc6 ./Application/User/TouchGFX/target/generated/TouchGFXGeneratedHAL.o
- .debug_line    0x0001f7d9      0x5a5 ./Application/User/generated/ApplicationFontProvider.o
- .debug_line    0x0001fd7e      0x399 ./Application/User/generated/BitmapDatabase.o
- .debug_line    0x00020117      0x7e7 ./Application/User/generated/CachedFont.o
- .debug_line    0x000208fe     0x1409 ./Application/User/generated/FontCache.o
- .debug_line    0x00021d07      0x2c8 ./Application/User/generated/Font_verdana_10_4bpp_0.o
- .debug_line    0x00021fcf      0x2c8 ./Application/User/generated/Font_verdana_14_4bpp_0.o
- .debug_line    0x00022297      0x2c8 ./Application/User/generated/Font_verdana_18_4bpp_0.o
- .debug_line    0x0002255f      0x2c8 ./Application/User/generated/Font_verdana_20_4bpp_0.o
- .debug_line    0x00022827      0x2c8 ./Application/User/generated/Font_verdana_40_4bpp_0.o
- .debug_line    0x00022aef     0x386d ./Application/User/generated/FrontendApplicationBase.o
- .debug_line    0x0002635c     0x12c7 ./Application/User/generated/GeneratedFont.o
- .debug_line    0x00027623      0x406 ./Application/User/generated/Kerning_verdana_10_4bpp.o
- .debug_line    0x00027a29      0x406 ./Application/User/generated/Kerning_verdana_14_4bpp.o
- .debug_line    0x00027e2f      0x406 ./Application/User/generated/Kerning_verdana_18_4bpp.o
- .debug_line    0x00028235      0x406 ./Application/User/generated/Kerning_verdana_20_4bpp.o
- .debug_line    0x0002863b      0x406 ./Application/User/generated/Kerning_verdana_40_4bpp.o
- .debug_line    0x00028a41      0x2bc ./Application/User/generated/LanguageDe.o
- .debug_line    0x00028cfd      0x2bc ./Application/User/generated/LanguageGb.o
- .debug_line    0x00028fb9     0x1796 ./Application/User/generated/NumberPICKERBase.o
- .debug_line    0x0002a74f     0x246b ./Application/User/generated/ScreenAboutViewBase.o
- .debug_line    0x0002cbba     0x5cc7 ./Application/User/generated/ScreenIPAddressesViewBase.o
- .debug_line    0x00032881     0x21ac ./Application/User/generated/ScreenNewViewBase.o
- .debug_line    0x00034a2d     0x34d8 ./Application/User/generated/ScreenSettings1ViewBase.o
- .debug_line    0x00037f05     0x37e9 ./Application/User/generated/ScreenStandbyViewBase.o
- .debug_line    0x0003b6ee      0x4d6 ./Application/User/generated/Table_verdana_10_4bpp.o
- .debug_line    0x0003bbc4      0x4d6 ./Application/User/generated/Table_verdana_14_4bpp.o
- .debug_line    0x0003c09a      0x4d9 ./Application/User/generated/Table_verdana_18_4bpp.o
- .debug_line    0x0003c573      0x4d9 ./Application/User/generated/Table_verdana_20_4bpp.o
- .debug_line    0x0003ca4c      0x4d6 ./Application/User/generated/Table_verdana_40_4bpp.o
- .debug_line    0x0003cf22      0xbfd ./Application/User/generated/Texts.o
- .debug_line    0x0003db1f      0x616 ./Application/User/generated/TypedTextDatabase.o
- .debug_line    0x0003e135      0x4b7 ./Application/User/generated/VectorFontRendererBuffers.o
- .debug_line    0x0003e5ec       0xc0 ./Application/User/generated/image_alternate_theme_images_widgets_boxprogress_normal_tiny.o
- .debug_line    0x0003e6ac       0xd5 ./Application/User/generated/image_alternate_theme_images_widgets_button_regular_height_36_medium_round_action.o
- .debug_line    0x0003e781       0xd6 ./Application/User/generated/image_alternate_theme_images_widgets_button_regular_height_36_medium_round_pressed.o
- .debug_line    0x0003e857       0xd7 ./Application/User/generated/image_alternate_theme_images_widgets_button_regular_height_36_medium_rounded_action.o
- .debug_line    0x0003e92e       0xd8 ./Application/User/generated/image_alternate_theme_images_widgets_button_regular_height_36_medium_rounded_pressed.o
- .debug_line    0x0003ea06       0xd6 ./Application/User/generated/image_alternate_theme_images_widgets_button_regular_height_36_small_rounded_action.o
- .debug_line    0x0003eadc       0xd7 ./Application/User/generated/image_alternate_theme_images_widgets_button_regular_height_36_small_rounded_pressed.o
- .debug_line    0x0003ebb3       0xd3 ./Application/User/generated/image_alternate_theme_images_widgets_button_regular_height_36_tiny_round_action.o
- .debug_line    0x0003ec86       0xd4 ./Application/User/generated/image_alternate_theme_images_widgets_button_regular_height_36_tiny_round_pressed.o
- .debug_line    0x0003ed5a       0xd5 ./Application/User/generated/image_alternate_theme_images_widgets_button_regular_height_36_tiny_rounded_action.o
- .debug_line    0x0003ee2f       0xd6 ./Application/User/generated/image_alternate_theme_images_widgets_button_regular_height_36_tiny_rounded_pressed.o
- .debug_line    0x0003ef05       0xcb ./Application/User/generated/image_alternate_theme_images_widgets_radiobutton_check_medium_round_off.o
- .debug_line    0x0003efd0       0xd3 ./Application/User/generated/image_alternate_theme_images_widgets_radiobutton_check_medium_round_off_pressed.o
- .debug_line    0x0003f0a3       0xd1 ./Application/User/generated/image_alternate_theme_images_widgets_radiobutton_check_medium_round_on_active.o
- .debug_line    0x0003f174       0xd2 ./Application/User/generated/image_alternate_theme_images_widgets_radiobutton_check_medium_round_on_pressed.o
- .debug_line    0x0003f246       0xb8 ./Application/User/generated/image_icon_theme_images_content_add_50_50_000000.svg.o
- .debug_line    0x0003f2fe       0xb8 ./Application/User/generated/image_icon_theme_images_content_add_50_50_E8F6FB.svg.o
- .debug_line    0x0003f3b6       0xbb ./Application/User/generated/image_icon_theme_images_content_remove_50_50_000000.svg.o
- .debug_line    0x0003f471       0xbb ./Application/User/generated/image_icon_theme_images_content_remove_50_50_E8F6FB.svg.o
- .debug_line    0x0003f52c       0x8b ./Application/User/generated/image_number-select.o
- .debug_line    0x0003f5b7     0x14b0 ./Application/User/generated/numberTemplateScrollCustomContainerBase.o
- .debug_line    0x00040a67     0x78ba ./Application/User/generated/screenMainViewBase.o
- .debug_line    0x00048321      0xaf0 ./Application/User/gui/FrontendApplication.o
- .debug_line    0x00048e11      0xa4d ./Application/User/gui/Model.o
- .debug_line    0x0004985e      0xf8a ./Application/User/gui/NumberPICKER.o
- .debug_line    0x0004a7e8      0xd31 ./Application/User/gui/ScreenAboutPresenter.o
- .debug_line    0x0004b519      0xd23 ./Application/User/gui/ScreenAboutView.o
- .debug_line    0x0004c23c     0x1035 ./Application/User/gui/ScreenIPAddressesPresenter.o
- .debug_line    0x0004d271     0x2656 ./Application/User/gui/ScreenIPAddressesView.o
- .debug_line    0x0004f8c7      0xdef ./Application/User/gui/ScreenNewPresenter.o
- .debug_line    0x000506b6      0xe1f ./Application/User/gui/ScreenNewView.o
- .debug_line    0x000514d5      0xd78 ./Application/User/gui/ScreenSettings1Presenter.o
- .debug_line    0x0005224d     0x1039 ./Application/User/gui/ScreenSettings1View.o
- .debug_line    0x00053286      0xe23 ./Application/User/gui/ScreenStandbyPresenter.o
- .debug_line    0x000540a9      0xe15 ./Application/User/gui/ScreenStandbyView.o
- .debug_line    0x00054ebe      0xe39 ./Application/User/gui/numberTemplateScrollCustomContainer.o
- .debug_line    0x00055cf7      0xf19 ./Application/User/gui/screenMainPresenter.o
- .debug_line    0x00056c10      0xf07 ./Application/User/gui/screenMainView.o
- .debug_line    0x00057b17     0x11bf ./Drivers/BSP/Components/mt25tl01g.o
- .debug_line    0x00058cd6      0x5f7 ./Drivers/BSP/Components/mt48lc4m32b2.o
- .debug_line    0x000592cd      0x605 ./Drivers/BSP/STM32H745I-DISCO/stm32h745i_discovery.o
- .debug_line    0x000598d2      0xcdf ./Drivers/BSP/STM32H745I-DISCO/stm32h745i_discovery_qspi.o
- .debug_line    0x0005a5b1      0x6dc ./Drivers/BSP/STM32H745I-DISCO/stm32h745i_discovery_sdram.o
- .debug_line    0x0005ac8d      0x69d ./Drivers/CMSIS/system_stm32h7xx_dualcore_boot_cm4_cm7.o
- .debug_line    0x0005b32a      0xe90 ./Drivers/STM32H7xx_HAL_Driver/stm32h7xx_hal.o
- .debug_line    0x0005c1ba      0xafb ./Drivers/STM32H7xx_HAL_Driver/stm32h7xx_hal_cortex.o
- .debug_line    0x0005ccb5      0x6f3 ./Drivers/STM32H7xx_HAL_Driver/stm32h7xx_hal_crc.o
- .debug_line    0x0005d3a8      0x47c ./Drivers/STM32H7xx_HAL_Driver/stm32h7xx_hal_crc_ex.o
- .debug_line    0x0005d824     0x1fd5 ./Drivers/STM32H7xx_HAL_Driver/stm32h7xx_hal_dma.o
- .debug_line    0x0005f7f9     0x1404 ./Drivers/STM32H7xx_HAL_Driver/stm32h7xx_hal_dma2d.o
- .debug_line    0x00060bfd      0xa4b ./Drivers/STM32H7xx_HAL_Driver/stm32h7xx_hal_gpio.o
- .debug_line    0x00061648     0x5386 ./Drivers/STM32H7xx_HAL_Driver/stm32h7xx_hal_i2c.o
- .debug_line    0x000669ce      0x627 ./Drivers/STM32H7xx_HAL_Driver/stm32h7xx_hal_i2c_ex.o
- .debug_line    0x00066ff5     0x2ae9 ./Drivers/STM32H7xx_HAL_Driver/stm32h7xx_hal_jpeg.o
- .debug_line    0x00069ade     0x171f ./Drivers/STM32H7xx_HAL_Driver/stm32h7xx_hal_ltdc.o
- .debug_line    0x0006b1fd     0x15c5 ./Drivers/STM32H7xx_HAL_Driver/stm32h7xx_hal_mdma.o
- .debug_line    0x0006c7c2     0x49d6 ./Drivers/STM32H7xx_HAL_Driver/stm32h7xx_hal_mmc.o
- .debug_line    0x00071198      0x6c2 ./Drivers/STM32H7xx_HAL_Driver/stm32h7xx_hal_pwr.o
- .debug_line    0x0007185a      0xfdb ./Drivers/STM32H7xx_HAL_Driver/stm32h7xx_hal_pwr_ex.o
- .debug_line    0x00072835     0x1998 ./Drivers/STM32H7xx_HAL_Driver/stm32h7xx_hal_qspi.o
- .debug_line    0x000741cd     0x1752 ./Drivers/STM32H7xx_HAL_Driver/stm32h7xx_hal_rcc.o
- .debug_line    0x0007591f     0x1e49 ./Drivers/STM32H7xx_HAL_Driver/stm32h7xx_hal_rcc_ex.o
- .debug_line    0x00077768      0x762 ./Drivers/STM32H7xx_HAL_Driver/stm32h7xx_hal_rng.o
- .debug_line    0x00077eca     0x14a3 ./Drivers/STM32H7xx_HAL_Driver/stm32h7xx_hal_rtc.o
- .debug_line    0x0007936d      0xc91 ./Drivers/STM32H7xx_HAL_Driver/stm32h7xx_hal_sdram.o
- .debug_line    0x00079ffe     0x64d4 ./Drivers/STM32H7xx_HAL_Driver/stm32h7xx_hal_tim.o
- .debug_line    0x000804d2     0x268f ./Drivers/STM32H7xx_HAL_Driver/stm32h7xx_hal_tim_ex.o
- .debug_line    0x00082b61     0x5056 ./Drivers/STM32H7xx_HAL_Driver/stm32h7xx_hal_uart.o
- .debug_line    0x00087bb7      0xde1 ./Drivers/STM32H7xx_HAL_Driver/stm32h7xx_hal_uart_ex.o
- .debug_line    0x00088998      0xd8d ./Drivers/STM32H7xx_HAL_Driver/stm32h7xx_ll_fmc.o
- .debug_line    0x00089725     0x1771 ./Drivers/STM32H7xx_HAL_Driver/stm32h7xx_ll_sdmmc.o
- .debug_line    0x0008ae96      0x3bd ./Middlewares/FatFs/ff_gen_drv.o
- .debug_line    0x0008b253     0x2bea ./Middlewares/FreeRTOS/cmsis_os2.o
- .debug_line    0x0008de3d      0x883 ./Middlewares/FreeRTOS/heap_4.o
- .debug_line    0x0008e6c0      0x49e ./Middlewares/FreeRTOS/list.o
- .debug_line    0x0008eb5e      0x7b1 ./Middlewares/FreeRTOS/port.o
- .debug_line    0x0008f30f     0x1dc8 ./Middlewares/FreeRTOS/queue.o
- .debug_line    0x000910d7     0x290a ./Middlewares/FreeRTOS/tasks.o
- .debug_line    0x000939e1      0xf22 ./Middlewares/FreeRTOS/timers.o
- .debug_line    0x00094903     0x2800 ./Middlewares/wolfSSL/wolfSSL/wolfCrypt/Core/aes.o
- .debug_line    0x00097103      0xb0b ./Middlewares/wolfSSL/wolfSSL/wolfCrypt/Core/cmac.o
- .debug_line    0x00097c0e      0xc57 ./Middlewares/wolfSSL/wolfSSL/wolfCrypt/Core/curve25519.o
- .debug_line    0x00098865      0xc43 ./Middlewares/wolfSSL/wolfSSL/wolfCrypt/Core/fe_low_mem.o
- .debug_line    0x000994a8      0x6c1 ./Middlewares/wolfSSL/wolfSSL/wolfCrypt/Core/memory.o
- .debug_line    0x00099b69     0x1463 ./Middlewares/wolfSSL/wolfSSL/wolfCrypt/Core/random.o
- .debug_line    0x0009afcc     0x1275 ./Middlewares/wolfSSL/wolfSSL/wolfCrypt/Core/sha256.o
- .debug_line    0x0009c241      0xc17 ./Middlewares/wolfSSL/wolfSSL/wolfCrypt/Core/wc_port.o
+.debug_line     0x00000000    0x9ce69
+ .debug_line    0x00000000    0x127e8 ./Application/User/Core/main.o
+ .debug_line    0x000127e8      0x46b ./Application/User/Core/main_user.o
+ .debug_line    0x00012c53      0xf87 ./Application/User/Core/stm32h7xx_hal_msp.o
+ .debug_line    0x00013bda      0x445 ./Application/User/Core/stm32h7xx_hal_timebase_tim.o
+ .debug_line    0x0001401f      0x529 ./Application/User/Core/stm32h7xx_it.o
+ .debug_line    0x00014548      0x547 ./Application/User/Core/syscalls.o
+ .debug_line    0x00014a8f      0x36d ./Application/User/Core/sysmem.o
+ .debug_line    0x00014dfc      0x367 ./Application/User/FATFS/App/fatfs.o
+ .debug_line    0x00015163      0x324 ./Application/User/FATFS/Target/user_diskio.o
+ .debug_line    0x00015487       0x7b ./Application/User/Startup/startup_stm32h745xihx.o
+ .debug_line    0x00015502       0xd2 ./Application/User/TouchGFX/App/app_touchgfx.o
+ .debug_line    0x000155d4      0xa7a ./Application/User/TouchGFX/target/STM32TouchController.o
+ .debug_line    0x0001604e      0x936 ./Application/User/TouchGFX/target/TouchGFXGPIO.o
+ .debug_line    0x00016984      0xe77 ./Application/User/TouchGFX/target/TouchGFXHAL.o
+ .debug_line    0x000177fb     0x1cab ./Application/User/TouchGFX/target/generated/HardwareMJPEGDecoder.o
+ .debug_line    0x000194a6      0x779 ./Application/User/TouchGFX/target/generated/OSWrappers.o
+ .debug_line    0x00019c1f     0x163c ./Application/User/TouchGFX/target/generated/STM32DMA.o
+ .debug_line    0x0001b25b     0x19c9 ./Application/User/TouchGFX/target/generated/TouchGFXConfiguration.o
+ .debug_line    0x0001cc24     0x2bc6 ./Application/User/TouchGFX/target/generated/TouchGFXGeneratedHAL.o
+ .debug_line    0x0001f7ea      0x5a5 ./Application/User/generated/ApplicationFontProvider.o
+ .debug_line    0x0001fd8f      0x399 ./Application/User/generated/BitmapDatabase.o
+ .debug_line    0x00020128      0x7e7 ./Application/User/generated/CachedFont.o
+ .debug_line    0x0002090f     0x1409 ./Application/User/generated/FontCache.o
+ .debug_line    0x00021d18      0x2c8 ./Application/User/generated/Font_verdana_10_4bpp_0.o
+ .debug_line    0x00021fe0      0x2c8 ./Application/User/generated/Font_verdana_14_4bpp_0.o
+ .debug_line    0x000222a8      0x2c8 ./Application/User/generated/Font_verdana_18_4bpp_0.o
+ .debug_line    0x00022570      0x2c8 ./Application/User/generated/Font_verdana_20_4bpp_0.o
+ .debug_line    0x00022838      0x2c8 ./Application/User/generated/Font_verdana_40_4bpp_0.o
+ .debug_line    0x00022b00     0x386d ./Application/User/generated/FrontendApplicationBase.o
+ .debug_line    0x0002636d     0x12c7 ./Application/User/generated/GeneratedFont.o
+ .debug_line    0x00027634      0x406 ./Application/User/generated/Kerning_verdana_10_4bpp.o
+ .debug_line    0x00027a3a      0x406 ./Application/User/generated/Kerning_verdana_14_4bpp.o
+ .debug_line    0x00027e40      0x406 ./Application/User/generated/Kerning_verdana_18_4bpp.o
+ .debug_line    0x00028246      0x406 ./Application/User/generated/Kerning_verdana_20_4bpp.o
+ .debug_line    0x0002864c      0x406 ./Application/User/generated/Kerning_verdana_40_4bpp.o
+ .debug_line    0x00028a52      0x2bc ./Application/User/generated/LanguageDe.o
+ .debug_line    0x00028d0e      0x2bc ./Application/User/generated/LanguageGb.o
+ .debug_line    0x00028fca     0x1796 ./Application/User/generated/NumberPICKERBase.o
+ .debug_line    0x0002a760     0x246b ./Application/User/generated/ScreenAboutViewBase.o
+ .debug_line    0x0002cbcb     0x5cc7 ./Application/User/generated/ScreenIPAddressesViewBase.o
+ .debug_line    0x00032892     0x21ac ./Application/User/generated/ScreenNewViewBase.o
+ .debug_line    0x00034a3e     0x34d8 ./Application/User/generated/ScreenSettings1ViewBase.o
+ .debug_line    0x00037f16     0x37e9 ./Application/User/generated/ScreenStandbyViewBase.o
+ .debug_line    0x0003b6ff      0x4d6 ./Application/User/generated/Table_verdana_10_4bpp.o
+ .debug_line    0x0003bbd5      0x4d6 ./Application/User/generated/Table_verdana_14_4bpp.o
+ .debug_line    0x0003c0ab      0x4d9 ./Application/User/generated/Table_verdana_18_4bpp.o
+ .debug_line    0x0003c584      0x4d9 ./Application/User/generated/Table_verdana_20_4bpp.o
+ .debug_line    0x0003ca5d      0x4d6 ./Application/User/generated/Table_verdana_40_4bpp.o
+ .debug_line    0x0003cf33      0xbfd ./Application/User/generated/Texts.o
+ .debug_line    0x0003db30      0x616 ./Application/User/generated/TypedTextDatabase.o
+ .debug_line    0x0003e146      0x4b7 ./Application/User/generated/VectorFontRendererBuffers.o
+ .debug_line    0x0003e5fd       0xc0 ./Application/User/generated/image_alternate_theme_images_widgets_boxprogress_normal_tiny.o
+ .debug_line    0x0003e6bd       0xd5 ./Application/User/generated/image_alternate_theme_images_widgets_button_regular_height_36_medium_round_action.o
+ .debug_line    0x0003e792       0xd6 ./Application/User/generated/image_alternate_theme_images_widgets_button_regular_height_36_medium_round_pressed.o
+ .debug_line    0x0003e868       0xd7 ./Application/User/generated/image_alternate_theme_images_widgets_button_regular_height_36_medium_rounded_action.o
+ .debug_line    0x0003e93f       0xd8 ./Application/User/generated/image_alternate_theme_images_widgets_button_regular_height_36_medium_rounded_pressed.o
+ .debug_line    0x0003ea17       0xd6 ./Application/User/generated/image_alternate_theme_images_widgets_button_regular_height_36_small_rounded_action.o
+ .debug_line    0x0003eaed       0xd7 ./Application/User/generated/image_alternate_theme_images_widgets_button_regular_height_36_small_rounded_pressed.o
+ .debug_line    0x0003ebc4       0xd3 ./Application/User/generated/image_alternate_theme_images_widgets_button_regular_height_36_tiny_round_action.o
+ .debug_line    0x0003ec97       0xd4 ./Application/User/generated/image_alternate_theme_images_widgets_button_regular_height_36_tiny_round_pressed.o
+ .debug_line    0x0003ed6b       0xd5 ./Application/User/generated/image_alternate_theme_images_widgets_button_regular_height_36_tiny_rounded_action.o
+ .debug_line    0x0003ee40       0xd6 ./Application/User/generated/image_alternate_theme_images_widgets_button_regular_height_36_tiny_rounded_pressed.o
+ .debug_line    0x0003ef16       0xcb ./Application/User/generated/image_alternate_theme_images_widgets_radiobutton_check_medium_round_off.o
+ .debug_line    0x0003efe1       0xd3 ./Application/User/generated/image_alternate_theme_images_widgets_radiobutton_check_medium_round_off_pressed.o
+ .debug_line    0x0003f0b4       0xd1 ./Application/User/generated/image_alternate_theme_images_widgets_radiobutton_check_medium_round_on_active.o
+ .debug_line    0x0003f185       0xd2 ./Application/User/generated/image_alternate_theme_images_widgets_radiobutton_check_medium_round_on_pressed.o
+ .debug_line    0x0003f257       0xb8 ./Application/User/generated/image_icon_theme_images_content_add_50_50_000000.svg.o
+ .debug_line    0x0003f30f       0xb8 ./Application/User/generated/image_icon_theme_images_content_add_50_50_E8F6FB.svg.o
+ .debug_line    0x0003f3c7       0xbb ./Application/User/generated/image_icon_theme_images_content_remove_50_50_000000.svg.o
+ .debug_line    0x0003f482       0xbb ./Application/User/generated/image_icon_theme_images_content_remove_50_50_E8F6FB.svg.o
+ .debug_line    0x0003f53d       0x8b ./Application/User/generated/image_number-select.o
+ .debug_line    0x0003f5c8     0x14b0 ./Application/User/generated/numberTemplateScrollCustomContainerBase.o
+ .debug_line    0x00040a78     0x78ba ./Application/User/generated/screenMainViewBase.o
+ .debug_line    0x00048332      0xaf0 ./Application/User/gui/FrontendApplication.o
+ .debug_line    0x00048e22      0xa4d ./Application/User/gui/Model.o
+ .debug_line    0x0004986f      0xf8a ./Application/User/gui/NumberPICKER.o
+ .debug_line    0x0004a7f9      0xd31 ./Application/User/gui/ScreenAboutPresenter.o
+ .debug_line    0x0004b52a      0xd23 ./Application/User/gui/ScreenAboutView.o
+ .debug_line    0x0004c24d     0x1035 ./Application/User/gui/ScreenIPAddressesPresenter.o
+ .debug_line    0x0004d282     0x2656 ./Application/User/gui/ScreenIPAddressesView.o
+ .debug_line    0x0004f8d8      0xdef ./Application/User/gui/ScreenNewPresenter.o
+ .debug_line    0x000506c7      0xe1f ./Application/User/gui/ScreenNewView.o
+ .debug_line    0x000514e6      0xd78 ./Application/User/gui/ScreenSettings1Presenter.o
+ .debug_line    0x0005225e     0x1039 ./Application/User/gui/ScreenSettings1View.o
+ .debug_line    0x00053297      0xe23 ./Application/User/gui/ScreenStandbyPresenter.o
+ .debug_line    0x000540ba      0xe15 ./Application/User/gui/ScreenStandbyView.o
+ .debug_line    0x00054ecf      0xe39 ./Application/User/gui/numberTemplateScrollCustomContainer.o
+ .debug_line    0x00055d08      0xf19 ./Application/User/gui/screenMainPresenter.o
+ .debug_line    0x00056c21      0xf07 ./Application/User/gui/screenMainView.o
+ .debug_line    0x00057b28     0x11bf ./Drivers/BSP/Components/mt25tl01g.o
+ .debug_line    0x00058ce7      0x5f7 ./Drivers/BSP/Components/mt48lc4m32b2.o
+ .debug_line    0x000592de      0x605 ./Drivers/BSP/STM32H745I-DISCO/stm32h745i_discovery.o
+ .debug_line    0x000598e3      0xcdf ./Drivers/BSP/STM32H745I-DISCO/stm32h745i_discovery_qspi.o
+ .debug_line    0x0005a5c2      0x6dc ./Drivers/BSP/STM32H745I-DISCO/stm32h745i_discovery_sdram.o
+ .debug_line    0x0005ac9e      0x69d ./Drivers/CMSIS/system_stm32h7xx_dualcore_boot_cm4_cm7.o
+ .debug_line    0x0005b33b      0xe90 ./Drivers/STM32H7xx_HAL_Driver/stm32h7xx_hal.o
+ .debug_line    0x0005c1cb      0xafb ./Drivers/STM32H7xx_HAL_Driver/stm32h7xx_hal_cortex.o
+ .debug_line    0x0005ccc6      0x6f3 ./Drivers/STM32H7xx_HAL_Driver/stm32h7xx_hal_crc.o
+ .debug_line    0x0005d3b9      0x47c ./Drivers/STM32H7xx_HAL_Driver/stm32h7xx_hal_crc_ex.o
+ .debug_line    0x0005d835     0x1fd5 ./Drivers/STM32H7xx_HAL_Driver/stm32h7xx_hal_dma.o
+ .debug_line    0x0005f80a     0x1404 ./Drivers/STM32H7xx_HAL_Driver/stm32h7xx_hal_dma2d.o
+ .debug_line    0x00060c0e      0xa4b ./Drivers/STM32H7xx_HAL_Driver/stm32h7xx_hal_gpio.o
+ .debug_line    0x00061659     0x5386 ./Drivers/STM32H7xx_HAL_Driver/stm32h7xx_hal_i2c.o
+ .debug_line    0x000669df      0x627 ./Drivers/STM32H7xx_HAL_Driver/stm32h7xx_hal_i2c_ex.o
+ .debug_line    0x00067006     0x2ae9 ./Drivers/STM32H7xx_HAL_Driver/stm32h7xx_hal_jpeg.o
+ .debug_line    0x00069aef     0x171f ./Drivers/STM32H7xx_HAL_Driver/stm32h7xx_hal_ltdc.o
+ .debug_line    0x0006b20e     0x15c5 ./Drivers/STM32H7xx_HAL_Driver/stm32h7xx_hal_mdma.o
+ .debug_line    0x0006c7d3     0x49d6 ./Drivers/STM32H7xx_HAL_Driver/stm32h7xx_hal_mmc.o
+ .debug_line    0x000711a9      0x6c2 ./Drivers/STM32H7xx_HAL_Driver/stm32h7xx_hal_pwr.o
+ .debug_line    0x0007186b      0xfdb ./Drivers/STM32H7xx_HAL_Driver/stm32h7xx_hal_pwr_ex.o
+ .debug_line    0x00072846     0x1998 ./Drivers/STM32H7xx_HAL_Driver/stm32h7xx_hal_qspi.o
+ .debug_line    0x000741de     0x1752 ./Drivers/STM32H7xx_HAL_Driver/stm32h7xx_hal_rcc.o
+ .debug_line    0x00075930     0x1e49 ./Drivers/STM32H7xx_HAL_Driver/stm32h7xx_hal_rcc_ex.o
+ .debug_line    0x00077779      0x762 ./Drivers/STM32H7xx_HAL_Driver/stm32h7xx_hal_rng.o
+ .debug_line    0x00077edb     0x14a3 ./Drivers/STM32H7xx_HAL_Driver/stm32h7xx_hal_rtc.o
+ .debug_line    0x0007937e      0xc91 ./Drivers/STM32H7xx_HAL_Driver/stm32h7xx_hal_sdram.o
+ .debug_line    0x0007a00f     0x64d4 ./Drivers/STM32H7xx_HAL_Driver/stm32h7xx_hal_tim.o
+ .debug_line    0x000804e3     0x268f ./Drivers/STM32H7xx_HAL_Driver/stm32h7xx_hal_tim_ex.o
+ .debug_line    0x00082b72     0x5056 ./Drivers/STM32H7xx_HAL_Driver/stm32h7xx_hal_uart.o
+ .debug_line    0x00087bc8      0xde1 ./Drivers/STM32H7xx_HAL_Driver/stm32h7xx_hal_uart_ex.o
+ .debug_line    0x000889a9      0xd8d ./Drivers/STM32H7xx_HAL_Driver/stm32h7xx_ll_fmc.o
+ .debug_line    0x00089736     0x1771 ./Drivers/STM32H7xx_HAL_Driver/stm32h7xx_ll_sdmmc.o
+ .debug_line    0x0008aea7      0x3bd ./Middlewares/FatFs/ff_gen_drv.o
+ .debug_line    0x0008b264     0x2bea ./Middlewares/FreeRTOS/cmsis_os2.o
+ .debug_line    0x0008de4e      0x883 ./Middlewares/FreeRTOS/heap_4.o
+ .debug_line    0x0008e6d1      0x49e ./Middlewares/FreeRTOS/list.o
+ .debug_line    0x0008eb6f      0x7b1 ./Middlewares/FreeRTOS/port.o
+ .debug_line    0x0008f320     0x1dc8 ./Middlewares/FreeRTOS/queue.o
+ .debug_line    0x000910e8     0x290a ./Middlewares/FreeRTOS/tasks.o
+ .debug_line    0x000939f2      0xf22 ./Middlewares/FreeRTOS/timers.o
+ .debug_line    0x00094914     0x2800 ./Middlewares/wolfSSL/wolfSSL/wolfCrypt/Core/aes.o
+ .debug_line    0x00097114      0xb0b ./Middlewares/wolfSSL/wolfSSL/wolfCrypt/Core/cmac.o
+ .debug_line    0x00097c1f      0xc57 ./Middlewares/wolfSSL/wolfSSL/wolfCrypt/Core/curve25519.o
+ .debug_line    0x00098876      0xc43 ./Middlewares/wolfSSL/wolfSSL/wolfCrypt/Core/fe_low_mem.o
+ .debug_line    0x000994b9      0x6c1 ./Middlewares/wolfSSL/wolfSSL/wolfCrypt/Core/memory.o
+ .debug_line    0x00099b7a     0x1463 ./Middlewares/wolfSSL/wolfSSL/wolfCrypt/Core/random.o
+ .debug_line    0x0009afdd     0x1275 ./Middlewares/wolfSSL/wolfSSL/wolfCrypt/Core/sha256.o
+ .debug_line    0x0009c252      0xc17 ./Middlewares/wolfSSL/wolfSSL/wolfCrypt/Core/wc_port.o
 
 .debug_str      0x00000000    0x45506
  .debug_str     0x00000000    0x45506 ./Application/User/Core/main.o

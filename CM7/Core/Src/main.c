@@ -3115,6 +3115,12 @@ DiagnosticState Main_Diagnostic_StateMachine(DiagnosticStateMachineCommand state
 
       // Display Diagnostic mode menu
       Main_Diagnostic_DisplayMenu();
+      /////////////////////////////////////////////////////////////////////////
+      //// TEST MAB 2026.10.19
+      //// Request RTC sync from the ZWave Sentinel Diagnostic Tool
+      LOG("%s: Request RTC sync \r\n", __FUNCTION__);
+      /////////////////////////////////////////////////////////////////////////
+
     }
 
     //---------------------------------------------
@@ -3145,8 +3151,7 @@ DiagnosticState Main_Diagnostic_StateMachine(DiagnosticStateMachineCommand state
           // Diagnostic mode menu item selected
           // First, get the string following MENU:
           memset(lucDiagnosticReceiveBuffer, 0, sizeof(lucDiagnosticReceiveBuffer));
-          //// TEST MAB 2026.09.28 memcpy(lucDiagnosticReceiveBuffer, gucDiagnosticRxBuffer+8, min((size_t)strlen(gucDiagnosticRxBuffer+8), sizeof(lucDiagnosticReceiveBuffer)) );
-          memcpy(lucDiagnosticReceiveBuffer, gucDiagnosticRxBuffer+8, strlen(gucDiagnosticRxBuffer+8) );
+          memcpy(lucDiagnosticReceiveBuffer, plcMenuDetected+8, strlen(plcMenuDetected+8) );
           LOG("%s: Diagnostic menu string >>%s<<\r\n", __FUNCTION__, lucDiagnosticReceiveBuffer);
           // If writing a new MAC or Board rev, skip any spaces and get the 2nd MENU parameter
           if ('M' == lucDiagnosticReceiveBuffer[0] || 'B' == lucDiagnosticReceiveBuffer[0] || 'T' == lucDiagnosticReceiveBuffer[0])
@@ -12283,6 +12288,12 @@ void MainTask(void *argument)
   // display the firmware version
   LOG("%s: ZWave Sentinel firmware version is v%s.%s.%s\r\n", __FUNCTION__, VERSION_A,VERSION_B,VERSION_C);
 
+  /////////////////////////////////////////////////////////////////////////
+  //// TEST MAB 2026.10.19
+  //// Request RTC sync from the ZWave Sentinel Diagnostic Tool
+  //LOG("%s: Request RTC sync \r\n", __FUNCTION__);
+  /////////////////////////////////////////////////////////////////////////
+
   /* ************************************************** Infinite loop ************************************************** */
   for(;;)
   {
@@ -12971,12 +12982,6 @@ void ZWaveTask(void *argument)
   PrintBytes(gucS0LegacyKey, 16, FALSE, 0);
   LOG("%s: =====================================================================================\r\n");
 
-
-  /////////////////////////////////////////////////////////////////////////
-  //// TEST MAB 2026.10.19
-  //// Request RTC sync from the ZWave Sentinel Diagnostic Tool
-  LOG("%s: Request RTC sync \r\n", __FUNCTION__);
-  /////////////////////////////////////////////////////////////////////////
 
 
   /* Infinite loop */

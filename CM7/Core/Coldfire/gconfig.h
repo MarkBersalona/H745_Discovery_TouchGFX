@@ -106,7 +106,7 @@
 #define VERSION_C                 "1"
 #define VERSION_D                 "" __DATE__ " " __TIME__
 #define VERSION_ENCODED           0x00000100
-#define VERSION_DATE             "2026.10.26"
+#define VERSION_DATE             "2026.10.27"
 # endif
 #else
 #define VERSION_A		  "1"
@@ -270,7 +270,7 @@
 
 #if PRODUCT_TYPE == SENSAPHONE_ZWAVE_SENTINEL
 // Task periods, msec
-#define MAIN_TASK_PERIOD     50
+#define MAIN_TASK_PERIOD    100
 #define INPUT_TASK_PERIOD   100
 #define OUTPUT_TASK_PERIOD  100
 #define NETWORK_TASK_PERIOD 500
