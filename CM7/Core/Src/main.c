@@ -8623,6 +8623,41 @@ void ZWave_Rx_CC_84_Wake_Up_V3(void)
     LOG("%s: NodeID          = 0x%02X \r\n", __FUNCTION__, pgucCCBuffer[5]);
   }
 
+  //  ------------------- WAKE_UP_INTERVAL_CAPABILITIES_REPORT_V3 -----------------------------------------
+  if (WAKE_UP_INTERVAL_CAPABILITIES_REPORT_V3 == pgucCCBuffer[1])
+  {
+    LOG("%s: Minimum Seconds (MSB)   = 0x%02X \r\n", __FUNCTION__, pgucCCBuffer[2]);
+    LOG("%s: Minimum Seconds         = 0x%02X \r\n", __FUNCTION__, pgucCCBuffer[3]);
+    LOG("%s: Minimum Seconds (LSB)   = 0x%02X \r\n", __FUNCTION__, pgucCCBuffer[4]);
+    uint32_t lulMinimumSeconds = (0x10000*pgucCCBuffer[2]) + (0x100*pgucCCBuffer[3]) + pgucCCBuffer[4];
+    LOG("%s: - %d seconds minimum between wakeups \r\n", __FUNCTION__, lulMinimumSeconds);
+    LOG("%s: Maximum Seconds (MSB)   = 0x%02X \r\n", __FUNCTION__, pgucCCBuffer[5]);
+    LOG("%s: Maximum Seconds         = 0x%02X \r\n", __FUNCTION__, pgucCCBuffer[6]);
+    LOG("%s: Maximum Seconds (LSB)   = 0x%02X \r\n", __FUNCTION__, pgucCCBuffer[7]);
+    uint32_t lulMaximumSeconds = (0x10000*pgucCCBuffer[5]) + (0x100*pgucCCBuffer[6]) + pgucCCBuffer[7];
+    LOG("%s: - %d seconds minimum between wakeups \r\n", __FUNCTION__, lulMaximumSeconds);
+    LOG("%s: Default Seconds (MSB)   = 0x%02X \r\n", __FUNCTION__, pgucCCBuffer[8]);
+    LOG("%s: Default Seconds         = 0x%02X \r\n", __FUNCTION__, pgucCCBuffer[9]);
+    LOG("%s: Default Seconds (LSB)   = 0x%02X \r\n", __FUNCTION__, pgucCCBuffer[10]);
+    LOG("%s: Maximum Seconds (LSB)   = 0x%02X \r\n", __FUNCTION__, pgucCCBuffer[7]);
+    uint32_t lulDefaultSeconds = (0x10000*pgucCCBuffer[8]) + (0x100*pgucCCBuffer[9]) + pgucCCBuffer[10];
+    LOG("%s: - %d seconds default \r\n", __FUNCTION__, lulDefaultSeconds);
+    LOG("%s: Step Seconds (MSB)      = 0x%02X \r\n", __FUNCTION__, pgucCCBuffer[11]);
+    LOG("%s: Step Seconds            = 0x%02X \r\n", __FUNCTION__, pgucCCBuffer[12]);
+    LOG("%s: Step Seconds (LSB)      = 0x%02X \r\n", __FUNCTION__, pgucCCBuffer[13]);
+    uint32_t lulStepSeconds = (0x10000*pgucCCBuffer[11]) + (0x100*pgucCCBuffer[12]) + pgucCCBuffer[13];
+    LOG("%s: - %d step seconds \r\n", __FUNCTION__, lulStepSeconds);
+    LOG("%s: Wakup on Demand         = 0x%02X \r\n", __FUNCTION__, pgucCCBuffer[14]);
+    if (pgucCCBuffer[14] & WAKE_UP_INTERVAL_CAPABILITIES_REPORT_PROPERTIES1_WAKE_UP_ON_DEMAND_BIT_MASK_V3)
+    {
+      LOG("%s: - Wakeup on Demand is supported \r\n", __FUNCTION__);
+    }
+    else
+    {
+      LOG("%s: - Wakeup on Demand is NOT supported \r\n", __FUNCTION__);
+    }
+  }
+
 
 }
 // end ZWave_Rx_CC_84_Wake_Up_V3
@@ -10080,7 +10115,43 @@ void ZWave_Send_Switch_Multilevel_Set(uint16_t auiNodeID, uint8_t aucSwitchLevel
 // end ZWave_Send_Switch_Multilevel_Set
 
 /** *****************************************************************************************************************************
-  * @brief  Prepare and send Wakeup Interval_Get
+  * @brief  Prepare and send Wakeup Interval Capabilities Get
+  * @param  uint16_t auiNodeID - 2-byte NodeID to search in provisioning list
+  * @retval None
+  */
+void ZWave_Send_Wakeup_Interval_Capabilities_Get(uint16_t auiNodeID)
+{
+  uint8_t lucWakeupIntervalCapabilitiesGet[2];
+  uint8_t lucDSKIndex;
+
+  lucDSKIndex = ZWave_Scan_ProvisioningList_For_NodeID(auiNodeID);
+  if (lucDSKIndex >= NODE_PROVISIONING_LIST_COUNT )
+  {
+    LOG("%s: *** ERROR *** invalid DSK index \r\n", __FUNCTION__);
+  }
+  else
+  {
+    //LOG("%s: NodeID 0x%04X \t DSK %d \r\n", __FUNCTION__, auiNodeID, lucDSKIndex);
+
+    // Enqueue encrypted Wakeup Interval Capabilities Get
+    LOG("%s: Enqueue encrypted Wakeup Interval Capabilities Get \r\n", __FUNCTION__);
+
+    // (Prep the Wakeup Interval Capabilities Get)
+    lucWakeupIntervalCapabilitiesGet[0] = COMMAND_CLASS_WAKE_UP_V3;
+    lucWakeupIntervalCapabilitiesGet[1] = WAKE_UP_INTERVAL_CAPABILITIES_GET_V3;
+    LOG("-----------------------  Wakeup Interval Capabilities Get START -----------------------\r\n");
+    // Invoke the command class handler
+    ZWave_Process_Command_Class(lucWakeupIntervalCapabilitiesGet, sizeof(lucWakeupIntervalCapabilitiesGet));
+    LOG("-----------------------  Wakeup Interval Capabilities Get  END  -----------------------\r\n");
+
+
+    ZWave_TxQ_Enqueue(auiNodeID, lucWakeupIntervalCapabilitiesGet, sizeof(lucWakeupIntervalCapabilitiesGet), COMMAND_CLASS_WAKE_UP_V3, WAKE_UP_INTERVAL_CAPABILITIES_REPORT_V3);
+  }
+}
+// end ZWave_Send_Wakeup_Interval_Capabilities_Get
+
+/** *****************************************************************************************************************************
+  * @brief  Prepare and send Wakeup Interval Get
   * @param  uint16_t auiNodeID - 2-byte NodeID to search in provisioning list
   * @retval None
   */
@@ -13350,6 +13421,7 @@ void ZWaveTask(void *argument)
           memset(gtNodeConnectionList[gucProcessingDSK].SensorTypes, 0x00, sizeof(gtNodeConnectionList[gucProcessingDSK].SensorTypes));
 
           // Send the initial CC commands
+          ZWave_Send_Wakeup_Interval_Capabilities_Get(guiSourceNodeID);
           ZWave_Send_Wakeup_Interval_Set(guiSourceNodeID, NODE_WAKEUP_INTERVAL_SECONDS, (uint8_t)guiDestinationNodeID);
           ZWave_Send_Wakeup_Interval_Get(guiSourceNodeID);
           ZWave_Send_Multilevel_Sensor_Get_Supported_Sensor(guiSourceNodeID);
@@ -13817,6 +13889,19 @@ void ZWaveTask(void *argument)
           }
           /////////////////////////////////////////////////////////////////////
           //
+          // Wakeup Interval Capabilities Report
+          //
+          /////////////////////////////////////////////////////////////////////
+          else if (COMMAND_CLASS_WAKE_UP_V3 == gucDecryptedPlaintext[0] &&
+              WAKE_UP_INTERVAL_CAPABILITIES_REPORT_V3  == gucDecryptedPlaintext[1]     )
+          {
+            LOG("-----------------------  Wakeup Interval Capabilities Report START -----------------------\r\n");
+            // Invoke the command class handler
+            ZWave_Process_Command_Class(gucDecryptedPlaintext, gucReceivedCiphertextLength);
+            LOG("-----------------------  Wakeup Interval Capabilities Report  END  -----------------------\r\n");
+          }
+          /////////////////////////////////////////////////////////////////////
+          //
           // Battery Report
           // (expect this periodically)
           //
@@ -13845,6 +13930,7 @@ void ZWaveTask(void *argument)
             PrintBytes(gucDecryptedPlaintext, gucReceivedCiphertextLength, false, 0);
             LOG("-----------------------  Decrypted plaintext  END  -----------------------\r\n");
             LOG("%s: *** WARNING *** decrypted plaintext not yet identified for processing\r\n", __FUNCTION__);
+            LOG("%s: If a Command Class, looks like %s \r\n", __FUNCTION__, pgcZWave_CC_Names[gucDecryptedPlaintext[0]]);
           }
         }  // decrypt successful
         else
