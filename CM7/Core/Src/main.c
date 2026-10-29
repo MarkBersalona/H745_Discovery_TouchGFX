@@ -436,7 +436,7 @@ const char* pgcZWave_CC_Names[256] =
     "xxxxxxxxx",
 
     // 0x30 - 0x3F
-    "xxxxxxxxx",
+    "COMMAND_CLASS_SENSOR_BINARY_V2",
     "COMMAND_CLASS_SENSOR_MULTILEVEL_V11",
     "xxxxxxxxx",
     "COMMAND_CLASS_SWITCH_COLOR_V3",
@@ -513,7 +513,7 @@ const char* pgcZWave_CC_Names[256] =
 
     // 0x70 - 0x7F
     "COMMAND_CLASS_CONFIGURATION_V4",
-    "xxxxxxxxx",
+    "COMMAND_CLASS_NOTIFICATION_V9",
     "COMMAND_CLASS_MANUFACTURER_SPECIFIC_V2",
     "COMMAND_CLASS_POWERLEVEL",
     "xxxxxxxxx",
@@ -727,6 +727,8 @@ uint8_t gucLRNodes[MAX_LR_NODEMASK_LENGTH];
 uint16_t guiActiveNodeCount=0;
 uint16_t guiLiveNodeCount=0;
 
+uint8_t gucActiveMeshNodeCount = 0;
+
 // general usage NodeIDs
 uint16_t guiNodeID;
 uint16_t guiSourceNodeID;
@@ -790,7 +792,8 @@ uint8_t gucDecryptedPlaintext[80];
 uint8_t gucDecryptedPlaintextLength;
 
 // Additional Authenticated Data (AAD) for temporary (S2 bootstrap) encryption/decryption
-aad_t gtTemporaryAAD;
+//// MAB 2026.10.28 Claude: S2 AAD uses 1-byte NodeIDs for classic Z-Wave, 2-byte only if either NodeID is LR (>0xFF)
+uint8_t gucTemporaryAAD[S2_AAD_MAX_LENGTH];
 uint8_t gucTemporaryAADLength;
 
 // Z-Wave Network keys for the controller
@@ -922,6 +925,9 @@ void ZWave_Rx_CC_31_Sensor_Multilevel_V11(void);
 void ZWave_Rx_CC_84_Wake_Up_V3(void);
 void ZWave_Rx_CC_9F_Security_2_V2(void);
 void ZWave_Rx_CC_XX_Unsupported(void);
+uint8_t ZWave_S2_Build_AAD(uint8_t* paucAAD, uint16_t auiSenderNodeID, uint16_t auiReceiverNodeID,
+                           uint32_t aulHomeID, uint16_t auiMessageLength,
+                           const uint8_t* paucSeqAndExtensions, uint8_t aucSeqAndExtensionsLength);
 static void ZWave_S2_Encapsulate_And_Send(uint8_t aucDSKIndex, const uint8_t* paucPlaintext, uint8_t aucLength);
 static void ZWave_S2_Encapsulate_And_Send_Temporary(uint8_t aucDSKIndex, const uint8_t* paucPlaintextBuffer, uint8_t aucPlaintextLength);
 uint8_t ZWave_Scan_ProvisioningList_For_DSK(uint8_t* paucDSKBuffer, uint8_t aucNeedExactMatch);
@@ -4169,15 +4175,15 @@ uint8_t ZWave_Decrypt_Received_Data(uint16_t auiNodeID, uint8_t* paucDecryptBuff
     //LOG("%s: gucReceivedAuthTag \r\n", __FUNCTION__);
     //PrintBytes(gucReceivedAuthTag, gucReceivedAuthTagLength, false, 0);
     LOG("%s: gucReceivedAuthTagLength    = 0x%02X \r\n", __FUNCTION__, gucReceivedAuthTagLength);
-    //LOG("%s: gtTemporaryAAD \r\n", __FUNCTION__);
-    //PrintBytes((uint8_t *)&gtTemporaryAAD, gucTemporaryAADLength, false, 0);
+    //LOG("%s: gucTemporaryAAD \r\n", __FUNCTION__);
+    //PrintBytes(gucTemporaryAAD, gucTemporaryAADLength, false, 0);
     LOG("%s: gucTemporaryAADLength       = 0x%02X \r\n", __FUNCTION__, gucTemporaryAADLength);
     liDecryptResult = wc_AesCcmDecrypt(&aes,
                                                     paucDecryptBuffer,
                                                     gucReceivedCiphertext, gucReceivedCiphertextLength,
                                                     gtTemporaryConnection.SPAN.Nonce, 13,
                                                     gucReceivedAuthTag, gucReceivedAuthTagLength,
-                                                    (const byte *)&gtTemporaryAAD, gucTemporaryAADLength);
+                                                    (const byte *)gucTemporaryAAD, gucTemporaryAADLength);
   }
   else
   {
@@ -4213,15 +4219,15 @@ uint8_t ZWave_Decrypt_Received_Data(uint16_t auiNodeID, uint8_t* paucDecryptBuff
     //LOG("%s: gucReceivedAuthTag \r\n", __FUNCTION__);
     //PrintBytes(gucReceivedAuthTag, gucReceivedAuthTagLength, false, 0);
     LOG("%s: gucReceivedAuthTagLength    = 0x%02X \r\n", __FUNCTION__, gucReceivedAuthTagLength);
-    //LOG("%s: gtTemporaryAAD \r\n", __FUNCTION__);
-    //PrintBytes((uint8_t *)&gtTemporaryAAD, gucTemporaryAADLength, false, 0);
+    //LOG("%s: gucTemporaryAAD \r\n", __FUNCTION__);
+    //PrintBytes(gucTemporaryAAD, gucTemporaryAADLength, false, 0);
     LOG("%s: gucTemporaryAADLength       = 0x%02X \r\n", __FUNCTION__, gucTemporaryAADLength);
     liDecryptResult = wc_AesCcmDecrypt(&aes,
                                                     paucDecryptBuffer,
                                                     gucReceivedCiphertext, gucReceivedCiphertextLength,
                                                     gtNodeConnectionList[lucDSKIndex].SPAN.Nonce, 13,
                                                     gucReceivedAuthTag, gucReceivedAuthTagLength,
-                                                    (const byte *)&gtTemporaryAAD, gucTemporaryAADLength);
+                                                    (const byte *)gucTemporaryAAD, gucTemporaryAADLength);
   }
 
   if (0!=liDecryptResult) LOG("%s: *** WARNING *** liDecryptResult = %d \r\n", __FUNCTION__, liDecryptResult);
@@ -5892,6 +5898,15 @@ void ZWave_Identify_Specific_Device_Type(uint8_t aucGenericDeviceType, uint8_t a
    }
   }
 
+  if (GENERIC_TYPE_SENSOR_NOTIFICATION == aucGenericDeviceType)
+  {
+    switch (aucSpecificDeviceType)
+    {
+    case SPECIFIC_TYPE_NOTIFICATION_SENSOR: LOG("%s: - Notification Sensor \r\n", __FUNCTION__); break;
+    default: LOG("%s: - *** WARNING *** unknown specific device \r\n", __FUNCTION__);  break;
+   }
+  }
+
 
 
 }
@@ -7471,7 +7486,9 @@ void ZWave_REQ_CMD_49_ZW_Application_Update(void)
     LOG("%s: NWI HomeID           = 0x%08X\r\n", __FUNCTION__, lulNWIHomeID);
     LOG("%s: - (a.k.a. DSK bytes 9-12, but MSB | 0xC0 and LSB & 0xFE) \r\n", __FUNCTION__);
     lucCandidateDSKIndex = ZWave_Scan_ProvisioningList_For_NWIHomeID(lulNWIHomeID);
-    if (lucCandidateDSKIndex != DSK_UNAVAILABLE && UPDATE_STATE_NODE_INFO_SMARTSTART_HOMEID_RECEIVED_LR == lucEvent)
+    if (lucCandidateDSKIndex != DSK_UNAVAILABLE                                &&
+        (UPDATE_STATE_NODE_INFO_SMARTSTART_HOMEID_RECEIVED_LR == lucEvent ||
+         UPDATE_STATE_NODE_INFO_SMARTSTART_HOMEID_RECEIVED    == lucEvent    )     )
     {
       // Check if any DSKs are currently being processed, if none then change DSK status to DETECTED
       if (ZWave_DSK_IsProcessing())
@@ -7480,7 +7497,14 @@ void ZWave_REQ_CMD_49_ZW_Application_Update(void)
       }
       else
       {
-        LOG("%s: - DSK %d is ready to be added via SmartStart as a Long Range end node \r\n", __FUNCTION__, lucCandidateDSKIndex);
+        if (UPDATE_STATE_NODE_INFO_SMARTSTART_HOMEID_RECEIVED_LR == lucEvent)
+        {
+          LOG("%s: - DSK %d is ready to be added via SmartStart as a Long Range end node \r\n", __FUNCTION__, lucCandidateDSKIndex);
+        }
+        else
+        {
+          LOG("%s: - DSK %d is ready to be added via SmartStart as a classical mesh end node \r\n", __FUNCTION__, lucCandidateDSKIndex);
+        }
         // For the sake of the ZWave Sentinel Diagnostic tool, make the
         // SmartStart state transition appear as if from ZWave_SmartStart_StateMachine()
         LOG("ZWave_SmartStart_StateMachine: Transitioning DSK %d from READY to DETECTED \r\n", lucCandidateDSKIndex);
@@ -8143,6 +8167,7 @@ void ZWave_RES_CMD_A9_ZW_Send_Data_Bridge(void)
 void ZWave_RES_CMD_DA_Serial_API_Get_LR_Nodes(void)
 {
   static uint16_t luiMessageQueueBuffer;
+  uint16_t luiActiveNodeCount;
 
   LOG("%s: MORE_NODES      = 0x%02X\r\n", __FUNCTION__, ZWaveSerialFrame->payload[0]);
   LOG("%s: BITMASK_OFFSET  = 0x%02X\r\n", __FUNCTION__, ZWaveSerialFrame->payload[1]);
@@ -8152,7 +8177,7 @@ void ZWave_RES_CMD_DA_Serial_API_Get_LR_Nodes(void)
   uint16_t luiNodeID;
   uint8_t lucOffset = ZWaveSerialFrame->payload[1];
   uint8_t lucIsAnyNodeActive = FALSE;
-  guiActiveNodeCount = 0;
+  luiActiveNodeCount = 0;
   LOG("%s: -------------------------------------- \r\n", __FUNCTION__);
   for (uint8_t lucByteIndexJ = 0; lucByteIndexJ < ZWaveSerialFrame->payload[2]; ++lucByteIndexJ)
   {
@@ -8164,12 +8189,16 @@ void ZWave_RES_CMD_DA_Serial_API_Get_LR_Nodes(void)
         lucIsAnyNodeActive = TRUE;
         luiNodeID = 256 + (8*lucByteIndexJ) + lucBitIndexI + (128*8*lucOffset);
         LOG("%s: Node %d (0x%04X) is active \r\n", __FUNCTION__, luiNodeID, luiNodeID);
-        ++guiActiveNodeCount;
+        ++luiActiveNodeCount;
       }
     }
   }
   if (!lucIsAnyNodeActive) LOG("%s: No nodes active \r\n", __FUNCTION__);
   LOG("%s: -------------------------------------- \r\n", __FUNCTION__);
+
+  // Adjust guiActiveNodeCount if needed
+  guiActiveNodeCount = luiActiveNodeCount + gucActiveMeshNodeCount;
+
   LOG("%s: Active node count: %04d \r\n", __FUNCTION__, guiActiveNodeCount);
 
   // Save the LR nodes bitmask array
@@ -8960,22 +8989,18 @@ void ZWave_Rx_CC_9F_Security_2_V2(void)
       //////////////////////////////////////////////////////////
       // Construct TEMPORARY Additional Authenticated Data (AAD)
       //////////////////////////////////////////////////////////
-      gtTemporaryAAD.SenderNodeID      = Swap_Bytes_uint16(guiSourceNodeID);
-      gtTemporaryAAD.DestinationNodeID = Swap_Bytes_uint16(guiDestinationNodeID);
-      gtTemporaryAAD.HomeID            = Swap_Bytes_uint32(gulZWaveHomeID);
-      gtTemporaryAAD.MessageLength     = Swap_Bytes_uint16(gucCCBufferLength);
-      gtTemporaryAAD.SequenceNumber    = pgucCCBuffer[2];
-      gtTemporaryAAD.ExtensionOptions  = pgucCCBuffer[3];
-      gucTemporaryAADLength = 12;
+      //// MAB 2026.10.28 Claude: S2 AAD uses 1-byte NodeIDs for classic Z-Wave, 2-byte only if either NodeID is LR (>0xFF)
+      // (pgucCCBuffer[2] = sequence number, [3] = extension flags, then all
+      //  unencrypted extensions, lucExtensionOffset bytes in total)
       if (lucExtensionsPresent)
       {
-        LOG("%s: Copying extension (including length and extension option bytes) to AAD \r\n", __FUNCTION__);
-        memcpy(gtTemporaryAAD.ExtensionData, plucExtensionLocation, 16+2  );
-        //PrintBytes((uint8_t *)gtTemporaryAAD.ExtensionData, 16+2, false, 0);
-        gucTemporaryAADLength += 16+2;
+        LOG("%s: Including %d bytes of unencrypted extension(s) in AAD \r\n", __FUNCTION__, lucExtensionOffset);
       }
-      //LOG("%s: Temporary AAD \r\n", __FUNCTION__);
-      //PrintBytes(&gtTemporaryAAD, gucTemporaryAADLength, false, 0);
+      gucTemporaryAADLength = ZWave_S2_Build_AAD(gucTemporaryAAD, guiSourceNodeID, guiDestinationNodeID,
+                                                 gulZWaveHomeID, gucCCBufferLength,
+                                                 &pgucCCBuffer[2], 2 + lucExtensionOffset);
+      LOG("%s: Temporary AAD (%d bytes) \r\n", __FUNCTION__, gucTemporaryAADLength);
+      PrintBytes(gucTemporaryAAD, gucTemporaryAADLength, false, 0);
     }
 
   } // end if (SECURITY_2_MESSAGE_ENCAPSULATION_V2 == pgucCCBuffer[1])
@@ -9276,6 +9301,61 @@ void ZWave_RES_CMD_XX_Unsupported(void)
 // end ZWave_RES_CMD_XX_Unsupported
 
 /** *****************************************************************************************************************************
+  * @brief  Build the S2 Additional Authenticated Data (AAD) for AES-CCM
+  *         NodeIDs are 1 byte each for classic Z-Wave, 2 bytes each (big-endian)
+  *         if EITHER NodeID is a Long Range NodeID (> 0xFF)
+  * @param  uint8_t* paucAAD - output buffer, at least S2_AAD_MAX_LENGTH bytes
+  * @param  uint16_t auiSenderNodeID   - NodeID of the frame's sender
+  * @param  uint16_t auiReceiverNodeID - NodeID of the frame's receiver
+  * @param  uint32_t aulHomeID - Home ID (host-order numeric value)
+  * @param  uint16_t auiMessageLength - total length of the S2 Message Encapsulation frame
+  *                                     (from the 0x9F command class byte through the auth tag)
+  * @param  const uint8_t* paucSeqAndExtensions - pointer to Sequence Number byte; followed by
+  *                                     the extension flags byte and any unencrypted extensions
+  * @param  uint8_t aucSeqAndExtensionsLength - 2 + total length of unencrypted extensions
+  * @retval Length of the AAD in bytes (0 on overflow)
+  */
+//// MAB 2026.10.28 Claude: S2 AAD uses 1-byte NodeIDs for classic Z-Wave, 2-byte only if either NodeID is LR (>0xFF)
+uint8_t ZWave_S2_Build_AAD(uint8_t* paucAAD, uint16_t auiSenderNodeID, uint16_t auiReceiverNodeID,
+                           uint32_t aulHomeID, uint16_t auiMessageLength,
+                           const uint8_t* paucSeqAndExtensions, uint8_t aucSeqAndExtensionsLength)
+{
+  uint8_t i = 0;
+
+  if ((auiSenderNodeID > 0xFF) || (auiReceiverNodeID > 0xFF))
+  {
+    // Long Range: 16-bit NodeIDs
+    paucAAD[i++] = (uint8_t)(auiSenderNodeID   >> 8);
+    paucAAD[i++] = (uint8_t)(auiSenderNodeID       );
+    paucAAD[i++] = (uint8_t)(auiReceiverNodeID >> 8);
+    paucAAD[i++] = (uint8_t)(auiReceiverNodeID     );
+  }
+  else
+  {
+    // Classic Z-Wave: 8-bit NodeIDs
+    paucAAD[i++] = (uint8_t)(auiSenderNodeID  );
+    paucAAD[i++] = (uint8_t)(auiReceiverNodeID);
+  }
+  paucAAD[i++] = (uint8_t)(aulHomeID >> 24);
+  paucAAD[i++] = (uint8_t)(aulHomeID >> 16);
+  paucAAD[i++] = (uint8_t)(aulHomeID >>  8);
+  paucAAD[i++] = (uint8_t)(aulHomeID      );
+  paucAAD[i++] = (uint8_t)(auiMessageLength >> 8);
+  paucAAD[i++] = (uint8_t)(auiMessageLength     );
+
+  if ((uint16_t)i + aucSeqAndExtensionsLength > S2_AAD_MAX_LENGTH)
+  {
+    LOG("%s: *** ERROR *** AAD overflow (%d bytes) \r\n", __FUNCTION__, i + aucSeqAndExtensionsLength);
+    return 0;
+  }
+  memcpy(&paucAAD[i], paucSeqAndExtensions, aucSeqAndExtensionsLength);
+  i += aucSeqAndExtensionsLength;
+
+  return i;
+}
+// end ZWave_S2_Build_AAD
+
+/** *****************************************************************************************************************************
   * @brief  Encapsulate and send encrypted plaintext
   * @param  uint8_t  aucDSKIndex - index into node provisioning list [0, NODE_PROVISIONING_LIST_COUNT-1]
   * @param  uint8_t* paucPlaintextBuffer - pointer to plaintext to be encrypted and transmitted
@@ -9290,7 +9370,7 @@ static void ZWave_S2_Encapsulate_And_Send(uint8_t aucDSKIndex, const uint8_t* pa
   int liAesInitResult;
   int liAesSetKeyResult;
   int liEncryptResult;
-  aad_t ltTxAAD;
+  uint8_t lucTxAAD[S2_AAD_MAX_LENGTH];
   int lucHeaderLength;
   int lucTxAADLength;
   Aes aes;
@@ -9368,20 +9448,14 @@ static void ZWave_S2_Encapsulate_And_Send(uint8_t aucDSKIndex, const uint8_t* pa
   //PrintBytes(gtNodeConnectionList[aucDSKIndex].SPAN.Nonce, 16, false, 0);
 
   // (AAD for the OUTGOING frame)
-  memset(&ltTxAAD, 0x00, sizeof(ltTxAAD));
-  ltTxAAD.SenderNodeID      = Swap_Bytes_uint16(guiDestinationNodeID);  // us (dest of KEX Set)
-  ltTxAAD.DestinationNodeID = Swap_Bytes_uint16(gtNodeProvisioningList[aucDSKIndex].NodeID);
-  ltTxAAD.HomeID            = Swap_Bytes_uint32(gulZWaveHomeID);
-  ltTxAAD.MessageLength     = Swap_Bytes_uint16(lucFrameLength);
-  ltTxAAD.SequenceNumber    = lucSendDataBuffer[2];
-  ltTxAAD.ExtensionOptions  = lucSendDataBuffer[3];
-  lucTxAADLength    = 12;
-  // (copy any extensions if present)
-  if (lucSendDataBuffer[3] & SECURITY_2_MESSAGE_ENCAPSULATION_PROPERTIES1_EXTENSION_BIT_MASK_V2)
-  {
-    memcpy(ltTxAAD.ExtensionData, &lucSendDataBuffer[4], 18);
-    lucTxAADLength += 18;
-  }
+  //// MAB 2026.10.28 Claude: S2 AAD uses 1-byte NodeIDs for classic Z-Wave, 2-byte only if either NodeID is LR (>0xFF)
+  // (sequence number, extension flags and, if present, the 18-byte SPAN extension;
+  //  i.e. everything from lucSendDataBuffer[2] up to the ciphertext)
+  lucTxAADLength = ZWave_S2_Build_AAD(lucTxAAD,
+                                      guiDestinationNodeID,                       // us (dest of KEX Set)
+                                      gtNodeProvisioningList[aucDSKIndex].NodeID,
+                                      gulZWaveHomeID, lucFrameLength,
+                                      &lucSendDataBuffer[2], lucHeaderLength - 2);
   // (AES-CCM encrypt
   liAesInitResult   = wc_AesInit(&aes, NULL, INVALID_DEVID);
   liAesSetKeyResult = wc_AesCcmSetKey(&aes, gtNodeConnectionList[aucDSKIndex].KeyCCM, 16);
@@ -9391,7 +9465,7 @@ static void ZWave_S2_Encapsulate_And_Send(uint8_t aucDSKIndex, const uint8_t* pa
           gtNodeConnectionList[aucDSKIndex].SPAN.Nonce, 13,
           &lucSendDataBuffer[lucHeaderLength + aucPlaintextLength],  // out: auth tag
           AUTH_TAG_LENGTH,
-          (const byte *)&ltTxAAD, lucTxAADLength);
+          (const byte *)lucTxAAD, lucTxAADLength);
   wc_AesFree(&aes);
 
   if (liAesInitResult || liAesSetKeyResult || liEncryptResult)
@@ -9422,7 +9496,7 @@ static void ZWave_S2_Encapsulate_And_Send_Temporary(uint8_t aucDSKIndex, const u
   int liAesInitResult;
   int liAesSetKeyResult;
   int liEncryptResult;
-  aad_t ltTxAAD;
+  uint8_t lucTxAAD[S2_AAD_MAX_LENGTH];
   int lucHeaderLength;
   int lucTxAADLength;
   Aes aes;
@@ -9497,20 +9571,14 @@ static void ZWave_S2_Encapsulate_And_Send_Temporary(uint8_t aucDSKIndex, const u
   //PrintBytes(gtNodeConnectionList[aucDSKIndex].SPAN.Nonce, 16, false, 0);
 
   // (AAD for the OUTGOING frame)
-  memset(&ltTxAAD, 0x00, sizeof(ltTxAAD));
-  ltTxAAD.SenderNodeID      = Swap_Bytes_uint16(guiDestinationNodeID);  // us (dest of KEX Set)
-  ltTxAAD.DestinationNodeID = Swap_Bytes_uint16(gtNodeProvisioningList[aucDSKIndex].NodeID);
-  ltTxAAD.HomeID            = Swap_Bytes_uint32(gulZWaveHomeID);
-  ltTxAAD.MessageLength     = Swap_Bytes_uint16(lucFrameLength);
-  ltTxAAD.SequenceNumber    = lucSendDataBuffer[2];
-  ltTxAAD.ExtensionOptions  = lucSendDataBuffer[3];
-  lucTxAADLength    = 12;
-  // (copy any extensions if present)
-  if (lucSendDataBuffer[3] & SECURITY_2_MESSAGE_ENCAPSULATION_PROPERTIES1_EXTENSION_BIT_MASK_V2)
-  {
-    memcpy(ltTxAAD.ExtensionData, &lucSendDataBuffer[4], 18);
-    lucTxAADLength += 18;
-  }
+  //// MAB 2026.10.28 Claude: S2 AAD uses 1-byte NodeIDs for classic Z-Wave, 2-byte only if either NodeID is LR (>0xFF)
+  // (sequence number, extension flags and, if present, the 18-byte SPAN extension;
+  //  i.e. everything from lucSendDataBuffer[2] up to the ciphertext)
+  lucTxAADLength = ZWave_S2_Build_AAD(lucTxAAD,
+                                      guiDestinationNodeID,                       // us (dest of KEX Set)
+                                      gtNodeProvisioningList[aucDSKIndex].NodeID,
+                                      gulZWaveHomeID, lucFrameLength,
+                                      &lucSendDataBuffer[2], lucHeaderLength - 2);
   // (AES-CCM encrypt
   liAesInitResult   = wc_AesInit(&aes, NULL, INVALID_DEVID);
   liAesSetKeyResult = wc_AesCcmSetKey(&aes, gtTemporaryConnection.KeyCCM, 16);
@@ -9520,7 +9588,7 @@ static void ZWave_S2_Encapsulate_And_Send_Temporary(uint8_t aucDSKIndex, const u
           gtTemporaryConnection.SPAN.Nonce, 13,
           &lucSendDataBuffer[lucHeaderLength + aucPlaintextLength],  // out: auth tag
           AUTH_TAG_LENGTH,
-          (const byte *)&ltTxAAD, lucTxAADLength);
+          (const byte *)lucTxAAD, lucTxAADLength);
   wc_AesFree(&aes);
 
   if (liAesInitResult || liAesSetKeyResult || liEncryptResult)
@@ -9717,7 +9785,7 @@ void ZWave_Send_Encrypted_Data_Temporary(uint16_t auiNodeID, uint8_t* paucPlaint
   ///////////////////////////////////////////////////////////////////////////////////////////
 
   // Validate NodeID and DSK index
-  if (auiNodeID < 0x100 || auiNodeID > 4000)
+  if (auiNodeID < 0x01 || (auiNodeID > 0xE8 && auiNodeID < 0x100) || auiNodeID > 4000)
   {
     LOG("%s: *** ERROR *** invalid NodeID \r\n", __FUNCTION__);
     lucIsValidNodeIDandDSK = FALSE;
@@ -11213,7 +11281,14 @@ SmartStartState ZWave_SmartStart_StateMachine(SmartStartStateMachineCommand stat
       LOG("%s: Starting node inclusion for DSK %d \r\n", __FUNCTION__, gucProcessingDSK);
       ZWave_DSK_Extract_NWIAuthHomeID(gucProcessingDSK, lucNWIAuthHomeIDBuffer);
       gucSessionID = ZWave_SessionID_Update(gucSessionID);
-      ZWave_Send_REQ_CMD_4A_Add_Node_to_Network(ADD_NODE_OPTION_NETWORK_WIDE|ADD_NODE_OPTION_LR|ADD_NODE_HOME_ID, gucSessionID, lucNWIAuthHomeIDBuffer);
+      if (gtNodeProvisioningList[gucProcessingDSK].lr_capable)
+      {
+        ZWave_Send_REQ_CMD_4A_Add_Node_to_Network(ADD_NODE_OPTION_NETWORK_WIDE|ADD_NODE_OPTION_LR|ADD_NODE_HOME_ID, gucSessionID, lucNWIAuthHomeIDBuffer);
+      }
+      else
+      {
+        ZWave_Send_REQ_CMD_4A_Add_Node_to_Network(ADD_NODE_OPTION_NETWORK_WIDE|ADD_NODE_HOME_ID, gucSessionID, lucNWIAuthHomeIDBuffer);
+      }
       #endif // ENABLE_ZWAVE_CONTROLLER_HOST
 
       // Set state to INCLUSION
@@ -11366,6 +11441,19 @@ SmartStartState ZWave_SmartStart_StateMachine(SmartStartStateMachineCommand stat
           LOG("%s: Transitioning DSK %d from EXCLUSION to READY\r\n", __FUNCTION__, gucProcessingDSK);
           leSmartStartState                               = SMARTSTART_READY;
           gtNodeProvisioningList[gucProcessingDSK].status = SMARTSTART_READY;
+
+          ////////////////////////////////////////////////////////////
+          //// TEST MAB 2026.10.29
+          //// For now, if classical mesh i.e. NodeID < 0xFF,
+          //// decrement active node count
+          if (FALSE == gtNodeProvisioningList[gucProcessingDSK].lr_capable)
+          {
+            if (gucActiveMeshNodeCount) --gucActiveMeshNodeCount;
+            if (guiActiveNodeCount)     --guiActiveNodeCount;
+            LOG("%s: Active node count: %04d \r\n", __FUNCTION__, guiActiveNodeCount);
+          }
+          ////////////////////////////////////////////////////////////
+
           gucProcessingDSK = DSK_UNAVAILABLE;
           guiLiveNodeCount = ZWave_DSK_Count_Live_NodeIDs();
         }
@@ -11454,6 +11542,17 @@ SmartStartState ZWave_SmartStart_StateMachine(SmartStartStateMachineCommand stat
         leSmartStartState                               = SMARTSTART_CONNECTED;
         gtNodeProvisioningList[gucProcessingDSK].status = SMARTSTART_CONNECTED;
         guiLiveNodeCount = ZWave_DSK_Count_Live_NodeIDs();
+        ////////////////////////////////////////////////////////////
+        //// TEST MAB 2026.10.29
+        //// For now, if classical mesh i.e. NodeID < 0xFF,
+        //// increment active node count
+        if (FALSE == gtNodeProvisioningList[gucProcessingDSK].lr_capable)
+        {
+          ++gucActiveMeshNodeCount;
+          ++guiActiveNodeCount;
+          LOG("%s: Active node count: %04d \r\n", __FUNCTION__, guiActiveNodeCount);
+        }
+        ////////////////////////////////////////////////////////////
 
         // Display RTC in debug output
         luiMessageQueueBuffer = msgid_MAIN_DISPLAY_RTC;
@@ -12815,6 +12914,9 @@ void ZWaveTask(void *argument)
   static uint8_t lucDSKIndex;
   static uint16_t luiMessageQueueBuffer;
   static uint8_t lucRTCString[20];
+  static uint8_t lucSensorReadingPrecision;
+  static uint8_t lucSensorReadingScale;
+  static uint8_t lucSensorReadingSize;
   static int32_t llSensorValue;
 
 
@@ -12927,28 +13029,28 @@ void ZWaveTask(void *argument)
     ZWave_DSK_Write_To_String(lucDSKIndex, lucDSKString);
     LOG("%s: DSK %d: %s\r\n", __FUNCTION__, lucDSKIndex, lucDSKString);
   }
-  // ----- Initialize with random values for DSKs (initialize any valid DSKs later)
-  uint8_t lucDSKBuffer[DSK_LENGTH_BYTES];
-  LOG("%s: Randomized DSKs\r\n", __FUNCTION__);
-  for (uint8_t lucDSKIndex = 0; lucDSKIndex < NODE_PROVISIONING_LIST_COUNT; ++lucDSKIndex)
-  {
-    gtNodeProvisioningList[lucDSKIndex].NodeID = NODE_ID_UNAVAILABLE; // initialize NodeID
-    memset(lucDSKString, 0x00, sizeof(lucDSKString));
-    for (int j = 0; j < DSK_LENGTH_BYTES; ++j)
-    {
-      lucDSKBuffer[j] = (uint8_t)RandomValue();
-    }
-    ZWave_DSK_Write(lucDSKIndex, lucDSKBuffer);
-    ZWave_DSK_Write_To_String(lucDSKIndex, lucDSKString);
-    LOG("%s: DSK %d: %s\r\n", __FUNCTION__, lucDSKIndex, lucDSKString);
-  }
+//  // ----- Initialize with random values for DSKs (initialize any valid DSKs later)
+//  uint8_t lucDSKBuffer[DSK_LENGTH_BYTES];
+//  LOG("%s: Randomized DSKs\r\n", __FUNCTION__);
+//  for (uint8_t lucDSKIndex = 0; lucDSKIndex < NODE_PROVISIONING_LIST_COUNT; ++lucDSKIndex)
+//  {
+//    gtNodeProvisioningList[lucDSKIndex].NodeID = NODE_ID_UNAVAILABLE; // initialize NodeID
+//    memset(lucDSKString, 0x00, sizeof(lucDSKString));
+//    for (int j = 0; j < DSK_LENGTH_BYTES; ++j)
+//    {
+//      lucDSKBuffer[j] = (uint8_t)RandomValue();
+//    }
+//    ZWave_DSK_Write(lucDSKIndex, lucDSKBuffer);
+//    ZWave_DSK_Write_To_String(lucDSKIndex, lucDSKString);
+//    LOG("%s: DSK %d: %s\r\n", __FUNCTION__, lucDSKIndex, lucDSKString);
+//  }
   // ----- Set up a valid DSK for existing End node
   LOG("%s: Valid DSKs\r\n", __FUNCTION__);
   uint8_t lucAvailableDSKIndex;
-  // Zeroize a random DSK
-  lucAvailableDSKIndex = RandomValue() % NODE_PROVISIONING_LIST_COUNT;
-  ZWave_DSK_Zeroize(lucAvailableDSKIndex);
-  // END Zeroize a random DSK
+//  // Zeroize a random DSK
+//  lucAvailableDSKIndex = RandomValue() % NODE_PROVISIONING_LIST_COUNT;
+//  ZWave_DSK_Zeroize(lucAvailableDSKIndex);
+//  // END Zeroize a random DSK
   lucAvailableDSKIndex = ZWave_DSK_Find_Zeroized();
   if (lucAvailableDSKIndex != DSK_UNAVAILABLE)
   {
@@ -12956,6 +13058,30 @@ void ZWaveTask(void *argument)
     ZWave_DSK_Write_From_String(lucAvailableDSKIndex, "24885-46461-09306-35598-41867-53488-08856-30122");
     memset(lucDSKString, 0x00, sizeof(lucDSKString));
     ZWave_DSK_Write_To_String(lucAvailableDSKIndex, lucDSKString);
+    LOG("%s: DSK %d: %s\r\n", __FUNCTION__, lucAvailableDSKIndex, lucDSKString);
+  }
+  // ----- Set up a 2nd valid DSK for existing End node
+  LOG("%s: Valid DSKs\r\n", __FUNCTION__);
+  lucAvailableDSKIndex = ZWave_DSK_Find_Zeroized();
+  if (lucAvailableDSKIndex != DSK_UNAVAILABLE)
+  {
+    gtNodeProvisioningList[lucAvailableDSKIndex].NodeID = NODE_ID_UNAVAILABLE; // initialize NodeID
+    ZWave_DSK_Write_From_String(lucAvailableDSKIndex, "18132-57929-37503-61376-26952-64138-16221-36674");
+    memset(lucDSKString, 0x00, sizeof(lucDSKString));
+    ZWave_DSK_Write_To_String(lucAvailableDSKIndex, lucDSKString);
+    LOG("%s: DSK %d: %s\r\n", __FUNCTION__, lucAvailableDSKIndex, lucDSKString);
+  }
+  // ----- Set up a 3rd valid DSK for existing End node: Aeotec ZWA039-A
+  LOG("%s: Valid DSKs\r\n", __FUNCTION__);
+  lucAvailableDSKIndex = ZWave_DSK_Find_Zeroized();
+  if (lucAvailableDSKIndex != DSK_UNAVAILABLE)
+  {
+    gtNodeProvisioningList[lucAvailableDSKIndex].NodeID = NODE_ID_UNAVAILABLE; // initialize NodeID
+    ZWave_DSK_Write_From_String(lucAvailableDSKIndex, "32591-16373-49497-38352-11776-34857-58695-25684");
+    memset(lucDSKString, 0x00, sizeof(lucDSKString));
+    ZWave_DSK_Write_To_String(lucAvailableDSKIndex, lucDSKString);
+    // Aeotec ZWA039-A is NOT LR
+    gtNodeProvisioningList[lucAvailableDSKIndex].lr_capable = ZWAVE_NODE_PROVISIONING_LIST_MESH_ONLY;
     LOG("%s: DSK %d: %s\r\n", __FUNCTION__, lucAvailableDSKIndex, lucDSKString);
   }
   LOG("%s: --------- END Initializing Node Provisioning list ---------\r\n", __FUNCTION__);
@@ -13195,7 +13321,7 @@ void ZWaveTask(void *argument)
           memset(gtNodeConnectionList[gucProcessingDSK].SensorTypes, 0x00, sizeof(gtNodeConnectionList[gucProcessingDSK].SensorTypes));
 
           // Send the initial CC commands
-          ZWave_Send_Wakeup_Interval_Set(guiSourceNodeID, 60, (uint8_t)guiDestinationNodeID);
+          ZWave_Send_Wakeup_Interval_Set(guiSourceNodeID, NODE_WAKEUP_INTERVAL_SECONDS, (uint8_t)guiDestinationNodeID);
           ZWave_Send_Wakeup_Interval_Get(guiSourceNodeID);
           ZWave_Send_Multilevel_Sensor_Get_Supported_Sensor(guiSourceNodeID);
           ZWave_Send_Battery_Get(guiSourceNodeID);
@@ -13210,6 +13336,27 @@ void ZWaveTask(void *argument)
             SPECIFIC_TYPE_COLOR_TUNABLE_MULTILEVEL == gtNodeConnectionList[gucProcessingDSK].SpecificDeviceType)
         {
           ZWave_Send_Switch_Multilevel_Get(guiSourceNodeID);
+        }
+        ///////////////////////////////////////////////////
+        // Sensor Notification
+        ///////////////////////////////////////////////////
+        if (GENERIC_TYPE_SENSOR_NOTIFICATION == gtNodeConnectionList[gucProcessingDSK].GenericDeviceType &&
+            SPECIFIC_TYPE_NOTIFICATION_SENSOR == gtNodeConnectionList[gucProcessingDSK].SpecificDeviceType)
+        {
+          // Sensor just connected, so should still be awake
+          gtNodeConnectionList[gucProcessingDSK].isAwake = TRUE;
+
+          // Clear the supported sensor types in the DSK's connection list
+          memset(gtNodeConnectionList[gucProcessingDSK].SensorTypes, 0x00, sizeof(gtNodeConnectionList[gucProcessingDSK].SensorTypes));
+
+          // Send the initial CC commands
+          ZWave_Send_Wakeup_Interval_Set(guiSourceNodeID, NODE_WAKEUP_INTERVAL_SECONDS, (uint8_t)guiDestinationNodeID);
+          ZWave_Send_Wakeup_Interval_Get(guiSourceNodeID);
+          ZWave_Send_Multilevel_Sensor_Get_Supported_Sensor(guiSourceNodeID);
+          ZWave_Send_Battery_Get(guiSourceNodeID);
+
+          // Initialize countdown to next battery poll
+          gtNodeConnectionList[gucProcessingDSK].BatteryPollCountdown = NODE_BATTERY_POLL_INTERVAL_SECONDS;
         }
         ///////////////////////////////////////////////////
         // Node is connected now, clear global "pointers" to it
@@ -13343,6 +13490,12 @@ void ZWaveTask(void *argument)
       // will need to update the local copy of the NodeID list more frequently.
       // In the final deliverable firmware probably don't need this ELSE case,
       // can rely on the separate periodic update of the local copy of the NodeID list.
+      // MAB 2026.10.29
+      // There is also a need to cleanup abandoned classical mesh NodeIDs. Remember
+      // the Z-Wave Sentinel controller itself has its own NodeID within the list
+      // of classical mesh NodeIDs, so don't delete ourselves.
+      // For now, the hack will be to increment the active node count when a
+      // mesh node gets included, and decrement when excluded.
       else if (guiActiveNodeCount || (guiActiveNodeCount != guiLiveNodeCount) )
       {
         // (no more NodeIDs to check in the current LR node list)
@@ -13570,12 +13723,47 @@ void ZWaveTask(void *argument)
             // Invoke the command class handler
             ZWave_Process_Command_Class(gucDecryptedPlaintext, gucReceivedCiphertextLength);
             LOG("-----------------------  Multilevel Sensor Report  END  -----------------------\r\n");
-            llSensorValue = (int32_t)Convert_Bytes_uint32(&gucDecryptedPlaintext[4]);
+            lucSensorReadingPrecision = (gucDecryptedPlaintext[3] & SENSOR_MULTILEVEL_REPORT_LEVEL_PRECISION_MASK_V11) >> SENSOR_MULTILEVEL_REPORT_LEVEL_PRECISION_SHIFT_V11;
+            lucSensorReadingScale     = (gucDecryptedPlaintext[3] & SENSOR_MULTILEVEL_REPORT_LEVEL_SCALE_MASK_V11) >> SENSOR_MULTILEVEL_REPORT_LEVEL_SCALE_SHIFT_V11;
+            lucSensorReadingSize      = (gucDecryptedPlaintext[3] & SENSOR_MULTILEVEL_REPORT_LEVEL_SIZE_MASK_V11);
+            //llSensorValue = (int32_t)Convert_Bytes_uint32(&gucDecryptedPlaintext[4]);
+            if (4 ==lucSensorReadingSize)
+            {
+              llSensorValue = (int32_t)Convert_Bytes_uint32(&gucDecryptedPlaintext[4]);
+            }
+            else if (2 ==lucSensorReadingSize)
+            {
+              llSensorValue = (int32_t)Convert_Bytes_uint16(&gucDecryptedPlaintext[4]);
+            }
+            else if (1 ==lucSensorReadingSize)
+            {
+              llSensorValue = (int32_t)(gucDecryptedPlaintext[4]);
+            }
+            switch (lucSensorReadingPrecision)
+            {
+            case 3:
+              break;
+            case 2:
+              llSensorValue *= 10;
+              break;
+            case 1:
+              llSensorValue *= 100;
+              break;
+            case 0:
+              llSensorValue *= 1000;
+              break;
+            default:
+              LOG("%s: *** WARNING *** unexpected precision value %d \r\n", __FUNCTION__, lucSensorReadingPrecision);
+            }
             if (SENSOR_MULTILEVEL_GET_TEMPERATURE_VERSION_1_V11 == gucDecryptedPlaintext[2])
             {
               LOG("%s: Zone=%d Timestamp=%s type=%d Value=%d \r\n", __FUNCTION__, (10*lucDSKIndex)+1, lucRTCString,  2, llSensorValue); // Temperature Fahrenheit
             }
             if (SENSOR_MULTILEVEL_GET_LUMINANCE_VERSION_1_V11 == gucDecryptedPlaintext[2])
+            {
+              LOG("%s: Zone=%d Timestamp=%s type=%d Value=%d \r\n", __FUNCTION__, (10*lucDSKIndex)+3, lucRTCString, 36, llSensorValue);
+            }
+            if (SENSOR_MULTILEVEL_GET_DEW_POINT_VERSION_2_V11 == gucDecryptedPlaintext[2])
             {
               LOG("%s: Zone=%d Timestamp=%s type=%d Value=%d \r\n", __FUNCTION__, (10*lucDSKIndex)+3, lucRTCString, 36, llSensorValue);
             }

@@ -405,12 +405,13 @@ typedef struct {
 #define S2_MAX_PLAINTEXT_LENGTH  (50)    // 80-byte tx buffer - 22 (header + SPAN ext) - 8 (tag)
 #define S2_RESEND_WINDOW_MS      (3000)  // a Nonce Report later than this isn't tied to our send
 
-#define NODE_TXQ_DEPTH          (5)
+#define NODE_TXQ_DEPTH          (10)
 #define NODE_TXQ_REPORT_TMO_MS  (S2_RESEND_WINDOW_MS + 2000)   // must exceed S2_RESEND_WINDOW_MS (SOS + resend round trip)
 #define NODE_TXQ_RETRIES        (2)
 #define NODE_TXQ_SOS_GRACE_MS   (500)
 
 #define NODE_BATTERY_POLL_INTERVAL_SECONDS (60*60)
+#define NODE_WAKEUP_INTERVAL_SECONDS (60)
 
 typedef enum { TXQ_IDLE, TXQ_WAIT_TX_DONE, TXQ_WAIT_REPORT, TXQ_WAIT_SOS } txq_state_t;
 
@@ -485,17 +486,16 @@ typedef enum
 #define NVR_HW_VER_SIZE   1
 
 
-// Struct for Additional Authenticated Data (AAD)
-typedef struct
-{
-  uint16_t SenderNodeID;
-  uint16_t DestinationNodeID;
-  uint32_t HomeID;
-  uint16_t MessageLength;
-  uint8_t  SequenceNumber;
-  uint8_t  ExtensionOptions;
-  uint8_t  ExtensionData[20];
-} aad_t;
+// Additional Authenticated Data (AAD) for S2 AES-CCM
+// MAB 2026.10.28 Claude: the former aad_t struct (fixed 16-bit NodeIDs) only
+// matched the Long Range AAD format. The AAD is now built as a byte buffer by
+// ZWave_S2_Build_AAD():
+//   Classic Z-Wave (both NodeIDs <= 0xFF):
+//     SenderNodeID(1) | ReceiverNodeID(1) | HomeID(4) | MsgLength(2) | Seq(1) | ExtFlags(1) | [unencrypted extensions]
+//   Long Range (either NodeID > 0xFF):
+//     SenderNodeID(2) | ReceiverNodeID(2) | HomeID(4) | MsgLength(2) | Seq(1) | ExtFlags(1) | [unencrypted extensions]
+//   All multi-byte fields are big-endian (MSB first).
+#define S2_AAD_MAX_LENGTH (48)
 
 
 /* USER CODE END Private defines */
