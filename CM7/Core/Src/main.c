@@ -4643,6 +4643,35 @@ uint8_t ZWave_DSK_Find_Zeroized(void)
 // end ZWave_DSK_Find_Zeroized
 
 /** *****************************************************************************************************************************
+  * @brief  Check if any DSK is busy
+  * @param  None
+  * @retval TRUE if any DSK is busy; FALSE otherwise
+  */
+uint8_t ZWave_DSK_IsBusy(void)
+{
+  uint lucIsAnyDSKBusy = FALSE;
+
+  // MAB 2026.10.30
+  // What defines a DSK as being "busy"? There's already a check for any DSK being "processed"
+  // in ZWave_DSK_IsProcessing(), so that covers SmartStart states other than EMPTY, READY and CONNECTED.
+  // For now let's say a DSK is busy if its Transmit queue is NOT empty: TxQCount > 0
+
+  // Check each DSK in the connection list; may quit the search on the first busy DSK
+  for (uint8_t i = 0; i < NODE_PROVISIONING_LIST_COUNT; ++i)
+  {
+    if (gtNodeConnectionList[i].TxQCount)
+    {
+      lucIsAnyDSKBusy = TRUE;
+      break;
+    }
+  }  // end for
+
+
+  return lucIsAnyDSKBusy;
+}
+// end ZWave_DSK_IsBusy
+
+/** *****************************************************************************************************************************
   * @brief  Test if a specified DSK in the node provisioning list is SmartStart CONNECTED
   * @param  uint8_t  aucDSKIndex - index into node provisioning list  [0, NODE_PROVISIONING_LIST_COUNT-1]
   * @retval TRUE if specified DSK is CONNECTED; FALSE otherwise
@@ -7471,6 +7500,10 @@ void ZWave_REQ_CMD_49_ZW_Application_Update(void)
   // - SmartStart INIF data frame  (UPDATE_STATE_INCLUDED_NODE_INFO_RECEIVED)
   // - Unsolicited data frame      (events NOT covered by the above exceptions)
 
+  // MAB 2026.10.30 - For now, either UPDATE_STATE_NODE_INFO_SMARTSTART_HOMEID_RECEIVED or its _LR version
+  //                  will be treated as the SmartStart trigger. If the provisioning list says the end node
+  //                  is Long Range capable, the SmartStart state machine will favor the LR option.
+
   if (lucEvent == UPDATE_STATE_NODE_INFO_SMARTSTART_HOMEID_RECEIVED    ||
       lucEvent == UPDATE_STATE_NODE_INFO_SMARTSTART_HOMEID_RECEIVED_LR    )
   {
@@ -7486,25 +7519,19 @@ void ZWave_REQ_CMD_49_ZW_Application_Update(void)
     LOG("%s: NWI HomeID           = 0x%08X\r\n", __FUNCTION__, lulNWIHomeID);
     LOG("%s: - (a.k.a. DSK bytes 9-12, but MSB | 0xC0 and LSB & 0xFE) \r\n", __FUNCTION__);
     lucCandidateDSKIndex = ZWave_Scan_ProvisioningList_For_NWIHomeID(lulNWIHomeID);
-    if (lucCandidateDSKIndex != DSK_UNAVAILABLE                                &&
-        (UPDATE_STATE_NODE_INFO_SMARTSTART_HOMEID_RECEIVED_LR == lucEvent ||
-         UPDATE_STATE_NODE_INFO_SMARTSTART_HOMEID_RECEIVED    == lucEvent    )     )
+    if (lucCandidateDSKIndex != DSK_UNAVAILABLE)
     {
-      // Check if any DSKs are currently being processed, if none then change DSK status to DETECTED
+      // Check if any DSKs are currently being processed or busy, if none then change DSK status to DETECTED
       if (ZWave_DSK_IsProcessing())
       {
         LOG("%s: *** WARNING *** A DSK is already being processed\r\n", __FUNCTION__);
       }
+      else if (ZWave_DSK_IsBusy())
+      {
+        LOG("%s: *** WARNING *** Another DSK is busy\r\n", __FUNCTION__);
+      }
       else
       {
-        if (UPDATE_STATE_NODE_INFO_SMARTSTART_HOMEID_RECEIVED_LR == lucEvent)
-        {
-          LOG("%s: - DSK %d is ready to be added via SmartStart as a Long Range end node \r\n", __FUNCTION__, lucCandidateDSKIndex);
-        }
-        else
-        {
-          LOG("%s: - DSK %d is ready to be added via SmartStart as a classical mesh end node \r\n", __FUNCTION__, lucCandidateDSKIndex);
-        }
         // For the sake of the ZWave Sentinel Diagnostic tool, make the
         // SmartStart state transition appear as if from ZWave_SmartStart_StateMachine()
         LOG("ZWave_SmartStart_StateMachine: Transitioning DSK %d from READY to DETECTED \r\n", lucCandidateDSKIndex);
@@ -8635,7 +8662,7 @@ void ZWave_Rx_CC_84_Wake_Up_V3(void)
     LOG("%s: Maximum Seconds         = 0x%02X \r\n", __FUNCTION__, pgucCCBuffer[6]);
     LOG("%s: Maximum Seconds (LSB)   = 0x%02X \r\n", __FUNCTION__, pgucCCBuffer[7]);
     uint32_t lulMaximumSeconds = (0x10000*pgucCCBuffer[5]) + (0x100*pgucCCBuffer[6]) + pgucCCBuffer[7];
-    LOG("%s: - %d seconds minimum between wakeups \r\n", __FUNCTION__, lulMaximumSeconds);
+    LOG("%s: - %d seconds maximum between wakeups \r\n", __FUNCTION__, lulMaximumSeconds);
     LOG("%s: Default Seconds (MSB)   = 0x%02X \r\n", __FUNCTION__, pgucCCBuffer[8]);
     LOG("%s: Default Seconds         = 0x%02X \r\n", __FUNCTION__, pgucCCBuffer[9]);
     LOG("%s: Default Seconds (LSB)   = 0x%02X \r\n", __FUNCTION__, pgucCCBuffer[10]);
@@ -9701,13 +9728,28 @@ uint8_t ZWave_Scan_ProvisioningList_For_DSK(uint8_t* paucDSKBuffer, uint8_t aucN
 uint8_t ZWave_Scan_ProvisioningList_For_NodeID(uint16_t auiNodeID)
 {
   uint8_t lucReturnValue = DSK_UNAVAILABLE;
+  uint8_t lucIsNodeIDValid = FALSE;
 
-  for (int i = 0; i < NODE_PROVISIONING_LIST_COUNT; ++i)
+  // Validate the NodeID
+  if (NODE_ID_UNAVAILABLE == auiNodeID || auiNodeID > 4000 || 0 == auiNodeID)
   {
-    if (gtNodeProvisioningList[i].NodeID == auiNodeID)
+    LOG("%s: *** WARNING *** NodeID 0x%04X is invalid \r\n", __FUNCTION__, auiNodeID);
+  }
+  else
+  {
+    lucIsNodeIDValid = TRUE;
+  }
+
+  if (lucIsNodeIDValid)
+  {
+    for (int i = 0; i < NODE_PROVISIONING_LIST_COUNT; ++i)
     {
-      lucReturnValue = i;
-      LOG("%s: DSK %d appears to be a match! \r\n", __FUNCTION__, i);
+      if (gtNodeProvisioningList[i].NodeID == auiNodeID)
+      {
+        lucReturnValue = i;
+        LOG("%s: DSK %d appears to be a match! \r\n", __FUNCTION__, i);
+        break;
+      }
     }
   }
 
@@ -11354,10 +11396,12 @@ SmartStartState ZWave_SmartStart_StateMachine(SmartStartStateMachineCommand stat
       gucSessionID = ZWave_SessionID_Update(gucSessionID);
       if (gtNodeProvisioningList[gucProcessingDSK].lr_capable)
       {
+        LOG("%s: - DSK %d is ready to be added via SmartStart as a Long Range end node \r\n", __FUNCTION__, gucProcessingDSK);
         ZWave_Send_REQ_CMD_4A_Add_Node_to_Network(ADD_NODE_OPTION_NETWORK_WIDE|ADD_NODE_OPTION_LR|ADD_NODE_HOME_ID, gucSessionID, lucNWIAuthHomeIDBuffer);
       }
       else
       {
+        LOG("%s: - DSK %d is ready to be added via SmartStart as a classical mesh end node \r\n", __FUNCTION__, gucProcessingDSK);
         ZWave_Send_REQ_CMD_4A_Add_Node_to_Network(ADD_NODE_OPTION_NETWORK_WIDE|ADD_NODE_HOME_ID, gucSessionID, lucNWIAuthHomeIDBuffer);
       }
       #endif // ENABLE_ZWAVE_CONTROLLER_HOST
@@ -13731,10 +13775,6 @@ void ZWaveTask(void *argument)
           // Retire the in-flight transaction (pop it from the TX queue) if this is the report it was waiting for
           ZWave_TxQ_On_Report(gucProcessingDSK, gucDecryptedPlaintext);
 
-          sprintf(lucRTCString, "20%02d.%02d.%02d %02d:%02d:%02d",
-                   sMainRTCDate.Year,  sMainRTCDate.Month,   sMainRTCDate.Date,
-                   sMainRTCTime.Hours, sMainRTCTime.Minutes, sMainRTCTime.Seconds  );
-
           /////////////////////////////////////////////////////////////////////
           //
           // Switch Multilevel Report
@@ -13747,8 +13787,7 @@ void ZWaveTask(void *argument)
             // Invoke the command class handler
             ZWave_Process_Command_Class(gucDecryptedPlaintext, gucReceivedCiphertextLength);
             LOG("-----------------------  Switch Multilevel Report  END  -----------------------\r\n");
-            LOG("%s: Zone=%d Timestamp=%s type=%d Value=%d \r\n", __FUNCTION__, lucDSKIndex+1, lucRTCString, 36, gucDecryptedPlaintext[2]);
-
+            LOG("%s: Zone=%03d \t Timestamp=%d \t type=%02d \t Value=%d \r\n", __FUNCTION__, (10*lucDSKIndex)+3, sUNIXTime, 36, gucDecryptedPlaintext[2]);
           }
           /////////////////////////////////////////////////////////////////////
           //
@@ -13829,19 +13868,19 @@ void ZWaveTask(void *argument)
             }
             if (SENSOR_MULTILEVEL_GET_TEMPERATURE_VERSION_1_V11 == gucDecryptedPlaintext[2])
             {
-              LOG("%s: Zone=%d Timestamp=%s type=%d Value=%d \r\n", __FUNCTION__, (10*lucDSKIndex)+1, lucRTCString,  2, llSensorValue); // Temperature Fahrenheit
+              LOG("%s: Zone=%03d \t Timestamp=%d \t type=%02d \t Value=%d \r\n", __FUNCTION__, (10*lucDSKIndex)+1, sUNIXTime,  2, llSensorValue); // Temperature Fahrenheit
             }
             if (SENSOR_MULTILEVEL_GET_LUMINANCE_VERSION_1_V11 == gucDecryptedPlaintext[2])
             {
-              LOG("%s: Zone=%d Timestamp=%s type=%d Value=%d \r\n", __FUNCTION__, (10*lucDSKIndex)+3, lucRTCString, 36, llSensorValue);
+              LOG("%s: Zone=%03d \t Timestamp=%d \t type=%02d \t Value=%d \r\n", __FUNCTION__, (10*lucDSKIndex)+3, sUNIXTime, 36, llSensorValue);
             }
             if (SENSOR_MULTILEVEL_GET_DEW_POINT_VERSION_2_V11 == gucDecryptedPlaintext[2])
             {
-              LOG("%s: Zone=%d Timestamp=%s type=%d Value=%d \r\n", __FUNCTION__, (10*lucDSKIndex)+3, lucRTCString, 36, llSensorValue);
+              LOG("%s: Zone=%03d \t Timestamp=%d \t type=%02d \t Value=%d \r\n", __FUNCTION__, (10*lucDSKIndex)+3, sUNIXTime, 36, llSensorValue);
             }
             if (SENSOR_MULTILEVEL_GET_RELATIVE_HUMIDITY_VERSION_2_V11 == gucDecryptedPlaintext[2])
             {
-              LOG("%s: Zone=%d Timestamp=%s type=%d Value=%d \r\n", __FUNCTION__, (10*lucDSKIndex)+5, lucRTCString, 10, llSensorValue);
+              LOG("%s: Zone=%03d \t Timestamp=%d \t type=%02d \t Value=%d \r\n", __FUNCTION__, (10*lucDSKIndex)+5, sUNIXTime, 10, llSensorValue);
             }
           }
           /////////////////////////////////////////////////////////////////////
@@ -13917,7 +13956,7 @@ void ZWaveTask(void *argument)
             ZWave_Process_Command_Class(gucDecryptedPlaintext, gucReceivedCiphertextLength);
             LOG("-----------------------  Battery Report  END  -----------------------\r\n");
             uint8_t lucBatteryPercentage = gucDecryptedPlaintext[2];
-            LOG("%s: Zone=%d Timestamp=%s type=%d Value=%d%% \r\n", __FUNCTION__, (10*lucDSKIndex), lucRTCString, 12, lucBatteryPercentage);
+            LOG("%s: Zone=%03d \t Timestamp=%d \t type=%02d \t Value=%d%% \r\n", __FUNCTION__, (10*lucDSKIndex), sUNIXTime, 12, lucBatteryPercentage);
           }
           /////////////////////////////////////////////////////////////////////
           //
