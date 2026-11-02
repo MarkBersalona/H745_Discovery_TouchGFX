@@ -717,8 +717,12 @@ cl_entry_t gtTemporaryConnection;
 uint8_t gucProcessingDSK = DSK_UNAVAILABLE;
 uint8_t gucTxQInFlightDSK;
 
+uint8_t gucBootstrapDSK = DSK_UNAVAILABLE;
+uint16_t guiBootstrapNodeID = NODE_ID_UNAVAILABLE;
+
 // Session ID
 uint8_t gucSessionID;
+uint8_t gucTxQInFlightSessionID;
 
 //
 // Copy of LR nodes [0x0100, 0x04FF]
@@ -743,8 +747,11 @@ uint8_t gucIsS2Supported;
 uint8_t gucIsPublicKeyReportReceived;
 uint8_t gucIsIncludingNode;
 uint8_t gucIsNonceGetReceived;
+uint8_t gucIsBootstrapNonceGetReceived;
 uint8_t gucIsEncryptedMsgReceived;
+uint8_t gucIsBootstrapEncryptedMsgReceived;
 uint8_t gucIsNonceReportReceived;
+uint8_t gucIsBootstrapNonceReportReceived;
 
 // NVR values
 uint8_t gucNVROffset = NVR_UNUSED_OFFSET;
@@ -925,6 +932,7 @@ void ZWave_Rx_CC_31_Sensor_Multilevel_V11(void);
 void ZWave_Rx_CC_84_Wake_Up_V3(void);
 void ZWave_Rx_CC_9F_Security_2_V2(void);
 void ZWave_Rx_CC_XX_Unsupported(void);
+static uint8_t ZWave_Rx_Is_From_Bootstrap_Node(void);
 uint8_t ZWave_S2_Build_AAD(uint8_t* paucAAD, uint16_t auiSenderNodeID, uint16_t auiReceiverNodeID,
                            uint32_t aulHomeID, uint16_t auiMessageLength,
                            const uint8_t* paucSeqAndExtensions, uint8_t aucSeqAndExtensionsLength);
@@ -3436,8 +3444,8 @@ BootstrapState ZWave_Bootstrap_StateMachine(BootstrapStateMachineCommand stateMa
     {
       lulElapsedTime_sec = 0;
       // Set state to ERROR
-      LOG("%s: *** WARNING *** Generic Bootstrap timeout\r\n", __FUNCTION__, gucProcessingDSK);
-      LOG("%s: Transitioning DSK %d Bootstrap state to ERROR\r\n", __FUNCTION__, gucProcessingDSK);
+      LOG("%s: *** WARNING *** Generic Bootstrap timeout\r\n", __FUNCTION__, gucBootstrapDSK);
+      LOG("%s: Transitioning DSK %d Bootstrap state to ERROR\r\n", __FUNCTION__, gucBootstrapDSK);
       leBootstrapState = BOOTSTRAP_ERROR;
     }
     // ENDIF
@@ -3448,7 +3456,7 @@ BootstrapState ZWave_Bootstrap_StateMachine(BootstrapStateMachineCommand stateMa
     if (BOOTSTRAP_IDLE == leBootstrapState)
     {
       // IF node inclusion has completed
-      if (SMARTSTART_BOOTSTRAP == gtNodeProvisioningList[gucProcessingDSK].status)
+      if (SMARTSTART_BOOTSTRAP == gtNodeProvisioningList[gucBootstrapDSK].status)
       {
         // Send S2 command KEX Get
         gucSessionID = ZWave_SessionID_Randomize();
@@ -3457,7 +3465,7 @@ BootstrapState ZWave_Bootstrap_StateMachine(BootstrapStateMachineCommand stateMa
         lucSendDataBuffer[1] = KEX_GET_V2;
         #if ENABLE_ZWAVE_CONTROLLER_HOST
         LOG("%s: Sending KEX Get \r\n", __FUNCTION__);
-        ZWave_Send_REQ_CMD_13_Send_Data(gtNodeProvisioningList[gucProcessingDSK].NodeID, 2, lucSendDataBuffer, TRANSMIT_OPTION_ACK, gucSessionID);
+        ZWave_Send_REQ_CMD_13_Send_Data(gtNodeProvisioningList[gucBootstrapDSK].NodeID, 2, lucSendDataBuffer, TRANSMIT_OPTION_ACK, gucSessionID);
         #endif
 
         // Reset elapsed time for next state
@@ -3465,7 +3473,7 @@ BootstrapState ZWave_Bootstrap_StateMachine(BootstrapStateMachineCommand stateMa
 
         // Set state to KEX
         gucIsKEXReportReceived = FALSE;
-        LOG("%s: Transitioning DSK %d Bootstrap state from IDLE to KEX\r\n", __FUNCTION__, gucProcessingDSK);
+        LOG("%s: Transitioning DSK %d Bootstrap state from IDLE to KEX\r\n", __FUNCTION__, gucBootstrapDSK);
         leBootstrapState = BOOTSTRAP_KEX;
       }
       // ENDIF
@@ -3482,7 +3490,7 @@ BootstrapState ZWave_Bootstrap_StateMachine(BootstrapStateMachineCommand stateMa
         if (!gucIsS2Supported)
         {
           // Set state to ERROR
-          LOG("%s: Transitioning DSK %d Bootstrap state from KEX to ERROR\r\n", __FUNCTION__, gucProcessingDSK);
+          LOG("%s: Transitioning DSK %d Bootstrap state from KEX to ERROR\r\n", __FUNCTION__, gucBootstrapDSK);
           leBootstrapState = BOOTSTRAP_ERROR;
         }
         // ELSE
@@ -3501,17 +3509,17 @@ BootstrapState ZWave_Bootstrap_StateMachine(BootstrapStateMachineCommand stateMa
           lucSendDataBuffer[3] = 0x02; // KEX Scheme 1 supported
           lucSendDataBuffer[4] = 0x01; // ECDH Profile: Curve25519 supported
           // Grant highest requested S2 level
-          if (gtNodeProvisioningList[gucProcessingDSK].requested_keys & SECURITY_KEY_S2_ACCESS_BIT)
+          if (gtNodeProvisioningList[gucBootstrapDSK].requested_keys & SECURITY_KEY_S2_ACCESS_BIT)
           {
             LOG("%s: S2 Access granted \r\n", __FUNCTION__);
             lucSendDataBuffer[5] = SECURITY_KEY_S2_ACCESS_BIT;
           }
-          else if (gtNodeProvisioningList[gucProcessingDSK].requested_keys & SECURITY_KEY_S2_AUTHENTICATED_BIT)
+          else if (gtNodeProvisioningList[gucBootstrapDSK].requested_keys & SECURITY_KEY_S2_AUTHENTICATED_BIT)
           {
             LOG("%s: S2 Authenticated granted \r\n", __FUNCTION__);
            lucSendDataBuffer[5] = SECURITY_KEY_S2_AUTHENTICATED_BIT;
           }
-          else if (gtNodeProvisioningList[gucProcessingDSK].requested_keys & SECURITY_KEY_S2_UNAUTHENTICATED_BIT)
+          else if (gtNodeProvisioningList[gucBootstrapDSK].requested_keys & SECURITY_KEY_S2_UNAUTHENTICATED_BIT)
           {
             LOG("%s: S2 Unauthenticated granted \r\n", __FUNCTION__);
             lucSendDataBuffer[5] = SECURITY_KEY_S2_UNAUTHENTICATED_BIT;
@@ -3521,17 +3529,17 @@ BootstrapState ZWave_Bootstrap_StateMachine(BootstrapStateMachineCommand stateMa
             LOG("%s: *** WARNING *** NO S2 security level granted; S2 Bootstrap should fail \r\n", __FUNCTION__);
             lucSendDataBuffer[5] = 0; // no S2 security
           }
-          LOG("%s: Saving DSK %d granted key \r\n", __FUNCTION__, gucProcessingDSK);
-          gtNodeProvisioningList[gucProcessingDSK].granted_keys = lucSendDataBuffer[5];
+          LOG("%s: Saving DSK %d granted key \r\n", __FUNCTION__, gucBootstrapDSK);
+          gtNodeProvisioningList[gucBootstrapDSK].granted_keys = lucSendDataBuffer[5];
           #if ENABLE_ZWAVE_CONTROLLER_HOST
           LOG("%s: Sending KEX Set \r\n", __FUNCTION__);
-          ZWave_Send_REQ_CMD_13_Send_Data(gtNodeProvisioningList[gucProcessingDSK].NodeID, 6, lucSendDataBuffer, TRANSMIT_OPTION_ACK, gucSessionID);
+          ZWave_Send_REQ_CMD_13_Send_Data(gtNodeProvisioningList[gucBootstrapDSK].NodeID, 6, lucSendDataBuffer, TRANSMIT_OPTION_ACK, gucSessionID);
           #endif
 
           // Set state to PUBLIC_KEY
           gucIsPublicKeyReportReceived = FALSE;
           gucIsIncludingNode = FALSE;
-          LOG("%s: Transitioning DSK %d Bootstrap state from KEX to PUBLIC_KEY\r\n", __FUNCTION__, gucProcessingDSK);
+          LOG("%s: Transitioning DSK %d Bootstrap state from KEX to PUBLIC_KEY\r\n", __FUNCTION__, gucBootstrapDSK);
           leBootstrapState = BOOTSTRAP_PUBLIC_KEY;
         }
        // ENDIF
@@ -3540,7 +3548,7 @@ BootstrapState ZWave_Bootstrap_StateMachine(BootstrapStateMachineCommand stateMa
       {
         LOG("%s: *** WARNING *** TA1 timeout: KEX Report not received \r\n", __FUNCTION__);
         // Set state to ERROR
-        LOG("%s: Transitioning DSK %d Bootstrap state from KEX to ERROR\r\n", __FUNCTION__, gucProcessingDSK);
+        LOG("%s: Transitioning DSK %d Bootstrap state from KEX to ERROR\r\n", __FUNCTION__, gucBootstrapDSK);
         leBootstrapState = BOOTSTRAP_ERROR;
       }
       // ENDIF KEX Report is received
@@ -3559,7 +3567,7 @@ BootstrapState ZWave_Bootstrap_StateMachine(BootstrapStateMachineCommand stateMa
         if (gucIsIncludingNode)
         {
           // Set state to ERROR
-          LOG("%s: Transitioning DSK %d Bootstrap state from PUBLIC_KEY to ERROR\r\n", __FUNCTION__, gucProcessingDSK);
+          LOG("%s: Transitioning DSK %d Bootstrap state from PUBLIC_KEY to ERROR\r\n", __FUNCTION__, gucBootstrapDSK);
           leBootstrapState = BOOTSTRAP_ERROR;
         }
         // ELSE
@@ -3586,7 +3594,7 @@ BootstrapState ZWave_Bootstrap_StateMachine(BootstrapStateMachineCommand stateMa
           memcpy(&lucSendDataBuffer[3], gucControllerPublicKey, 32);
           #if ENABLE_ZWAVE_CONTROLLER_HOST
           LOG("%s: Sending Public Key Report (for controller), i.e. controller ECDH public key\r\n", __FUNCTION__);
-          ZWave_Send_REQ_CMD_13_Send_Data(gtNodeProvisioningList[gucProcessingDSK].NodeID, 3+32, lucSendDataBuffer, TRANSMIT_OPTION_ACK, gucSessionID);
+          ZWave_Send_REQ_CMD_13_Send_Data(gtNodeProvisioningList[gucBootstrapDSK].NodeID, 3+32, lucSendDataBuffer, TRANSMIT_OPTION_ACK, gucSessionID);
           #endif
 
 
@@ -3610,14 +3618,14 @@ BootstrapState ZWave_Bootstrap_StateMachine(BootstrapStateMachineCommand stateMa
           if (0 == liTemporaryKeyResult)
           {
             // Set state to TEMP_NONCE_GET
-            gucIsNonceGetReceived = FALSE;
-            LOG("%s: Transitioning DSK %d Bootstrap state from PUBLIC_KEY to TEMP_NONCE_GET\r\n", __FUNCTION__, gucProcessingDSK);
+            gucIsBootstrapNonceGetReceived = FALSE;
+            LOG("%s: Transitioning DSK %d Bootstrap state from PUBLIC_KEY to TEMP_NONCE_GET\r\n", __FUNCTION__, gucBootstrapDSK);
             leBootstrapState = BOOTSTRAP_TEMP_NONCE_GET;
           }
           else
           {
             LOG("%s: *** WARNING *** failed to generate Temporary Symmetric Key \r\n", __FUNCTION__);
-            LOG("%s: Transitioning DSK %d Bootstrap state from PUBLIC_KEY to ERROR\r\n", __FUNCTION__, gucProcessingDSK);
+            LOG("%s: Transitioning DSK %d Bootstrap state from PUBLIC_KEY to ERROR\r\n", __FUNCTION__, gucBootstrapDSK);
             leBootstrapState = BOOTSTRAP_ERROR;
           }
         }
@@ -3627,7 +3635,7 @@ BootstrapState ZWave_Bootstrap_StateMachine(BootstrapStateMachineCommand stateMa
       {
         LOG("%s: *** WARNING *** TA2 timeout: Public Key Report not received \r\n", __FUNCTION__);
         // Set state to ERROR
-        LOG("%s: Transitioning DSK %d Bootstrap state from PUBLIC_KEY to ERROR\r\n", __FUNCTION__, gucProcessingDSK);
+        LOG("%s: Transitioning DSK %d Bootstrap state from PUBLIC_KEY to ERROR\r\n", __FUNCTION__, gucBootstrapDSK);
         leBootstrapState = BOOTSTRAP_ERROR;
       }
       // ENDIF Public Key Report is received
@@ -3638,9 +3646,9 @@ BootstrapState ZWave_Bootstrap_StateMachine(BootstrapStateMachineCommand stateMa
     else if (BOOTSTRAP_TEMP_NONCE_GET == leBootstrapState)
     {
       // IF Nonce Get is received
-      if (gucIsNonceGetReceived)
+      if (gucIsBootstrapNonceGetReceived)
       {
-        gucIsNonceGetReceived = FALSE;
+        gucIsBootstrapNonceGetReceived = FALSE;
 
         // Reset elapsed time for next state
         lulElapsedTime_sec = 0;
@@ -3649,8 +3657,8 @@ BootstrapState ZWave_Bootstrap_StateMachine(BootstrapStateMachineCommand stateMa
         ZWave_Send_Nonce_Report(NODE_ID_TEMPORARY_KEY);
 
         // Set state to TEMP_NONCE_SET
-        gucIsEncryptedMsgReceived = FALSE;
-        LOG("%s: Transitioning DSK %d Bootstrap state from TEMP_NONCE_GET to TEMP_NONCE_SET\r\n", __FUNCTION__, gucProcessingDSK);
+        gucIsBootstrapEncryptedMsgReceived = FALSE;
+        LOG("%s: Transitioning DSK %d Bootstrap state from TEMP_NONCE_GET to TEMP_NONCE_SET\r\n", __FUNCTION__, gucBootstrapDSK);
         leBootstrapState = BOOTSTRAP_TEMP_NONCE_SET;
       }
       // ENDIF
@@ -3661,10 +3669,10 @@ BootstrapState ZWave_Bootstrap_StateMachine(BootstrapStateMachineCommand stateMa
     else if (BOOTSTRAP_TEMP_NONCE_SET == leBootstrapState)
     {
       // IF encrypted message received
-      if (gucIsEncryptedMsgReceived)
+      if (gucIsBootstrapEncryptedMsgReceived)
       {
         // (reset so subsequent KEX Set retries from end node may be processed also)
-        gucIsEncryptedMsgReceived = FALSE;
+        gucIsBootstrapEncryptedMsgReceived = FALSE;
 
         // LOOP WHILE (KEX Set not decrypted AND retries available)
         liDecryptKEXSetSuccessful = FALSE;
@@ -3698,11 +3706,11 @@ BootstrapState ZWave_Bootstrap_StateMachine(BootstrapStateMachineCommand stateMa
             LOG("-----------------------  Original KEX Report with Echo  END  -----------------------\r\n");
 
 
-            ZWave_Send_Encrypted_Data_Temporary(gtNodeProvisioningList[gucProcessingDSK].NodeID, gucKEXReport, sizeof(gucKEXReport));
+            ZWave_Send_Encrypted_Data_Temporary(gtNodeProvisioningList[gucBootstrapDSK].NodeID, gucKEXReport, sizeof(gucKEXReport));
 
 
             // Set state to NETWORK_KEY_GET
-            LOG("%s: Transitioning DSK %d Bootstrap state from TEMP_NONCE_SET to NETWORK_KEY_GET\r\n", __FUNCTION__, gucProcessingDSK);
+            LOG("%s: Transitioning DSK %d Bootstrap state from TEMP_NONCE_SET to NETWORK_KEY_GET\r\n", __FUNCTION__, gucBootstrapDSK);
             leBootstrapState = BOOTSTRAP_NETWORK_KEY_GET;
 
           }
@@ -3723,8 +3731,8 @@ BootstrapState ZWave_Bootstrap_StateMachine(BootstrapStateMachineCommand stateMa
           CTR_DRBG_Zeroize_SPAN(&gtTemporaryConnection.SPAN);
 
           // Set state to TEMP_NONCE_GET
-          gucIsNonceGetReceived = TRUE; // Don't wait for a Nonce Get, send new REI in a Nonce Report immediately
-          LOG("%s: Transitioning DSK %d Bootstrap state from TEMP_NONCE_SET to TEMP_NONCE_GET\r\n", __FUNCTION__, gucProcessingDSK);
+          gucIsBootstrapNonceGetReceived = TRUE; // Don't wait for a Nonce Get, send new REI in a Nonce Report immediately
+          LOG("%s: Transitioning DSK %d Bootstrap state from TEMP_NONCE_SET to TEMP_NONCE_GET\r\n", __FUNCTION__, gucBootstrapDSK);
           leBootstrapState = BOOTSTRAP_TEMP_NONCE_GET;
         }
         // ENDIF
@@ -3738,10 +3746,10 @@ BootstrapState ZWave_Bootstrap_StateMachine(BootstrapStateMachineCommand stateMa
     else if (BOOTSTRAP_NETWORK_KEY_GET == leBootstrapState)
     {
       // IF encrypted message received
-      if (gucIsEncryptedMsgReceived)
+      if (gucIsBootstrapEncryptedMsgReceived)
       {
         // (reset so subsequent retries from end node may be processed also)
-        gucIsEncryptedMsgReceived = FALSE;
+        gucIsBootstrapEncryptedMsgReceived = FALSE;
 
         liDecryptNetworkKeyGetSuccessful = ZWave_Decrypt_Received_Data(NODE_ID_TEMPORARY_KEY, lucNetworkKeyGet);
 
@@ -3770,7 +3778,7 @@ BootstrapState ZWave_Bootstrap_StateMachine(BootstrapStateMachineCommand stateMa
           ///////////////////////////////////////////////////////////////////////
           //// TEST MAB 2026.09.25
           //// Sanity check: requested key should match the granted key in KEX
-          if (lucRequestedKeyType != gtNodeProvisioningList[gucProcessingDSK].granted_keys)
+          if (lucRequestedKeyType != gtNodeProvisioningList[gucBootstrapDSK].granted_keys)
           {
             LOG("%s: *** WARNING *** Requested key does NOT match the granted key; don't send any key \r\n");
             lucRequestedKeyType = 0;
@@ -3807,7 +3815,7 @@ BootstrapState ZWave_Bootstrap_StateMachine(BootstrapStateMachineCommand stateMa
           LOG("%s: Plaintext Network Key Report \r\n", __FUNCTION__);
           PrintBytes(lucNetworkKeyReport, sizeof(lucNetworkKeyReport), false, 0);
 
-          ZWave_Send_Encrypted_Data_Temporary(gtNodeProvisioningList[gucProcessingDSK].NodeID, lucNetworkKeyReport, sizeof(lucNetworkKeyReport));
+          ZWave_Send_Encrypted_Data_Temporary(gtNodeProvisioningList[gucBootstrapDSK].NodeID, lucNetworkKeyReport, sizeof(lucNetworkKeyReport));
 
           //////////////////////////////////////////////////////////////////////////////////
           //// MAB 2026.09.30
@@ -3819,12 +3827,12 @@ BootstrapState ZWave_Bootstrap_StateMachine(BootstrapStateMachineCommand stateMa
           //// where ZWave_Temporary_Key_Generate() generates TempKeyCCM in gucTemporarySymmetricKey
           //// and TempPersonalzationString in gucTempPersonalizationString.
           //// Proposed: ZWave_CKDF_NetworkKeyExpand(aucDSKIndex, paucNetworkKey)
-          ZWave_Network_Key_Expand(gucProcessingDSK, plucNetworkKey);
+          ZWave_Network_Key_Expand(gucBootstrapDSK, plucNetworkKey);
           //////////////////////////////////////////////////////////////////////////////////
 
           // Set state to NETWORK_NONCE_GET
-          gucIsNonceGetReceived = FALSE;
-          LOG("%s: Transitioning DSK %d Bootstrap state from NETWORK_KEY_GET to NETWORK_NONCE_GET\r\n", __FUNCTION__, gucProcessingDSK);
+          gucIsBootstrapNonceGetReceived = FALSE;
+          LOG("%s: Transitioning DSK %d Bootstrap state from NETWORK_KEY_GET to NETWORK_NONCE_GET\r\n", __FUNCTION__, gucBootstrapDSK);
           leBootstrapState = BOOTSTRAP_NETWORK_NONCE_GET;
         }
         // ENDIF successfully decrypted Network Key Get
@@ -3833,7 +3841,7 @@ BootstrapState ZWave_Bootstrap_StateMachine(BootstrapStateMachineCommand stateMa
       {
         LOG("%s: *** WARNING *** TA3 timeout: Network Key Get not received \r\n", __FUNCTION__);
         // Set state to ERROR
-        LOG("%s: Transitioning DSK %d Bootstrap state from NETWORK_KEY_GET to ERROR\r\n", __FUNCTION__, gucProcessingDSK);
+        LOG("%s: Transitioning DSK %d Bootstrap state from NETWORK_KEY_GET to ERROR\r\n", __FUNCTION__, gucBootstrapDSK);
         leBootstrapState = BOOTSTRAP_ERROR;
       }
       // ENDIF encrypted message received
@@ -3844,19 +3852,19 @@ BootstrapState ZWave_Bootstrap_StateMachine(BootstrapStateMachineCommand stateMa
     else if (BOOTSTRAP_NETWORK_NONCE_GET == leBootstrapState)
     {
       // IF Nonce Get is received
-      if (gucIsNonceGetReceived)
+      if (gucIsBootstrapNonceGetReceived)
       {
-        gucIsNonceGetReceived = FALSE;
+        gucIsBootstrapNonceGetReceived = FALSE;
 
         // Reset elapsed time for next state
         lulElapsedTime_sec = 0;
 
         // Send Nonce Report, with REI
-        ZWave_Send_Nonce_Report(gtNodeProvisioningList[gucProcessingDSK].NodeID);
+        ZWave_Send_Nonce_Report(gtNodeProvisioningList[gucBootstrapDSK].NodeID);
 
         // Set state to NETWORK_KEY_VERIFY
-        gucIsEncryptedMsgReceived = FALSE;
-        LOG("%s: Transitioning DSK %d Bootstrap state from NETWORK_NONCE_GET to NETWORK_KEY_VERIFY\r\n", __FUNCTION__, gucProcessingDSK);
+        gucIsBootstrapEncryptedMsgReceived = FALSE;
+        LOG("%s: Transitioning DSK %d Bootstrap state from NETWORK_NONCE_GET to NETWORK_KEY_VERIFY\r\n", __FUNCTION__, gucBootstrapDSK);
         leBootstrapState = BOOTSTRAP_NETWORK_KEY_VERIFY;
       }
       // ENDIF
@@ -3867,13 +3875,13 @@ BootstrapState ZWave_Bootstrap_StateMachine(BootstrapStateMachineCommand stateMa
     else if (BOOTSTRAP_NETWORK_KEY_VERIFY == leBootstrapState)
     {
       // IF encrypted message received
-      if (gucIsEncryptedMsgReceived)
+      if (gucIsBootstrapEncryptedMsgReceived)
       {
         // (reset so subsequent retries from end node may be processed also)
-        gucIsEncryptedMsgReceived = FALSE;
+        gucIsBootstrapEncryptedMsgReceived = FALSE;
 
         // Decrypt received message with Network Key and SPAN
-        liDecryptNetworkKeyVerifySuccessful = ZWave_Decrypt_Received_Data(gtNodeProvisioningList[gucProcessingDSK].NodeID, lucNetworkKeyVerify);
+        liDecryptNetworkKeyVerifySuccessful = ZWave_Decrypt_Received_Data(gtNodeProvisioningList[gucBootstrapDSK].NodeID, lucNetworkKeyVerify);
 
         // IF successfully decrypted Network Key Verify
         if (liDecryptNetworkKeyVerifySuccessful)
@@ -3896,13 +3904,13 @@ BootstrapState ZWave_Bootstrap_StateMachine(BootstrapStateMachineCommand stateMa
           lucSendDataBuffer[2] = gucSessionID;
 
           #if ENABLE_ZWAVE_CONTROLLER_HOST
-          ZWave_Send_REQ_CMD_13_Send_Data(gtNodeProvisioningList[gucProcessingDSK].NodeID, 3, lucSendDataBuffer, TRANSMIT_OPTION_ACK, gucSessionID);
+          ZWave_Send_REQ_CMD_13_Send_Data(gtNodeProvisioningList[gucBootstrapDSK].NodeID, 3, lucSendDataBuffer, TRANSMIT_OPTION_ACK, gucSessionID);
           #endif
 
 
           // Set state to NETWORK_VERIFY_SPAN
-          gucIsNonceReportReceived = FALSE;
-          LOG("%s: Transitioning DSK %d Bootstrap state from NETWORK_KEY_VERIFY to NETWORK_VERIFY_SPAN\r\n", __FUNCTION__, gucProcessingDSK);
+          gucIsBootstrapNonceReportReceived = FALSE;
+          LOG("%s: Transitioning DSK %d Bootstrap state from NETWORK_KEY_VERIFY to NETWORK_VERIFY_SPAN\r\n", __FUNCTION__, gucBootstrapDSK);
           leBootstrapState = BOOTSTRAP_NETWORK_VERIFY_SPAN;
         }
         // ENDIF (successfully decrypted Network Key Verify)
@@ -3914,7 +3922,7 @@ BootstrapState ZWave_Bootstrap_StateMachine(BootstrapStateMachineCommand stateMa
           lulElapsedTime_sec = 0;
 
           // Set state to ERROR
-          LOG("%s: Transitioning DSK %d Bootstrap state from NETWORK_KEY_VERIFY to ERROR\r\n", __FUNCTION__, gucProcessingDSK);
+          LOG("%s: Transitioning DSK %d Bootstrap state from NETWORK_KEY_VERIFY to ERROR\r\n", __FUNCTION__, gucBootstrapDSK);
           leBootstrapState = BOOTSTRAP_ERROR;
         }
         // ENDIF (failed decrypting Network Key Verify)
@@ -3923,7 +3931,7 @@ BootstrapState ZWave_Bootstrap_StateMachine(BootstrapStateMachineCommand stateMa
       {
         LOG("%s: *** WARNING *** TA4 timeout: Network Key Verify not received \r\n", __FUNCTION__);
         // Set state to ERROR
-        LOG("%s: Transitioning DSK %d Bootstrap state from NETWORK_KEY_VERIFY to ERROR\r\n", __FUNCTION__, gucProcessingDSK);
+        LOG("%s: Transitioning DSK %d Bootstrap state from NETWORK_KEY_VERIFY to ERROR\r\n", __FUNCTION__, gucBootstrapDSK);
         leBootstrapState = BOOTSTRAP_ERROR;
       }
       // ENDIF encrypted message received
@@ -3934,10 +3942,10 @@ BootstrapState ZWave_Bootstrap_StateMachine(BootstrapStateMachineCommand stateMa
     else if (BOOTSTRAP_NETWORK_VERIFY_SPAN == leBootstrapState)
     {
       // IF Nonce Report is received
-      if (gucIsNonceReportReceived)
+      if (gucIsBootstrapNonceReportReceived)
       {
         // (reset so subsequent retries from end node may be processed also)
-        gucIsNonceReportReceived = FALSE;
+        gucIsBootstrapNonceReportReceived = FALSE;
 
         // Send the Transfer End message encrypted with the Temporary Key and SPAN
         LOG("%s: Send encrypted Transfer End message encrypted with the Temporary Key and SPAN \r\n", __FUNCTION__);
@@ -3947,11 +3955,11 @@ BootstrapState ZWave_Bootstrap_StateMachine(BootstrapStateMachineCommand stateMa
         lucTransferEnd[1] = SECURITY_2_TRANSFER_END_V2;
         lucTransferEnd[2] = SECURITY_2_TRANSFER_END_PROPERTIES1_KEY_VERIFIED_BIT_MASK_V2;
 
-        ZWave_Send_Encrypted_Data_Temporary(gtNodeProvisioningList[gucProcessingDSK].NodeID, lucTransferEnd, sizeof(lucTransferEnd));
+        ZWave_Send_Encrypted_Data_Temporary(gtNodeProvisioningList[gucBootstrapDSK].NodeID, lucTransferEnd, sizeof(lucTransferEnd));
 
 
         // Set state to NETWORK_KEY_DONE
-        LOG("%s: Transitioning DSK %d Bootstrap state from NETWORK_VERIFY_SPAN to NETWORK_KEY_DONE\r\n", __FUNCTION__, gucProcessingDSK);
+        LOG("%s: Transitioning DSK %d Bootstrap state from NETWORK_VERIFY_SPAN to NETWORK_KEY_DONE\r\n", __FUNCTION__, gucBootstrapDSK);
         leBootstrapState = BOOTSTRAP_NETWORK_KEY_DONE;
       }
       // ENDIF Nonce Report is received
@@ -3962,10 +3970,10 @@ BootstrapState ZWave_Bootstrap_StateMachine(BootstrapStateMachineCommand stateMa
     else if (BOOTSTRAP_NETWORK_KEY_DONE == leBootstrapState)
     {
       // IF encrypted message received
-      if (gucIsEncryptedMsgReceived)
+      if (gucIsBootstrapEncryptedMsgReceived)
       {
         // (reset so subsequent retries from end node may be processed also)
-        gucIsEncryptedMsgReceived = FALSE;
+        gucIsBootstrapEncryptedMsgReceived = FALSE;
 
         // Decrypt received message
         liDecryptTransferEndSuccessful = ZWave_Decrypt_Received_Data(NODE_ID_TEMPORARY_KEY, lucTransferEnd);
@@ -3979,7 +3987,7 @@ BootstrapState ZWave_Bootstrap_StateMachine(BootstrapStateMachineCommand stateMa
           LOG("-----------------------  Transfer End  END  -----------------------\r\n");
 
           // Set state to COMPLETE
-          LOG("%s: Transitioning DSK %d Bootstrap state from NETWORK_KEY_DONE to COMPLETE\r\n", __FUNCTION__, gucProcessingDSK);
+          LOG("%s: Transitioning DSK %d Bootstrap state from NETWORK_KEY_DONE to COMPLETE\r\n", __FUNCTION__, gucBootstrapDSK);
           leBootstrapState = BOOTSTRAP_COMPLETE;
         }
         // ENDIF successfully decrypted Transfer End
@@ -3989,7 +3997,7 @@ BootstrapState ZWave_Bootstrap_StateMachine(BootstrapStateMachineCommand stateMa
       {
         LOG("%s: *** WARNING *** TA5 timeout: Transfer End not received \r\n", __FUNCTION__);
         // Set state to ERROR
-        LOG("%s: Transitioning DSK %d Bootstrap state from NETWORK_KEY_DONE to ERROR\r\n", __FUNCTION__, gucProcessingDSK);
+        LOG("%s: Transitioning DSK %d Bootstrap state from NETWORK_KEY_DONE to ERROR\r\n", __FUNCTION__, gucBootstrapDSK);
         leBootstrapState = BOOTSTRAP_ERROR;
       }
       // ENDIF encrypted message received
@@ -4706,21 +4714,31 @@ uint8_t ZWave_DSK_IsProcessing(void)
 {
   uint8_t lucReturnValue = FALSE;
 
-  // Check each DSK in the provisioning list
-  for (int i = 0; i < NODE_PROVISIONING_LIST_COUNT; ++i)
-  {
-    if ( gtNodeProvisioningList[i].status != SMARTSTART_EMPTY  &&
-         gtNodeProvisioningList[i].status != SMARTSTART_READY  &&
-         gtNodeProvisioningList[i].status != SMARTSTART_CONNECTED    )
-    {
-      // A DSK has been found with is neither EMPTY, READY nor CONNECTED
-      // Therefore this DSK is currently being processed
-      lucReturnValue = TRUE;
-      //LOG("%s: *** WARNING *** DSK %d is currently being processed\r\n", __FUNCTION__, i);
+//  // Check each DSK in the provisioning list
+//  for (int i = 0; i < NODE_PROVISIONING_LIST_COUNT; ++i)
+//  {
+//    if ( gtNodeProvisioningList[i].status != SMARTSTART_EMPTY  &&
+//         gtNodeProvisioningList[i].status != SMARTSTART_READY  &&
+//         gtNodeProvisioningList[i].status != SMARTSTART_CONNECTED    )
+//    {
+//      // A DSK has been found with is neither EMPTY, READY nor CONNECTED
+//      // Therefore this DSK is currently being processed
+//      lucReturnValue = TRUE;
+//      gucProcessingDSK = i;
+//      //LOG("%s: *** WARNING *** DSK %d is currently being processed\r\n", __FUNCTION__, i);
+//
+//      // Might as well quit checking
+//      break;
+//    }
+//  }
 
-      // Might as well quit checking
-      break;
-    }
+  //// TEST MAB 2026.11.02
+  //// Let's try an equivalent check: if gucBootstrapDSK is a valid index,
+  //// that means a DSK is going through the Bootstrap process - which
+  //// is equivalent to a "processing" DSK.
+  if (gucBootstrapDSK < NODE_PROVISIONING_LIST_COUNT)
+  {
+    lucReturnValue = TRUE;
   }
 
   return lucReturnValue;
@@ -7034,10 +7052,13 @@ void ZWave_RSQ_CMD_13_ZW_Send_Data(void)
     // Handle the REQUEST with assorted data
     //////////////////////////////////////////////////////
     ZWave_Display_Tx_Report();
-    //uint8_t lucSessionID = ZWaveSerialFrame->payload[0];
+    uint8_t lucSessionID = ZWaveSerialFrame->payload[0];
     uint8_t lucTxStatus = ZWaveSerialFrame->payload[1];
-    gucSerialApiTxBusy = FALSE;
-    ZWave_TxQ_On_TxDone(gucTxQInFlightDSK, lucTxStatus);
+    if (lucSessionID == gucTxQInFlightSessionID)
+    {
+      gucSerialApiTxBusy = FALSE;
+      ZWave_TxQ_On_TxDone(gucTxQInFlightDSK, lucTxStatus);
+    }
   }
 }
 // end ZWave_RSQ_CMD_13_ZW_Send_Data
@@ -7503,6 +7524,8 @@ void ZWave_REQ_CMD_49_ZW_Application_Update(void)
   // MAB 2026.10.30 - For now, either UPDATE_STATE_NODE_INFO_SMARTSTART_HOMEID_RECEIVED or its _LR version
   //                  will be treated as the SmartStart trigger. If the provisioning list says the end node
   //                  is Long Range capable, the SmartStart state machine will favor the LR option.
+  // MAB 2026.11.02 - It appears for a LR-capable sensor, should transition from READY to DETECTED only for
+  //                  UPDATE_STATE_NODE_INFO_SMARTSTART_HOMEID_RECEIVED_LR. The non-LR case is likely similar.
 
   if (lucEvent == UPDATE_STATE_NODE_INFO_SMARTSTART_HOMEID_RECEIVED    ||
       lucEvent == UPDATE_STATE_NODE_INFO_SMARTSTART_HOMEID_RECEIVED_LR    )
@@ -7530,13 +7553,16 @@ void ZWave_REQ_CMD_49_ZW_Application_Update(void)
       {
         LOG("%s: *** WARNING *** Another DSK is busy\r\n", __FUNCTION__);
       }
-      else
+      else if ( (UPDATE_STATE_NODE_INFO_SMARTSTART_HOMEID_RECEIVED==lucEvent     && !gtNodeProvisioningList[lucCandidateDSKIndex].lr_capable)
+                                                                                 ||
+                 (UPDATE_STATE_NODE_INFO_SMARTSTART_HOMEID_RECEIVED_LR==lucEvent &&   gtNodeProvisioningList[lucCandidateDSKIndex].lr_capable) )
       {
         // For the sake of the ZWave Sentinel Diagnostic tool, make the
         // SmartStart state transition appear as if from ZWave_SmartStart_StateMachine()
         LOG("ZWave_SmartStart_StateMachine: Transitioning DSK %d from READY to DETECTED \r\n", lucCandidateDSKIndex);
         gtNodeProvisioningList[lucCandidateDSKIndex].status = SMARTSTART_DETECTED;
         gucProcessingDSK = lucCandidateDSKIndex;
+        gucBootstrapDSK  = lucCandidateDSKIndex;
       }
     }
     LOG("%s: Basic device type    = 0x%02X\r\n", __FUNCTION__, lucBasicDeviceType);
@@ -7665,26 +7691,26 @@ void ZWave_REQ_CMD_4A_ZW_Add_Node_To_Network(void)
   }
 
   LOG("%s: NodeID                 = 0x%04X\r\n", __FUNCTION__, (0x100*ZWaveSerialFrame->payload[2]) + ZWaveSerialFrame->payload[3]);
-  if (ADD_NODE_STATUS_ADDING_SLAVE == ZWaveSerialFrame->payload[1] && gucProcessingDSK < NODE_PROVISIONING_LIST_COUNT)
+  if (ADD_NODE_STATUS_ADDING_SLAVE == ZWaveSerialFrame->payload[1] && gucBootstrapDSK < NODE_PROVISIONING_LIST_COUNT)
   {
     guiNodeID = (0x100*ZWaveSerialFrame->payload[2]) + ZWaveSerialFrame->payload[3];
-    LOG("%s: Saving DSK %d NodeID 0x%04X \r\n", __FUNCTION__, gucProcessingDSK, guiNodeID);
-    gtNodeProvisioningList[gucProcessingDSK].NodeID = guiNodeID;
+    LOG("%s: Saving DSK %d NodeID 0x%04X \r\n", __FUNCTION__, gucBootstrapDSK, guiNodeID);
+    gtNodeProvisioningList[gucBootstrapDSK].NodeID = guiNodeID;
     guiLiveNodeCount = ZWave_DSK_Count_Live_NodeIDs();
   }
   LOG("%s: Data length            = 0x%02X\r\n", __FUNCTION__, ZWaveSerialFrame->payload[4]);
-  if (ZWaveSerialFrame->payload[4])
+  if (ZWaveSerialFrame->payload[4] && gucBootstrapDSK < NODE_PROVISIONING_LIST_COUNT)
   {
     LOG("%s: Basic device type      = 0x%02X\r\n", __FUNCTION__, ZWaveSerialFrame->payload[5]);
     ZWave_Identify_Basic_Device_Type(ZWaveSerialFrame->payload[5]);
 
     LOG("%s: Generic device type    = 0x%02X\r\n", __FUNCTION__, ZWaveSerialFrame->payload[6]);
     ZWave_Identify_Generic_Device_Type(ZWaveSerialFrame->payload[6]);
-    gtNodeConnectionList[gucProcessingDSK].GenericDeviceType = ZWaveSerialFrame->payload[6];
+    gtNodeConnectionList[gucBootstrapDSK].GenericDeviceType = ZWaveSerialFrame->payload[6];
 
     LOG("%s: Specific device type   = 0x%02X\r\n", __FUNCTION__, ZWaveSerialFrame->payload[7]);
     ZWave_Identify_Specific_Device_Type(ZWaveSerialFrame->payload[6], ZWaveSerialFrame->payload[7]);
-    gtNodeConnectionList[gucProcessingDSK].SpecificDeviceType = ZWaveSerialFrame->payload[7];
+    gtNodeConnectionList[gucBootstrapDSK].SpecificDeviceType = ZWaveSerialFrame->payload[7];
     LOG("-----------------------  Supported Command Classes START -----------------------\r\n");
     PrintBytes(&ZWaveSerialFrame->payload[8], ZWaveSerialFrame->payload[4] - 3, false, 0);
     LOG("-----------------------  Supported Command Classes  END  -----------------------\r\n");
@@ -7749,6 +7775,7 @@ void ZWave_REQ_CMD_4B_ZW_Remove_Node_From_Network(void)
       // Set that DSK's SmartStart state to EXCLUSION
       LOG("%s: Setting DSK %d SmartStart state to EXCLUSION \r\n", __FUNCTION__, gucProcessingDSK);
       gtNodeProvisioningList[gucProcessingDSK].status = SMARTSTART_EXCLUSION;
+      gucBootstrapDSK = gucProcessingDSK;
     }
     else
     {
@@ -8178,10 +8205,13 @@ void ZWave_RES_CMD_A9_ZW_Send_Data_Bridge(void)
     // Handle the REQUEST with assorted data
     //////////////////////////////////////////////////////
     ZWave_Display_Tx_Report();
-    //uint8_t lucSessionID = ZWaveSerialFrame->payload[0];
+    uint8_t lucSessionID = ZWaveSerialFrame->payload[0];
     uint8_t lucTxStatus = ZWaveSerialFrame->payload[1];
-    gucSerialApiTxBusy = FALSE;
-    ZWave_TxQ_On_TxDone(gucProcessingDSK, lucTxStatus);
+    if (lucSessionID == gucTxQInFlightSessionID)
+    {
+      gucSerialApiTxBusy = FALSE;
+      ZWave_TxQ_On_TxDone(gucProcessingDSK, lucTxStatus);
+    }
  }
 }
 // end ZWave_RES_CMD_A9_ZW_Send_Data_Bridge
@@ -8699,6 +8729,8 @@ void ZWave_Rx_CC_9F_Security_2_V2(void)
   uint8_t lucExtensionLength;
   uint8_t* plucExtensionLocation;
   uint8_t lucExtensionOptions;
+  uint8_t lucFromBootstrap = ZWave_Rx_Is_From_Bootstrap_Node();
+  uint8_t lucSrcDSK        = ZWave_Scan_ProvisioningList_For_NodeID(guiSourceNodeID);
 
   // Assume pgucCCBuffer and gucCCBufferLength have already been assigned
 
@@ -8782,22 +8814,20 @@ void ZWave_Rx_CC_9F_Security_2_V2(void)
     ////   SmartStart state in CONNECTED
     //// TEST MAB 2026.10.16
     //// Check the SmartStart state of the DSK being processed, not the global SmartStart state
-    if ( (SMARTSTART_BOOTSTRAP == gtNodeProvisioningList[gucProcessingDSK].status && (BOOTSTRAP_TEMP_NONCE_GET==geBootstrapState || BOOTSTRAP_NETWORK_NONCE_GET==geBootstrapState)) ||
-         (SMARTSTART_CONNECTED == gtNodeProvisioningList[gucProcessingDSK].status)                                                                                                       )
-    {
+    if (lucFromBootstrap && (BOOTSTRAP_TEMP_NONCE_GET == geBootstrapState || BOOTSTRAP_NETWORK_NONCE_GET == geBootstrapState))
+      gucIsBootstrapNonceGetReceived = TRUE;
+    else if (ZWave_DSK_IsConnected(lucSrcDSK))
       gucIsNonceGetReceived = TRUE;
-    }
     else
-    {
       LOG("%s: *** WARNING *** a Nonce Get has been received but is being ignored \r\n", __FUNCTION__);
-    }
     //////////////////////////////////////////////////////////////////////////////////////////////////////
   }
 
   //  ------------------- SECURITY_2_NONCE_REPORT_V2 -----------------------------------------
   else if (SECURITY_2_NONCE_REPORT_V2          == pgucCCBuffer[1])
   {
-    gucIsNonceReportReceived = TRUE;
+    if (lucFromBootstrap) gucIsBootstrapNonceReportReceived = TRUE;
+    else                  gucIsNonceReportReceived          = TRUE;
 
     LOG("%s: Sequence number = 0x%02X \r\n", __FUNCTION__, pgucCCBuffer[2]);
     LOG("%s: Sync flags      = 0x%02X \r\n", __FUNCTION__, pgucCCBuffer[3]);
@@ -8829,8 +8859,8 @@ void ZWave_Rx_CC_9F_Security_2_V2(void)
       // This is the Receiver's Entropy Input; save it
       // NOTE: this is either for the Temporary Key or for the Network Key,
       //       so save appropriately
-      if (BOOTSTRAP_TEMP_NONCE_SET      == geBootstrapState ||
-          BOOTSTRAP_NETWORK_VERIFY_SPAN == geBootstrapState    )
+      if (lucFromBootstrap && (BOOTSTRAP_TEMP_NONCE_SET == geBootstrapState ||
+                               BOOTSTRAP_NETWORK_VERIFY_SPAN == geBootstrapState))
       {
         LOG("%s: - saving Receiver's Entropy Input (REI) for TEMPORARY KEY \r\n", __FUNCTION__);
         memcpy(gtTemporaryProvision.REI, &pgucCCBuffer[4], 16);
@@ -8842,7 +8872,7 @@ void ZWave_Rx_CC_9F_Security_2_V2(void)
         // But first, zeroize temporary SPAN
         CTR_DRBG_Zeroize_SPAN(&gtTemporaryConnection.SPAN);
       }
-      else if (SMARTSTART_BOOTSTRAP      == geSmartStartState  )
+      else if (lucFromBootstrap)
       {
         LOG("%s: - saving Receiver's Entropy Input (REI) for TEMPORARY KEY \r\n", __FUNCTION__);
         memcpy(gtTemporaryProvision.REI, &pgucCCBuffer[4], 16);
@@ -8864,18 +8894,18 @@ void ZWave_Rx_CC_9F_Security_2_V2(void)
         // But first, zeroize temporary SPAN
         CTR_DRBG_Zeroize_SPAN(&gtTemporaryConnection.SPAN);
       }
-      else
+      else if (lucSrcDSK < NODE_PROVISIONING_LIST_COUNT)
       {
-        gucProcessingDSK = ZWave_Scan_ProvisioningList_For_NodeID(guiSourceNodeID);
-        if (gucProcessingDSK < NODE_PROVISIONING_LIST_COUNT)
+        lucSrcDSK = ZWave_Scan_ProvisioningList_For_NodeID(guiSourceNodeID);
+        if (lucSrcDSK < NODE_PROVISIONING_LIST_COUNT)
         {
-          LOG("%s: - saving Receiver's Entropy Input (REI) for DSK %d \r\n", __FUNCTION__, gucProcessingDSK);
-          memcpy(gtNodeProvisioningList[gucProcessingDSK].REI, &pgucCCBuffer[4], 16);
-          gtNodeConnectionList[gucProcessingDSK].isSEIPending = TRUE;
+          LOG("%s: - saving Receiver's Entropy Input (REI) for DSK %d \r\n", __FUNCTION__, lucSrcDSK);
+          memcpy(gtNodeProvisioningList[lucSrcDSK].REI, &pgucCCBuffer[4], 16);
+          gtNodeConnectionList[lucSrcDSK].isSEIPending = TRUE;
           /////////////////////////////////////////////////////////////////////////
           //// TEST MAB 2026.10.13
           //// Per Claude AI, flag for possible retransmit
-          cl_entry_t* ptConn = &gtNodeConnectionList[gucProcessingDSK];
+          cl_entry_t* ptConn = &gtNodeConnectionList[lucSrcDSK];
           if (ptConn->isResendAllowed)
           {
             ptConn->isResendRequested = TRUE;
@@ -8886,12 +8916,16 @@ void ZWave_Rx_CC_9F_Security_2_V2(void)
           // may proceed to establish the SPAN
 
           // But first, zeroize SPAN
-          CTR_DRBG_Zeroize_SPAN(&gtNodeConnectionList[gucProcessingDSK].SPAN);
+          CTR_DRBG_Zeroize_SPAN(&gtNodeConnectionList[lucSrcDSK].SPAN);
         }
         else
         {
-          LOG("%s: *** ERROR *** invalid DSK index %d \r\n", __FUNCTION__, gucProcessingDSK);
+          LOG("%s: *** ERROR *** invalid DSK index %d \r\n", __FUNCTION__, lucSrcDSK);
         }
+      }
+      else
+      {
+        LOG("%s: *** WARNING *** Nonce Report from unknown NodeID 0x%04X \r\n", __FUNCTION__, guiSourceNodeID);
       }
     }
   }
@@ -8901,7 +8935,8 @@ void ZWave_Rx_CC_9F_Security_2_V2(void)
   {
     uint8_t lucExtensionOffset = 0;
 
-    gucIsEncryptedMsgReceived = TRUE;
+    if (lucFromBootstrap) gucIsBootstrapEncryptedMsgReceived = TRUE;
+    else                  gucIsEncryptedMsgReceived          = TRUE;
 
     LOG("%s: Sequence number = 0x%02X \r\n", __FUNCTION__, pgucCCBuffer[2]);
     LOG("%s: Extensions      = 0x%02X \r\n", __FUNCTION__, pgucCCBuffer[3]);
@@ -8979,7 +9014,7 @@ void ZWave_Rx_CC_9F_Security_2_V2(void)
         //       so save appropriately
         if ( (16 == (lucExtensionLength - 2)) && (0x01 ==(lucExtensionOptions & 0x3F)) )
         {
-          if (BOOTSTRAP_TEMP_NONCE_SET == geBootstrapState)
+          if (lucFromBootstrap && BOOTSTRAP_TEMP_NONCE_SET == geBootstrapState)
           {
             LOG("%s: - saving Sender's Entropy Input (SEI) for TEMPORARY KEY \r\n", __FUNCTION__);
             memcpy(gtTemporaryProvision.SEI, &pgucCCBuffer[6+lucExtensionOffset], 16);
@@ -8990,17 +9025,18 @@ void ZWave_Rx_CC_9F_Security_2_V2(void)
             // But first, zeroize temporary SPAN
             CTR_DRBG_Zeroize_SPAN(&gtTemporaryConnection.SPAN);
           }
-          if (BOOTSTRAP_NETWORK_KEY_VERIFY == geBootstrapState ||
-              SMARTSTART_CONNECTED == gtNodeProvisioningList[gucProcessingDSK].status)
+          else if (lucSrcDSK < NODE_PROVISIONING_LIST_COUNT &&
+                   ((lucFromBootstrap && BOOTSTRAP_NETWORK_KEY_VERIFY == geBootstrapState) ||
+                    ZWave_DSK_IsConnected(lucSrcDSK)))
           {
-            LOG("%s: - saving Sender's Entropy Input (SEI) for DSK %d \r\n", __FUNCTION__, gucProcessingDSK);
-            memcpy(gtNodeProvisioningList[gucProcessingDSK].SEI, &pgucCCBuffer[6+lucExtensionOffset], 16);
+            LOG("%s: - saving Sender's Entropy Input (SEI) for DSK %d \r\n", __FUNCTION__, lucSrcDSK);
+            memcpy(gtNodeProvisioningList[lucSrcDSK].SEI, &pgucCCBuffer[6+lucExtensionOffset], 16);
 
             // The SPAN extension with the SEI has been received,
             // may proceed to establish the SPAN
 
             // But first, zeroize SPAN
-            CTR_DRBG_Zeroize_SPAN(&gtNodeConnectionList[gucProcessingDSK].SPAN);
+            CTR_DRBG_Zeroize_SPAN(&gtNodeConnectionList[lucSrcDSK].SPAN);
           }
         }
 
@@ -9058,7 +9094,7 @@ void ZWave_Rx_CC_9F_Security_2_V2(void)
       {
         LOG("%s: Including %d bytes of unencrypted extension(s) in AAD \r\n", __FUNCTION__, lucExtensionOffset);
       }
-      gucTemporaryAADLength = ZWave_S2_Build_AAD(gucTemporaryAAD, guiSourceNodeID, guiDestinationNodeID,
+      gucTemporaryAADLength = ZWave_S2_Build_AAD(gucTemporaryAAD, guiSourceNodeID, guiZWaveNodeID,
                                                  gulZWaveHomeID, gucCCBufferLength,
                                                  &pgucCCBuffer[2], 2 + lucExtensionOffset);
       LOG("%s: Temporary AAD (%d bytes) \r\n", __FUNCTION__, gucTemporaryAADLength);
@@ -9070,7 +9106,7 @@ void ZWave_Rx_CC_9F_Security_2_V2(void)
   //  ------------------- KEX_REPORT_V2 -----------------------------------------
   else if (KEX_REPORT_V2 == pgucCCBuffer[1])
   {
-    gucIsKEXReportReceived = TRUE;
+    if (lucFromBootstrap) gucIsKEXReportReceived = TRUE;
 
     LOG("%s: KEX options     = 0x%02X \r\n", __FUNCTION__, pgucCCBuffer[2]);
     if (pgucCCBuffer[2] & KEX_REPORT_PROPERTIES1_ECHO_BIT_MASK_V2)
@@ -9255,7 +9291,7 @@ void ZWave_Rx_CC_9F_Security_2_V2(void)
   //  ------------------- PUBLIC_KEY_REPORT_V2 -----------------------------------------
   else if (PUBLIC_KEY_REPORT_V2 == pgucCCBuffer[1])
   {
-    gucIsPublicKeyReportReceived = TRUE;
+    if (lucFromBootstrap) gucIsPublicKeyReportReceived = TRUE;
 
     LOG("%s: Options         = 0x%02X \r\n", __FUNCTION__, pgucCCBuffer[2]);
     if (pgucCCBuffer[2] & PUBLIC_KEY_REPORT_PROPERTIES1_INCLUDING_NODE_BIT_MASK_V2)
@@ -9350,6 +9386,21 @@ void ZWave_Rx_CC_XX_Unsupported(void)
   LOG("%s: *** WARNING *** Command class 0x%02X not supported (yet)... \r\n", __FUNCTION__, pgucCCBuffer[0]);
 }
 // end ZWave_Rx_CC_XX_Unsupported
+
+/** *****************************************************************************************************************************
+  * @brief  Indicate if received message was/is from a joining end node in Bootstrap state
+  * @param  None
+  * @retval TRUE if the recently received message is from a bootstrapping end node; FALSE otherwise
+  */
+static uint8_t ZWave_Rx_Is_From_Bootstrap_Node(void)
+{
+  // MAB 2026.10.30 designed by Claude AI
+
+  return (gucBootstrapDSK < NODE_PROVISIONING_LIST_COUNT) &&
+         (SMARTSTART_BOOTSTRAP == gtNodeProvisioningList[gucBootstrapDSK].status) &&
+         (guiSourceNodeID == guiBootstrapNodeID);
+}
+// end ZWave_Rx_Is_From_Bootstrap_Node
 
 /** *****************************************************************************************************************************
   * @brief  Dummy command handler for unsupported Z-Wave command
@@ -9514,7 +9565,7 @@ static void ZWave_S2_Encapsulate_And_Send(uint8_t aucDSKIndex, const uint8_t* pa
   // (sequence number, extension flags and, if present, the 18-byte SPAN extension;
   //  i.e. everything from lucSendDataBuffer[2] up to the ciphertext)
   lucTxAADLength = ZWave_S2_Build_AAD(lucTxAAD,
-                                      guiDestinationNodeID,                       // us (dest of KEX Set)
+                                      guiZWaveNodeID,                       // us (dest of KEX Set)
                                       gtNodeProvisioningList[aucDSKIndex].NodeID,
                                       gulZWaveHomeID, lucFrameLength,
                                       &lucSendDataBuffer[2], lucHeaderLength - 2);
@@ -9637,7 +9688,7 @@ static void ZWave_S2_Encapsulate_And_Send_Temporary(uint8_t aucDSKIndex, const u
   // (sequence number, extension flags and, if present, the 18-byte SPAN extension;
   //  i.e. everything from lucSendDataBuffer[2] up to the ciphertext)
   lucTxAADLength = ZWave_S2_Build_AAD(lucTxAAD,
-                                      guiDestinationNodeID,                       // us (dest of KEX Set)
+                                      guiZWaveNodeID,                       // us (dest of KEX Set)
                                       gtNodeProvisioningList[aucDSKIndex].NodeID,
                                       gulZWaveHomeID, lucFrameLength,
                                       &lucSendDataBuffer[2], lucHeaderLength - 2);
@@ -10056,6 +10107,14 @@ void ZWave_Send_Nonce_Report(uint16_t auiNodeID)
     memcpy(&lucSendDataBuffer[4], gtTemporaryProvision.REI, 16);
     //LOG("%s: Randomized Receiver's Entropy Input (REI) \r\n", __FUNCTION__);
     //PrintBytes(gucTemporaryREI, 16, FALSE, 0);
+
+    liWolfSSLRngReturn = wc_FreeRng(&gtWolfSSLRng);
+    if (liWolfSSLRngReturn) LOG("%s: *** WARNING *** wc_FreeRng() return value was %d \r\n", __FUNCTION__, liWolfSSLRngReturn);
+
+    #if ENABLE_ZWAVE_CONTROLLER_HOST
+    // (Transmit Nonce Report)
+    ZWave_Send_REQ_CMD_13_Send_Data(guiBootstrapNodeID, 4+16, lucSendDataBuffer, TRANSMIT_OPTION_ACK, gucSessionID);
+    #endif
   }
   else
   {
@@ -10067,15 +10126,15 @@ void ZWave_Send_Nonce_Report(uint16_t auiNodeID)
     memcpy(&lucSendDataBuffer[4], gtNodeProvisioningList[lucDSKIndex].REI, 16);
     //LOG("%s: Randomized Receiver's Entropy Input (REI) \r\n", __FUNCTION__);
     //PrintBytes(gtNodeProvisioningList[lucDSKIndex].REI, 16, FALSE, 0);
+
+    liWolfSSLRngReturn = wc_FreeRng(&gtWolfSSLRng);
+    if (liWolfSSLRngReturn) LOG("%s: *** WARNING *** wc_FreeRng() return value was %d \r\n", __FUNCTION__, liWolfSSLRngReturn);
+
+    #if ENABLE_ZWAVE_CONTROLLER_HOST
+    // (Transmit Nonce Report)
+    ZWave_Send_REQ_CMD_13_Send_Data(auiNodeID, 4+16, lucSendDataBuffer, TRANSMIT_OPTION_ACK, gucSessionID);
+    #endif
   }
-
-  liWolfSSLRngReturn = wc_FreeRng(&gtWolfSSLRng);
-  if (liWolfSSLRngReturn) LOG("%s: *** WARNING *** wc_FreeRng() return value was %d \r\n", __FUNCTION__, liWolfSSLRngReturn);
-
-  #if ENABLE_ZWAVE_CONTROLLER_HOST
-  // (Transmit Nonce Report)
-  ZWave_Send_REQ_CMD_13_Send_Data(gtNodeProvisioningList[gucProcessingDSK].NodeID, 4+16, lucSendDataBuffer, TRANSMIT_OPTION_ACK, gucSessionID);
-  #endif
 
 }
 // end ZWave_Send_Nonce_Report
@@ -11496,7 +11555,9 @@ SmartStartState ZWave_SmartStart_StateMachine(SmartStartStateMachineCommand stat
         geBootstrapState = ZWave_Bootstrap_StateMachine(BOOTSTRAP_SM_CMD_INITIALIZE);
         LOG("%s: Transitioning DSK %d from INCLUSION to BOOTSTRAP\r\n", __FUNCTION__, gucProcessingDSK);
         leSmartStartState                               = SMARTSTART_BOOTSTRAP;
-        gtNodeProvisioningList[gucProcessingDSK].status = SMARTSTART_BOOTSTRAP;
+        gucBootstrapDSK = gucProcessingDSK;
+        guiBootstrapNodeID = gtNodeProvisioningList[gucBootstrapDSK].NodeID;   // assigned by the 4A ADDING_SLAVE callback
+        gtNodeProvisioningList[gucBootstrapDSK].status = SMARTSTART_BOOTSTRAP;
         guiLiveNodeCount = ZWave_DSK_Count_Live_NodeIDs();
 
         // Display RTC in debug output
@@ -11551,11 +11612,11 @@ SmartStartState ZWave_SmartStart_StateMachine(SmartStartStateMachineCommand stat
         else
         {
           // Set state to READY
-          LOG("%s gucProcessingDSK = %d \t guiSourceNodeID = 0x%04X \r\n", __FUNCTION__, gucProcessingDSK, guiSourceNodeID);
+          LOG("%s gucProcessingDSK = %d \t guiBootstrapNodeID = 0x%04X \r\n", __FUNCTION__, gucProcessingDSK, guiBootstrapNodeID);
           geBootstrapState = ZWave_Bootstrap_StateMachine(BOOTSTRAP_SM_CMD_INITIALIZE);
           LOG("%s: Transitioning DSK %d from EXCLUSION to READY\r\n", __FUNCTION__, gucProcessingDSK);
           leSmartStartState                               = SMARTSTART_READY;
-          gtNodeProvisioningList[gucProcessingDSK].status = SMARTSTART_READY;
+          gtNodeProvisioningList[gucProcessingDSK].status  = SMARTSTART_READY;
 
           ////////////////////////////////////////////////////////////
           //// TEST MAB 2026.10.29
@@ -11571,6 +11632,8 @@ SmartStartState ZWave_SmartStart_StateMachine(SmartStartStateMachineCommand stat
 
           gucProcessingDSK = DSK_UNAVAILABLE;
           guiLiveNodeCount = ZWave_DSK_Count_Live_NodeIDs();
+          gucBootstrapDSK = DSK_UNAVAILABLE;
+          guiBootstrapNodeID = NODE_ID_UNAVAILABLE;
         }
         // ENDIF
 
@@ -11614,11 +11677,11 @@ SmartStartState ZWave_SmartStart_StateMachine(SmartStartStateMachineCommand stat
       {
         if (gucIsBootstrapFailed)
         {
-          LOG("%s: *** WARNING *** S2 Bootstrap for DSK %d failed \r\n", __FUNCTION__, gucProcessingDSK);
+          LOG("%s: *** WARNING *** S2 Bootstrap for DSK %d failed \r\n", __FUNCTION__, gucBootstrapDSK);
         }
         if (lulElapsedTime_Bootstrap_msec > BOOTSTRAP_TIMEOUT_MSEC)
         {
-          LOG("%s: *** WARNING *** S2 Bootstrap for DSK %d timed out \r\n", __FUNCTION__, gucProcessingDSK);
+          LOG("%s: *** WARNING *** S2 Bootstrap for DSK %d timed out \r\n", __FUNCTION__, gucBootstrapDSK);
         }
 
         // Set state to INCLUSION
@@ -11626,10 +11689,12 @@ SmartStartState ZWave_SmartStart_StateMachine(SmartStartStateMachineCommand stat
         gucIsInclusionFailed                = FALSE;
         gucIsInclusionJoiningNodeFinished   = FALSE;
         gucIsInclusionIncludingNodeFinished = FALSE;
-        LOG("%s: Transitioning DSK %d from BOOTSTRAP to INCLUSION\r\n", __FUNCTION__, gucProcessingDSK);
+        LOG("%s: Transitioning DSK %d from BOOTSTRAP to INCLUSION\r\n", __FUNCTION__, gucBootstrapDSK);
         leSmartStartState                               = SMARTSTART_INCLUSION;
-        gtNodeProvisioningList[gucProcessingDSK].status = SMARTSTART_INCLUSION;
+        gtNodeProvisioningList[gucBootstrapDSK].status = SMARTSTART_INCLUSION;
         guiLiveNodeCount = ZWave_DSK_Count_Live_NodeIDs();
+        //gucBootstrapDSK = DSK_UNAVAILABLE;
+        guiBootstrapNodeID = NODE_ID_UNAVAILABLE;
 
         // Display RTC in debug output
         luiMessageQueueBuffer = msgid_MAIN_DISPLAY_RTC;
@@ -11653,15 +11718,15 @@ SmartStartState ZWave_SmartStart_StateMachine(SmartStartStateMachineCommand stat
         #endif
 
         // Set state to CONNECTED
-        LOG("%s: Transitioning DSK %d from BOOTSTRAP to CONNECTED\r\n", __FUNCTION__, gucProcessingDSK);
+        LOG("%s: Transitioning DSK %d from BOOTSTRAP to CONNECTED\r\n", __FUNCTION__, gucBootstrapDSK);
         leSmartStartState                               = SMARTSTART_CONNECTED;
-        gtNodeProvisioningList[gucProcessingDSK].status = SMARTSTART_CONNECTED;
+        gtNodeProvisioningList[gucBootstrapDSK].status = SMARTSTART_CONNECTED;
         guiLiveNodeCount = ZWave_DSK_Count_Live_NodeIDs();
         ////////////////////////////////////////////////////////////
         //// TEST MAB 2026.10.29
         //// For now, if classical mesh i.e. NodeID < 0xFF,
         //// increment active node count
-        if (FALSE == gtNodeProvisioningList[gucProcessingDSK].lr_capable)
+        if (FALSE == gtNodeProvisioningList[gucBootstrapDSK].lr_capable)
         {
           ++gucActiveMeshNodeCount;
           ++guiActiveNodeCount;
@@ -11674,7 +11739,9 @@ SmartStartState ZWave_SmartStart_StateMachine(SmartStartStateMachineCommand stat
         osMessageQueuePut(MainQueueHandle, &luiMessageQueueBuffer, 0, 1);
 
         // Node is connected now, save its NodeID to the connection list
-        gtNodeConnectionList[gucProcessingDSK].NodeID = gtNodeProvisioningList[gucProcessingDSK].NodeID;
+        gtNodeConnectionList[gucBootstrapDSK].NodeID = gtNodeProvisioningList[gucBootstrapDSK].NodeID;
+        gucBootstrapDSK = DSK_UNAVAILABLE;
+        guiBootstrapNodeID = NODE_ID_UNAVAILABLE;
       }
       // ENDIF
     }
@@ -12228,6 +12295,7 @@ static void ZWave_TxQ_SendHead(uint8_t aucDSKIndex)
   gucTxQInFlightDSK = aucDSKIndex;
 
   ZWave_S2_Encapsulate_And_Send(aucDSKIndex, it->Plaintext, it->Length);
+  gucTxQInFlightSessionID = gucSessionID;
 }
 // end ZWave_TxQ_SendHead
 
@@ -13436,10 +13504,10 @@ void ZWaveTask(void *argument)
           memset(gtNodeConnectionList[gucProcessingDSK].SensorTypes, 0x00, sizeof(gtNodeConnectionList[gucProcessingDSK].SensorTypes));
 
           // Send the initial CC commands
-          ZWave_Send_Wakeup_Interval_Set(guiSourceNodeID, NODE_WAKEUP_INTERVAL_SECONDS, (uint8_t)guiDestinationNodeID);
-          ZWave_Send_Wakeup_Interval_Get(guiSourceNodeID);
-          ZWave_Send_Multilevel_Sensor_Get_Supported_Sensor(guiSourceNodeID);
-          ZWave_Send_Battery_Get(guiSourceNodeID);
+          ZWave_Send_Wakeup_Interval_Set(gtNodeProvisioningList[gucProcessingDSK].NodeID, NODE_WAKEUP_INTERVAL_SECONDS, (uint8_t)guiDestinationNodeID);
+          ZWave_Send_Wakeup_Interval_Get(gtNodeProvisioningList[gucProcessingDSK].NodeID);
+          ZWave_Send_Multilevel_Sensor_Get_Supported_Sensor(gtNodeProvisioningList[gucProcessingDSK].NodeID);
+          ZWave_Send_Battery_Get(gtNodeProvisioningList[gucProcessingDSK].NodeID);
 
           // Initialize countdown to next battery poll
           gtNodeConnectionList[gucProcessingDSK].BatteryPollCountdown = NODE_BATTERY_POLL_INTERVAL_SECONDS;
@@ -13450,7 +13518,7 @@ void ZWaveTask(void *argument)
         if (GENERIC_TYPE_SWITCH_MULTILEVEL == gtNodeConnectionList[gucProcessingDSK].GenericDeviceType &&
             SPECIFIC_TYPE_COLOR_TUNABLE_MULTILEVEL == gtNodeConnectionList[gucProcessingDSK].SpecificDeviceType)
         {
-          ZWave_Send_Switch_Multilevel_Get(guiSourceNodeID);
+          ZWave_Send_Switch_Multilevel_Get(gtNodeProvisioningList[gucProcessingDSK].NodeID);
         }
         ///////////////////////////////////////////////////
         // Sensor Notification
@@ -13465,11 +13533,11 @@ void ZWaveTask(void *argument)
           memset(gtNodeConnectionList[gucProcessingDSK].SensorTypes, 0x00, sizeof(gtNodeConnectionList[gucProcessingDSK].SensorTypes));
 
           // Send the initial CC commands
-          ZWave_Send_Wakeup_Interval_Capabilities_Get(guiSourceNodeID);
-          ZWave_Send_Wakeup_Interval_Set(guiSourceNodeID, NODE_WAKEUP_INTERVAL_SECONDS, (uint8_t)guiDestinationNodeID);
-          ZWave_Send_Wakeup_Interval_Get(guiSourceNodeID);
-          ZWave_Send_Multilevel_Sensor_Get_Supported_Sensor(guiSourceNodeID);
-          ZWave_Send_Battery_Get(guiSourceNodeID);
+          ZWave_Send_Wakeup_Interval_Capabilities_Get(gtNodeProvisioningList[gucProcessingDSK].NodeID);
+          ZWave_Send_Wakeup_Interval_Set(gtNodeProvisioningList[gucProcessingDSK].NodeID, NODE_WAKEUP_INTERVAL_SECONDS, (uint8_t)guiDestinationNodeID);
+          ZWave_Send_Wakeup_Interval_Get(gtNodeProvisioningList[gucProcessingDSK].NodeID);
+          ZWave_Send_Multilevel_Sensor_Get_Supported_Sensor(gtNodeProvisioningList[gucProcessingDSK].NodeID);
+          ZWave_Send_Battery_Get(gtNodeProvisioningList[gucProcessingDSK].NodeID);
 
           // Initialize countdown to next battery poll
           gtNodeConnectionList[gucProcessingDSK].BatteryPollCountdown = NODE_BATTERY_POLL_INTERVAL_SECONDS;
@@ -13477,8 +13545,8 @@ void ZWaveTask(void *argument)
         ///////////////////////////////////////////////////
         // Node is connected now, clear global "pointers" to it
         ///////////////////////////////////////////////////
-        guiSourceNodeID = NODE_ID_UNAVAILABLE;
-        gucProcessingDSK = DSK_UNAVAILABLE;
+        //guiSourceNodeID = NODE_ID_UNAVAILABLE;
+        //gucProcessingDSK = DSK_UNAVAILABLE;
         /////////////////////////////////////////////////////////////////
       }
 
@@ -13509,9 +13577,11 @@ void ZWaveTask(void *argument)
     //// TEST MAB 2026.10.21
     //// Per Claude AI, call once per ZWaveTask loop, replacing the "retransmit if Nonce Report" block
     //// Transmit queued CC commands for/to CONNECTED end nodes
+    //// TEST MAB 2026.11.02
+    //// Give priority to an end node joining (or excluding)
     for (uint8_t lucDSKIndex = 0; lucDSKIndex < NODE_PROVISIONING_LIST_COUNT; ++lucDSKIndex)
     {
-      if (ZWave_DSK_IsConnected(lucDSKIndex))
+      if (!ZWave_DSK_IsProcessing() && ZWave_DSK_IsConnected(lucDSKIndex) && gtNodeConnectionList[lucDSKIndex].TxQCount)
       {
         ZWave_TxQ_Service(lucDSKIndex);
       }
@@ -13522,7 +13592,9 @@ void ZWaveTask(void *argument)
     //////////////////////////////////////////////////////////////////////////////
     //// TEST MAB 2026.01.08
     //// Periodically update the local copy of LR node list
-    if (0 == lucCountdownToUpdateNodeIDList_minutes)
+    //// TEST MAB 2026.11.02
+    //// Give priority to any DSK being processed or just busy
+    if (0 == lucCountdownToUpdateNodeIDList_minutes && !ZWave_DSK_IsProcessing() && !ZWave_DSK_IsBusy())
     {
       lucCountdownToUpdateNodeIDList_minutes = NODE_PL_UPDATE_INTERVAL_MINUTES;
 
@@ -13538,10 +13610,12 @@ void ZWaveTask(void *argument)
     //// TEST MAB 2026.01.07
     //// Periodically check the next active NodeID if it is abandoned and if so,
     //// remove the NodeID from the network.
+    //// TEST MAB 2026.11.02
+    //// Give priority to any DSK being processed or just busy
     static uint16_t luiAbandonedNodeID = 0;
     static uint8_t lucSendDataBuffer[10];
     static uint8_t lucIsAbandonedNodeIDSearchActive;
-    if ( (0 == lulCountdownToCheckAbandonedNodeID_seconds) && (guiActiveNodeCount != guiLiveNodeCount) )
+    if ( (0 == lulCountdownToCheckAbandonedNodeID_seconds) && (guiActiveNodeCount != guiLiveNodeCount)  && !ZWave_DSK_IsProcessing() && !ZWave_DSK_IsBusy())
     {
       //lulCountdownToCheckAbandonedNodeID_seconds = 300 + RandomValue()%60; // 5-6 minutes
       lulCountdownToCheckAbandonedNodeID_seconds = 60 + RandomValue()%60; // 1-2 minutes
@@ -13632,7 +13706,9 @@ void ZWaveTask(void *argument)
     //////////////////////////////////////////////////////////////////////////////
     //// TEST MAB 2026.10.19
     //// Every N seconds, CONNECTED multilevel switches are toggled
-    if (0 == lulCountdownToSwitchMultilevelSet_seconds)
+    //// TEST MAB 2026.11.02
+    //// Give priority to any DSK being processed or just busy
+    if (0 == lulCountdownToSwitchMultilevelSet_seconds && !ZWave_DSK_IsProcessing() && !ZWave_DSK_IsBusy())
     {
       lulCountdownToSwitchMultilevelSet_seconds = SWITCH_MULTILEVEL_SET_INTERVAL_SECONDS;
 
@@ -13686,7 +13762,9 @@ void ZWaveTask(void *argument)
     //// Every N seconds, CONNECTED end nodes are triggered to... do something
     //// (Need to revamp this to having each DSK have its own seconds counter,
     ////  updating each second, triggering against its own threshold.)
-    if (0 == lulCountdownToConnectedActivity_seconds)
+    //// TEST MAB 2026.11.02
+    //// Give priority to any DSK being processed or just busy
+    if (0 == lulCountdownToConnectedActivity_seconds && !ZWave_DSK_IsProcessing() && !ZWave_DSK_IsBusy())
     {
       lulCountdownToConnectedActivity_seconds = CONNECTED_ACTIVITY_INTERVAL_SECONDS;
 
@@ -13803,23 +13881,26 @@ void ZWaveTask(void *argument)
             ZWave_Process_Command_Class(gucDecryptedPlaintext, gucReceivedCiphertextLength);
             LOG("-----------------------  Wakeup Notification  END  -----------------------\r\n");
 
-            //
-            // Set the node isAwake to "AWAKE"
-            //
-            gtNodeConnectionList[gucProcessingDSK].isAwake = TRUE;
-
-            //
-            // If any messages to the remote sensor are pending,
-            // send them now while the remote sensor is awake
-            //
-            ZWave_Send_Multilevel_Sensor_Get(guiSourceNodeID, SENSOR_MULTILEVEL_GET_TEMPERATURE_VERSION_1_V11,       1); // Fahrenheit
-            ZWave_Send_Multilevel_Sensor_Get(guiSourceNodeID, SENSOR_MULTILEVEL_GET_RELATIVE_HUMIDITY_VERSION_2_V11, 0);
-
-            // Request Battery Report if battery poll countdown = 0
-            if (0 == gtNodeConnectionList[gucProcessingDSK].BatteryPollCountdown)
+            if (!ZWave_DSK_IsProcessing())
             {
-              ZWave_Send_Battery_Get(guiSourceNodeID);
-            }
+              //
+              // Set the node isAwake to "AWAKE"
+              //
+              gtNodeConnectionList[gucProcessingDSK].isAwake = TRUE;
+
+              //
+              // If any messages to the remote sensor are pending,
+              // send them now while the remote sensor is awake
+              //
+              ZWave_Send_Multilevel_Sensor_Get(guiSourceNodeID, SENSOR_MULTILEVEL_GET_TEMPERATURE_VERSION_1_V11,       1); // Fahrenheit
+              ZWave_Send_Multilevel_Sensor_Get(guiSourceNodeID, SENSOR_MULTILEVEL_GET_RELATIVE_HUMIDITY_VERSION_2_V11, 0);
+
+              // Request Battery Report if battery poll countdown = 0
+              if (0 == gtNodeConnectionList[gucProcessingDSK].BatteryPollCountdown)
+              {
+                ZWave_Send_Battery_Get(guiSourceNodeID);
+              }
+            } // endif DSK is NOT processing
           }
           /////////////////////////////////////////////////////////////////////
           //
