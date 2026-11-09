@@ -725,6 +725,11 @@ uint8_t gucSessionID;
 uint8_t gucTxQInFlightSessionID;
 
 //
+// Copy of mesh nodes [0x01, 0xE8]
+//
+uint8_t gucMeshNodes[29];
+
+//
 // Copy of LR nodes [0x0100, 0x04FF]
 //
 uint8_t gucLRNodes[MAX_LR_NODEMASK_LENGTH];
@@ -4175,17 +4180,17 @@ uint8_t ZWave_Decrypt_Received_Data(uint16_t auiNodeID, uint8_t* paucDecryptBuff
     if (0!=liAesInitResult) LOG("%s: *** WARNING *** liAesInitResult = %d \r\n", __FUNCTION__, liAesInitResult);
     liAesSetKeyResult = wc_AesCcmSetKey(&aes, gtTemporaryConnection.KeyCCM, 16);
     if (0!=liAesSetKeyResult) LOG("%s: *** WARNING *** liAesSetKeyResult = %d \r\n", __FUNCTION__, liAesSetKeyResult);
-    LOG("%s: gucReceivedCiphertext \r\n", __FUNCTION__);
-    PrintBytes(gucReceivedCiphertext, gucReceivedCiphertextLength, false, 0);
-    LOG("%s: gucReceivedCiphertextLength = 0x%02X \r\n", __FUNCTION__, gucReceivedCiphertextLength);
+    //LOG("%s: gucReceivedCiphertext \r\n", __FUNCTION__);
+    //PrintBytes(gucReceivedCiphertext, gucReceivedCiphertextLength, false, 0);
+    //LOG("%s: gucReceivedCiphertextLength = 0x%02X \r\n", __FUNCTION__, gucReceivedCiphertextLength);
     //LOG("%s: gtTemporarySPAN.Nonce \r\n", __FUNCTION__);
     //PrintBytes(gtTemporarySPAN.Nonce, 13, false, 0);
     //LOG("%s: gucReceivedAuthTag \r\n", __FUNCTION__);
     //PrintBytes(gucReceivedAuthTag, gucReceivedAuthTagLength, false, 0);
-    LOG("%s: gucReceivedAuthTagLength    = 0x%02X \r\n", __FUNCTION__, gucReceivedAuthTagLength);
+    //LOG("%s: gucReceivedAuthTagLength    = 0x%02X \r\n", __FUNCTION__, gucReceivedAuthTagLength);
     //LOG("%s: gucTemporaryAAD \r\n", __FUNCTION__);
     //PrintBytes(gucTemporaryAAD, gucTemporaryAADLength, false, 0);
-    LOG("%s: gucTemporaryAADLength       = 0x%02X \r\n", __FUNCTION__, gucTemporaryAADLength);
+    //LOG("%s: gucTemporaryAADLength       = 0x%02X \r\n", __FUNCTION__, gucTemporaryAADLength);
     liDecryptResult = wc_AesCcmDecrypt(&aes,
                                                     paucDecryptBuffer,
                                                     gucReceivedCiphertext, gucReceivedCiphertextLength,
@@ -4219,17 +4224,17 @@ uint8_t ZWave_Decrypt_Received_Data(uint16_t auiNodeID, uint8_t* paucDecryptBuff
     if (0!=liAesInitResult) LOG("%s: *** WARNING *** liAesInitResult = %d \r\n", __FUNCTION__, liAesInitResult);
     liAesSetKeyResult = wc_AesCcmSetKey(&aes, gtNodeConnectionList[lucDSKIndex].KeyCCM, 16);
     if (0!=liAesSetKeyResult) LOG("%s: *** WARNING *** liAesSetKeyResult = %d \r\n", __FUNCTION__, liAesSetKeyResult);
-    LOG("%s: gucReceivedCiphertext \r\n", __FUNCTION__);
-    PrintBytes(gucReceivedCiphertext, gucReceivedCiphertextLength, false, 0);
-    LOG("%s: gucReceivedCiphertextLength = 0x%02X \r\n", __FUNCTION__, gucReceivedCiphertextLength);
+    //LOG("%s: gucReceivedCiphertext \r\n", __FUNCTION__);
+    //PrintBytes(gucReceivedCiphertext, gucReceivedCiphertextLength, false, 0);
+    //LOG("%s: gucReceivedCiphertextLength = 0x%02X \r\n", __FUNCTION__, gucReceivedCiphertextLength);
     //LOG("%s: gtNodeConnectionList[%d].SPAN.Nonce \r\n", __FUNCTION__, lucDSKIndex);
     //PrintBytes(gtNodeConnectionList[lucDSKIndex].SPAN.Nonce, 13, false, 0);
     //LOG("%s: gucReceivedAuthTag \r\n", __FUNCTION__);
     //PrintBytes(gucReceivedAuthTag, gucReceivedAuthTagLength, false, 0);
-    LOG("%s: gucReceivedAuthTagLength    = 0x%02X \r\n", __FUNCTION__, gucReceivedAuthTagLength);
+    //LOG("%s: gucReceivedAuthTagLength    = 0x%02X \r\n", __FUNCTION__, gucReceivedAuthTagLength);
     //LOG("%s: gucTemporaryAAD \r\n", __FUNCTION__);
     //PrintBytes(gucTemporaryAAD, gucTemporaryAADLength, false, 0);
-    LOG("%s: gucTemporaryAADLength       = 0x%02X \r\n", __FUNCTION__, gucTemporaryAADLength);
+    //LOG("%s: gucTemporaryAADLength       = 0x%02X \r\n", __FUNCTION__, gucTemporaryAADLength);
     liDecryptResult = wc_AesCcmDecrypt(&aes,
                                                     paucDecryptBuffer,
                                                     gucReceivedCiphertext, gucReceivedCiphertextLength,
@@ -4239,8 +4244,8 @@ uint8_t ZWave_Decrypt_Received_Data(uint16_t auiNodeID, uint8_t* paucDecryptBuff
   }
 
   if (0!=liDecryptResult) LOG("%s: *** WARNING *** liDecryptResult = %d \r\n", __FUNCTION__, liDecryptResult);
-  LOG("%s: Decrypted data: \r\n", __FUNCTION__);
-  PrintBytes(paucDecryptBuffer, gucReceivedCiphertextLength, false, 0);
+  //LOG("%s: Decrypted data: \r\n", __FUNCTION__);
+  //PrintBytes(paucDecryptBuffer, gucReceivedCiphertextLength, false, 0);
   wc_AesFree(&aes);
 
   lucDecryptSuccessful = !liNextNonceResult && !liAesInitResult && !liDecryptResult;
@@ -4409,7 +4414,8 @@ void ZWave_Display_Node_Provisioning_List(void)
   lucFirstZeroizedDSKIndex = ZWave_DSK_Find_Zeroized();
   if (lucFirstZeroizedDSKIndex == DSK_UNAVAILABLE)
   {
-    LOG("%s: *** WARNING *** no zeroized DSK is available in the node provisioning list \r\n", __FUNCTION__);
+    //LOG("%s: *** WARNING *** no zeroized DSK is available in the node provisioning list \r\n", __FUNCTION__);
+    LOG("%s: No zeroized DSK is available in the node provisioning list \r\n", __FUNCTION__);
   }
   else
   {
@@ -5103,7 +5109,7 @@ uint8_t ZWave_Enqueue_Request(uint8_t aucCMD, uint8_t* paucData, uint8_t aucLeng
           __FUNCTION__, gstructCallbackQueue.requestCnt, MAX_CALLBACK_QUEUE);
     }
 
-    LOG("%s: Adding CMD 0x%02X to callback queue\r\n", __FUNCTION__, aucCMD);
+    //LOG("%s: Adding CMD 0x%02X to callback queue\r\n", __FUNCTION__, aucCMD);
     // Add to transmit callback queue
     gstructCallbackQueue.requestCnt++;
     gstructCallbackQueue.requestQueue[gstructCallbackQueue.requestIn].wCmd = aucCMD;
@@ -5202,7 +5208,7 @@ ZWaveRxParseResult_t ZWave_Handle_CHECKSUM(uint8_t aucRxByte, uint8_t aucIsACKRe
   static uint8_t lucResponse;
   #endif
 
-  LOG("%s: CHECKSUM byte is 0x%02X\r\n", __FUNCTION__, aucRxByte);
+  //LOG("%s: CHECKSUM byte is 0x%02X\r\n", __FUNCTION__, aucRxByte);
 
   // Reset byte timeout
   gtZWaveRxInterface.byte_timeout = false;
@@ -5237,9 +5243,9 @@ ZWaveRxParseResult_t ZWave_Handle_CHECKSUM(uint8_t aucRxByte, uint8_t aucIsACKRe
   // At this point the received frame (minus the checksum) has been saved to the Rx buffer
   // Display the received frame
   //LOG("%s: gtZWaveRxInterface.buffer_len=%d \t ZWaveSerialFrame->len=%d\r\n", __FUNCTION__, gtZWaveRxInterface.buffer_len, ZWaveSerialFrame->len);
-  LOG("-----------------------  Z-Wave received frame (minus checksum) START -----------------------\r\n");
-  PrintBytes(gtZWaveRxInterface.buffer, gtZWaveRxInterface.buffer_len, false, 0);
-  LOG("-----------------------  Z-Wave received frame (minus checksum)  END  -----------------------\r\n");
+  //LOG("-----------------------  Z-Wave received frame (minus checksum) START -----------------------\r\n");
+  //PrintBytes(gtZWaveRxInterface.buffer, gtZWaveRxInterface.buffer_len, false, 0);
+  //LOG("-----------------------  Z-Wave received frame (minus checksum)  END  -----------------------\r\n");
 
   // Set ZWave Rx state to SOF
   //LOG("%s: Transitioning from CHECKSUM to SOF\r\n", __FUNCTION__);
@@ -5253,7 +5259,7 @@ ZWaveRxParseResult_t ZWave_Handle_CHECKSUM(uint8_t aucRxByte, uint8_t aucIsACKRe
   switch (lucResponse)
   {
   case ACK:
-    LOG("%s: Transmitting ACK (checksum OK) to Z-Wave controller\r\n", __FUNCTION__);
+    //LOG("%s: Transmitting ACK (checksum OK) to Z-Wave controller\r\n", __FUNCTION__);
     break;
   case NAK:
     LOG("%s: *** WARNING *** Transmitting NAK (checksum error) to Z-Wave controller\r\n", __FUNCTION__);
@@ -5347,7 +5353,7 @@ void ZWave_Handle_Default(void)
   // Reset to SOF
 
   // Set ZWave Rx state to SOF
-  LOG("%s: Transitioning to SOF\r\n", __FUNCTION__);
+  //LOG("%s: Transitioning to SOF\r\n", __FUNCTION__);
   gtZWaveRxInterface.state = ZWAVE_RX_SOF;
 
   // Disable Rx active
@@ -5425,7 +5431,7 @@ ZWaveRxParseResult_t ZWave_Handle_SOF(uint8_t aucRxByte)
   // IF received byte is SOF
   if (SOF == aucRxByte)
   {
-    LOG("%s: Received a SOF \r\n", __FUNCTION__);
+    //LOG("%s: Received a SOF \r\n", __FUNCTION__);
 
     // Set ZWave Rx state to LEN
     //LOG("%s: Transitioning from SOF to LEN\r\n", __FUNCTION__);
@@ -5470,7 +5476,7 @@ ZWaveRxParseResult_t ZWave_Handle_SOF(uint8_t aucRxByte)
     // IF received byte is ACK
     if (ACK == aucRxByte)
     {
-      LOG("%s: Received an ACK \r\n", __FUNCTION__);
+      //LOG("%s: Received an ACK \r\n", __FUNCTION__);
       // Set result to FRAME_SENT
       ltResult = ZWAVE_RX_PARSE_FRAME_SENT;
    }
@@ -5547,7 +5553,7 @@ void ZWave_Handle_TYPE(uint8_t aucRxByte)
   {
     LOG("%s: *** WARNING *** Invalid TYPE byte = 0x%02X is neither REQUEST (0) nor RESPONSE (1)\r\n", __FUNCTION__, aucRxByte);
     // Set ZWave Rx state to SOF
-    LOG("%s: Transitioning from TYPE to SOF\r\n", __FUNCTION__);
+    //LOG("%s: Transitioning from TYPE to SOF\r\n", __FUNCTION__);
     gtZWaveRxInterface.state = ZWAVE_RX_SOF;
 
     // Disable Rx active
@@ -5564,11 +5570,11 @@ void ZWave_Handle_TYPE(uint8_t aucRxByte)
   {
     if (REQUEST == aucRxByte)
     {
-      LOG("%s: TYPE byte is REQUEST (0)\r\n", __FUNCTION__);
+      //LOG("%s: TYPE byte is REQUEST (0)\r\n", __FUNCTION__);
     }
     else
     {
-      LOG("%s: TYPE byte is RESPONSE (1)\r\n", __FUNCTION__);
+      //LOG("%s: TYPE byte is RESPONSE (1)\r\n", __FUNCTION__);
     }
     // Set ZWave Rx state to CMD
     //LOG("%s: Transitioning from TYPE to CMD\r\n", __FUNCTION__);
@@ -5581,6 +5587,174 @@ void ZWave_Handle_TYPE(uint8_t aucRxByte)
   // ENDIF
 }
 // end ZWave_Handle_TYPE
+
+/** *****************************************************************************************************************************
+  * @brief  Delete an abandoned Long Range NodeID
+  * @param  None
+  * @retval None
+  */
+void ZWave_Housekeeping_Delete_Abandoned_LR_NodeID(void)
+{
+  static uint16_t luiAbandonedNodeID = 0;
+  static uint8_t lucSendDataBuffer[10];
+  static uint8_t lucIsAbandonedNodeIDSearchActive;
+
+  // Look for a NodeID in the node list that IS NOT a live NodeID
+  // IF such a NodeID is found, assume it's a "failed" node and
+  // delete it from the node list
+  lucIsAbandonedNodeIDSearchActive = TRUE;
+  while (lucIsAbandonedNodeIDSearchActive)
+  {
+    luiAbandonedNodeID = ZW_NodeMaskGetNextNodeIndex(luiAbandonedNodeID, gucLRNodes);
+    if (0==luiAbandonedNodeID)
+    {
+      // No further NodeIDs found in node list; search is done
+      lucIsAbandonedNodeIDSearchActive = FALSE;
+    }
+    else
+    {
+      // Check if candidate NodeID is actually a live one (i.e. in the node provisioning list)
+      if ( DSK_UNAVAILABLE == ZWave_Scan_ProvisioningList_For_NodeID(luiAbandonedNodeID) )
+      {
+        // Candidate NodeID is NOT in the node provisioning list, so consider it failed. Search is done
+        lucIsAbandonedNodeIDSearchActive = FALSE;
+      }
+    }
+  } // end while lucIsAbandonedNodeIDSearchActive
+
+  // Delete the abandoned NodeID
+  if (luiAbandonedNodeID)
+  {
+    // (we've found the next abandoned NodeID in the current LR node list)
+    // "Ping" the node
+    // (Attempt to communicate with the failed node: failure -> failed NodeID added to failed node list)
+    guiNodeID = luiAbandonedNodeID;
+    gucSessionID = ZWave_SessionID_Randomize();
+    lucSendDataBuffer[0] = COMMAND_CLASS_SECURITY_2_V2;
+    lucSendDataBuffer[1] = SECURITY_2_NONCE_GET_V2;
+    lucSendDataBuffer[2] = gucSessionID;
+    #if ENABLE_ZWAVE_CONTROLLER_HOST
+    ZWave_Send_REQ_CMD_13_Send_Data(luiAbandonedNodeID, 3, lucSendDataBuffer, TRANSMIT_OPTION_ACK, gucSessionID);
+    #endif
+
+    // Check if the specified NodeID is in the controller's failed nodes list
+    guiNodeID = luiAbandonedNodeID;
+    #if ENABLE_ZWAVE_CONTROLLER_HOST
+    ZWave_Send_REQ_CMD_62_Is_Node_Failed(luiAbandonedNodeID);
+    #endif
+
+    // Remove the failed node from the network
+    gucSessionID = ZWave_SessionID_Randomize();
+    //gucSessionID = ZWave_SessionID_Update(gucSessionID);
+    guiNodeID = luiAbandonedNodeID;
+    #if ENABLE_ZWAVE_CONTROLLER_HOST
+    ZWave_Send_REQ_CMD_61_Remove_Failed_Node(gucSessionID, luiAbandonedNodeID);
+    #endif
+  }
+  ////////////////////////////////////////
+  // MAB 2026.01.14
+  // During Z-Wave Sentinel development, when abandoned NodeIDs may be plentiful,
+  // will need to update the local copy of the NodeID list more frequently.
+  // In the final deliverable firmware probably don't need this ELSE case,
+  // can rely on the separate periodic update of the local copy of the NodeID list.
+  // MAB 2026.10.29
+  // There is also a need to cleanup abandoned classical mesh NodeIDs. Remember
+  // the Z-Wave Sentinel controller itself has its own NodeID within the list
+  // of classical mesh NodeIDs, so don't delete ourselves.
+  // For now, the hack will be to increment the active node count when a
+  // mesh node gets included, and decrement when excluded.
+  else if (guiActiveNodeCount || (guiActiveNodeCount != guiLiveNodeCount) )
+  {
+    // (no more NodeIDs to check in the current LR node list)
+    // Fetch latest LR node list
+    #if ENABLE_ZWAVE_CONTROLLER_HOST
+    ZWave_Send_REQ_CMD_DA_Serial_API_Get_LR_Nodes();
+    #endif
+  }
+  ////////////////////////////////////////
+}
+// end ZWave_Housekeeping_Delete_Abandoned_LR_NodeID
+
+/** *****************************************************************************************************************************
+  * @brief  Delete an abandoned classical mesh NodeID
+  * @param  None
+  * @retval None
+  */
+void ZWave_Housekeeping_Delete_Abandoned_Mesh_NodeID(void)
+{
+  static uint8_t lucAbandonedNodeID = 0;
+  static uint8_t lucSendDataBuffer[10];
+  static uint8_t lucAbandonedNodeIDFound;
+
+  // Look for a NodeID in the node list that IS NOT a live NodeID
+  // IF such a NodeID is found, assume it's a "failed" node and
+  // delete it from the node list
+
+  lucAbandonedNodeID = 0;
+  lucAbandonedNodeIDFound = FALSE;
+  PrintBytes(gucMeshNodes, 29, false, 0);
+  for (uint8_t lucByteIndex = 0; lucByteIndex < 29; ++lucByteIndex)
+  {
+    for (uint8_t lucBitIndex = 0; lucBitIndex < 8; ++lucBitIndex)
+    {
+      ++lucAbandonedNodeID;
+      if (gucMeshNodes[lucByteIndex] & (1<<lucBitIndex))
+      {
+        // Bit in the node bitmask is set, verify it isn't the controller nor anything in the node provisioning list
+        if (lucAbandonedNodeID != (uint8_t)guiZWaveNodeID && DSK_UNAVAILABLE == ZWave_Scan_ProvisioningList_For_NodeID(lucAbandonedNodeID))
+        {
+          // Neither the controller nor anything in the node provisioning list
+          // We have an abandoned mesh NodeID!
+          LOG("%s: *** WARNING *** NodeID 0x%04X is abandoned \r\n", __FUNCTION__, lucAbandonedNodeID);
+
+          // Search is done
+          lucAbandonedNodeIDFound = TRUE;
+
+          // Quit the for loops
+          lucBitIndex = 9;
+          lucByteIndex = 99;
+        }
+      }
+    }
+  }
+
+  if (!lucAbandonedNodeIDFound)
+  {
+    LOG("%s: No abandoned mesh nodes found \r\n", __FUNCTION__);
+    lucAbandonedNodeID = 0;
+  }
+
+  if (lucAbandonedNodeIDFound)
+  {
+    // (we've found the next abandoned NodeID in the current LR node list)
+    // "Ping" the node
+    // (Attempt to communicate with the failed node: failure -> failed NodeID added to failed node list)
+    guiNodeID = lucAbandonedNodeID;
+    gucSessionID = ZWave_SessionID_Randomize();
+    lucSendDataBuffer[0] = COMMAND_CLASS_SECURITY_2_V2;
+    lucSendDataBuffer[1] = SECURITY_2_NONCE_GET_V2;
+    lucSendDataBuffer[2] = gucSessionID;
+    #if ENABLE_ZWAVE_CONTROLLER_HOST
+    ZWave_Send_REQ_CMD_13_Send_Data(guiNodeID, 3, lucSendDataBuffer, TRANSMIT_OPTION_ACK, gucSessionID);
+    #endif
+
+    // Check if the specified NodeID is in the controller's failed nodes list
+    guiNodeID = lucAbandonedNodeID;
+    #if ENABLE_ZWAVE_CONTROLLER_HOST
+    ZWave_Send_REQ_CMD_62_Is_Node_Failed(lucAbandonedNodeID);
+    #endif
+
+    // Remove the failed node from the network
+    gucSessionID = ZWave_SessionID_Randomize();
+    //gucSessionID = ZWave_SessionID_Update(gucSessionID);
+    guiNodeID = lucAbandonedNodeID;
+    #if ENABLE_ZWAVE_CONTROLLER_HOST
+    ZWave_Send_REQ_CMD_61_Remove_Failed_Node(gucSessionID, lucAbandonedNodeID);
+    #endif
+  }
+
+}
+// end ZWave_Housekeeping_Delete_Abandoned_Mesh_NodeID
 
 /** *****************************************************************************************************************************
   * @brief  Identify Z-Wave Basic device type
@@ -6433,21 +6607,32 @@ void ZWave_RES_CMD_02_Get_Init_Data(void)
   LOG("%s: - should be 29 (0x1D) or possibly 0\r\n", __FUNCTION__);
 
   // ----------------- Nodes -----------------
-  if (ZWaveSerialFrame->payload[2])
+  if (29 == ZWaveSerialFrame->payload[2])
   {
+    // Save copy of mesh nodes bitmask array
+    memset(gucMeshNodes, 0x00, sizeof(gucMeshNodes));
+    memcpy(gucMeshNodes, &ZWaveSerialFrame->payload[3], 29);
+    PrintBytes(gucMeshNodes, 29, false, 0);
+
+    LOG("%s: -------------------------------------- \r\n", __FUNCTION__);
     uint8_t lucActiveNode = 0;
-    for (int i = 0; i < ZWaveSerialFrame->payload[2]; ++i)
+    for (int i = 0; i < 29; ++i)
     {
-      LOG("%s: SerialAPI node[%02d]  = 0x%02X\r\n", __FUNCTION__, i, ZWaveSerialFrame->payload[3+i]);
+      //LOG("%s: SerialAPI node[%02d]  = 0x%02X\r\n", __FUNCTION__, i, gucMeshNodes[i]);
       for (int j = 0; j < 8; ++j)
       {
         ++lucActiveNode;
-        if (ZWaveSerialFrame->payload[3+i] & (1<<j))
+        if (gucMeshNodes[i] & (1<<j))
         {
           LOG("%s: - Node %d (0x%04X) is active \r\n", __FUNCTION__, lucActiveNode, lucActiveNode);
         }
       }
     }
+    LOG("%s: -------------------------------------- \r\n", __FUNCTION__);
+  }
+  else
+  {
+    LOG("%s: *** WARNING *** mesh nodes bitmask array %d bytes \r\n", __FUNCTION__, ZWaveSerialFrame->payload[2]);
   }
 
   // ----------------- chip_type -----------------
@@ -7035,14 +7220,14 @@ void ZWave_RSQ_CMD_13_ZW_Send_Data(void)
     //////////////////////////////////////////////////////
     // Handle the RESPONSE with single return value
     //////////////////////////////////////////////////////
-    LOG("%s: Return value = 0x%02X\r\n", __FUNCTION__, ZWaveSerialFrame->payload[0]);
+    //LOG("%s: Return value = 0x%02X\r\n", __FUNCTION__, ZWaveSerialFrame->payload[0]);
     if (ZWaveSerialFrame->payload[0])
     {
-      LOG("%s: - expect a callback REQUEST with assorted data...\r\n", __FUNCTION__);
+      //LOG("%s: - expect a callback REQUEST with assorted data...\r\n", __FUNCTION__);
     }
     else
     {
-      LOG("%s: - No further data are expected\r\n", __FUNCTION__);
+      //LOG("%s: - No further data are expected\r\n", __FUNCTION__);
       gucSerialApiTxBusy = FALSE;
     }
   }
@@ -7112,11 +7297,11 @@ void ZWave_RES_CMD_20_Memory_Get_ID(void)
 
   lulHomeID = Convert_Bytes_uint32( &ZWaveSerialFrame->payload[0] );
   luiNodeID = Convert_Bytes_uint16( &ZWaveSerialFrame->payload[4] );
-  LOG("%s: HomeID = 0x%08X \r\n", __FUNCTION__, lulHomeID);
-  LOG("%s: NodeID =     0x%04X \r\n", __FUNCTION__, luiNodeID);
-
   gulZWaveHomeID = lulHomeID;
   guiZWaveNodeID = luiNodeID;
+  LOG("%s: gulZWaveHomeID = 0x%08X \r\n", __FUNCTION__, lulHomeID);
+  LOG("%s: guiZWaveNodeID =     0x%04X \r\n", __FUNCTION__, luiNodeID);
+
 
   #if ENABLE_ZWAVE_CONTROLLER_HOST
   ///////////////////////////////////////////////////////////////////////////
@@ -8139,36 +8324,42 @@ void ZWave_RES_CMD_A8_Application_Command_Handler_Bridge(void)
    *          | securityKey | bSourceTxPower | bSourceNoiseFloor */
   guiDestinationNodeID = (0x100*ZWaveSerialFrame->payload[1]) + ZWaveSerialFrame->payload[2];
   guiSourceNodeID      = (0x100*ZWaveSerialFrame->payload[3]) + ZWaveSerialFrame->payload[4];
-  LOG("%s: RX status                              = 0x%02X\r\n", __FUNCTION__, ZWaveSerialFrame->payload[0]);
+  //LOG("%s: RX status                              = 0x%02X\r\n", __FUNCTION__, ZWaveSerialFrame->payload[0]);
   LOG("%s: Destination node ID                    = 0x%04X\r\n", __FUNCTION__, guiDestinationNodeID);
   LOG("%s: Source node ID                         = 0x%04X\r\n", __FUNCTION__, guiSourceNodeID);
-  LOG("%s: Payload length                         = 0x%02X\r\n", __FUNCTION__, ZWaveSerialFrame->payload[5]);
+  //LOG("%s: Payload length                         = 0x%02X\r\n", __FUNCTION__, ZWaveSerialFrame->payload[5]);
   uint8_t lucDSKIndex = ZWave_Scan_ProvisioningList_For_NodeID(guiSourceNodeID);
-  if (lucDSKIndex < NODE_PROVISIONING_LIST_COUNT)
+  if (lucDSKIndex < NODE_PROVISIONING_LIST_COUNT && (!ZWave_DSK_IsProcessing() || gucBootstrapDSK == lucDSKIndex) )
   {
     gucProcessingDSK = lucDSKIndex;
+
+    int i = ZWaveSerialFrame->payload[5]; // Payload length
+    if (i)
+    {
+      LOG("-----------------------  Command data START -----------------------\r\n");
+      //PrintBytes(&ZWaveSerialFrame->payload[6], i, false, 0);
+      // Invoke the command class handler
+      ZWave_Process_Command_Class(&ZWaveSerialFrame->payload[6], i);
+      LOG("-----------------------  Command data  END  -----------------------\r\n");
+    }
+    LOG("%s: Multicast destination node mask length = 0x%02X\r\n", __FUNCTION__, ZWaveSerialFrame->payload[6+i]);
+    int j = ZWaveSerialFrame->payload[6+i]; // Multicast destination node mask length
+    if (j)
+    {
+      LOG("-----------------------  Multicast destination node masks START -----------------------\r\n");
+      PrintBytes(&ZWaveSerialFrame->payload[7+i], j, false, 0);
+      LOG("-----------------------  Multicast destination node masks  END  -----------------------\r\n");
+    }
+    //LOG("%s: Received RSSI                          = 0x%02X\r\n", __FUNCTION__, ZWaveSerialFrame->payload[7+i+j]);
+    //LOG("%s: Security key                           = 0x%02X\r\n", __FUNCTION__, ZWaveSerialFrame->payload[8+i+j]);
+    //LOG("%s: Source Tx power                        = 0x%02X\r\n", __FUNCTION__, ZWaveSerialFrame->payload[9+i+j]);
+    //LOG("%s: Source noise floor                     = 0x%02X\r\n", __FUNCTION__, ZWaveSerialFrame->payload[10+i+j]);
   }
-  int i = ZWaveSerialFrame->payload[5]; // Payload length
-  if (i)
+  else
   {
-    LOG("-----------------------  Command data START -----------------------\r\n");
-    PrintBytes(&ZWaveSerialFrame->payload[6], i, false, 0);
-    // Invoke the command class handler
-    ZWave_Process_Command_Class(&ZWaveSerialFrame->payload[6], i);
-    LOG("-----------------------  Command data  END  -----------------------\r\n");
+    LOG("%s: *** WARNING *** DSK %d getting processed, dropping received frame from DSK %d node 0x%04X\r\n",
+        __FUNCTION__, gucBootstrapDSK, lucDSKIndex, guiSourceNodeID);
   }
-  LOG("%s: Multicast destination node mask length = 0x%02X\r\n", __FUNCTION__, ZWaveSerialFrame->payload[6+i]);
-  int j = ZWaveSerialFrame->payload[6+i]; // Multicast destination node mask length
-  if (j)
-  {
-    LOG("-----------------------  Multicast destination node masks START -----------------------\r\n");
-    PrintBytes(&ZWaveSerialFrame->payload[7+i], j, false, 0);
-    LOG("-----------------------  Multicast destination node masks  END  -----------------------\r\n");
-  }
-  LOG("%s: Received RSSI                          = 0x%02X\r\n", __FUNCTION__, ZWaveSerialFrame->payload[7+i+j]);
-  LOG("%s: Security key                           = 0x%02X\r\n", __FUNCTION__, ZWaveSerialFrame->payload[8+i+j]);
-  LOG("%s: Source Tx power                        = 0x%02X\r\n", __FUNCTION__, ZWaveSerialFrame->payload[9+i+j]);
-  LOG("%s: Source noise floor                     = 0x%02X\r\n", __FUNCTION__, ZWaveSerialFrame->payload[10+i+j]);
 
 }
 // end ZWave_RES_CMD_A8_Application_Command_Handler_Bridge
@@ -8495,10 +8686,10 @@ void ZWave_Rx_CC_31_Sensor_Multilevel_V11(void)
 {
   // Assume pgucCCBuffer and gucCCBufferLength have already been assigned
 
-  LOG("%s: Command class   = 0x%02X \r\n", __FUNCTION__, pgucCCBuffer[0]);
+  //LOG("%s: Command class   = 0x%02X \r\n", __FUNCTION__, pgucCCBuffer[0]);
   LOG("%s: - COMMAND_CLASS_SENSOR_MULTILEVEL_V11 \r\n", __FUNCTION__);
 
-  LOG("%s: Security header = 0x%02X \r\n", __FUNCTION__, pgucCCBuffer[1]);
+  //LOG("%s: Security header = 0x%02X \r\n", __FUNCTION__, pgucCCBuffer[1]);
   switch (pgucCCBuffer[1])
   {
   case SENSOR_MULTILEVEL_SUPPORTED_GET_SENSOR_V11:
@@ -8555,22 +8746,22 @@ void ZWave_Rx_CC_31_Sensor_Multilevel_V11(void)
   {
     LOG("%s: Sensor type      = 0x%02X \r\n", __FUNCTION__, pgucCCBuffer[2]);
     ZWave_Identify_Multilevel_Sensor_SensorType(pgucCCBuffer[2]);
-    LOG("%s: Scale bitmask    = 0x%02X \r\n", __FUNCTION__, pgucCCBuffer[3]);
-    LOG("%s: - Scale          = 0x%02X \r\n", __FUNCTION__, (pgucCCBuffer[3] & SENSOR_MULTILEVEL_REPORT_LEVEL_SCALE_MASK_V11) >> SENSOR_MULTILEVEL_REPORT_LEVEL_SCALE_SHIFT_V11);
+    //LOG("%s: Scale bitmask    = 0x%02X \r\n", __FUNCTION__, pgucCCBuffer[3]);
+    //LOG("%s: - Scale          = 0x%02X \r\n", __FUNCTION__, (pgucCCBuffer[3] & SENSOR_MULTILEVEL_REPORT_LEVEL_SCALE_MASK_V11) >> SENSOR_MULTILEVEL_REPORT_LEVEL_SCALE_SHIFT_V11);
   }
 
   //  ------------------- SENSOR_MULTILEVEL_REPORT_V11 -----------------------------------------
   if (SENSOR_MULTILEVEL_REPORT_V11             == pgucCCBuffer[1])
   {
-    LOG("%s: Sensor type      = 0x%02X \r\n", __FUNCTION__, pgucCCBuffer[2]);
+    //LOG("%s: Sensor type      = 0x%02X \r\n", __FUNCTION__, pgucCCBuffer[2]);
     ZWave_Identify_Multilevel_Sensor_SensorType(pgucCCBuffer[2]);
-    LOG("%s: Precision/Scale/Size = 0x%02X \r\n", __FUNCTION__, pgucCCBuffer[3]);
-    LOG("%s: - Precision          = 0x%02X \r\n", __FUNCTION__, (pgucCCBuffer[3] & SENSOR_MULTILEVEL_REPORT_LEVEL_PRECISION_MASK_V11) >> SENSOR_MULTILEVEL_REPORT_LEVEL_PRECISION_SHIFT_V11);
-    LOG("%s: - Scale              = 0x%02X \r\n", __FUNCTION__, (pgucCCBuffer[3] & SENSOR_MULTILEVEL_REPORT_LEVEL_SCALE_MASK_V11) >> SENSOR_MULTILEVEL_REPORT_LEVEL_SCALE_SHIFT_V11);
-    LOG("%s: - Size               = 0x%02X \r\n", __FUNCTION__, (pgucCCBuffer[3] & SENSOR_MULTILEVEL_REPORT_LEVEL_SIZE_MASK_V11) );
+    //LOG("%s: Precision/Scale/Size = 0x%02X \r\n", __FUNCTION__, pgucCCBuffer[3]);
+    //LOG("%s: - Precision          = 0x%02X \r\n", __FUNCTION__, (pgucCCBuffer[3] & SENSOR_MULTILEVEL_REPORT_LEVEL_PRECISION_MASK_V11) >> SENSOR_MULTILEVEL_REPORT_LEVEL_PRECISION_SHIFT_V11);
+    //LOG("%s: - Scale              = 0x%02X \r\n", __FUNCTION__, (pgucCCBuffer[3] & SENSOR_MULTILEVEL_REPORT_LEVEL_SCALE_MASK_V11) >> SENSOR_MULTILEVEL_REPORT_LEVEL_SCALE_SHIFT_V11);
+    //LOG("%s: - Size               = 0x%02X \r\n", __FUNCTION__, (pgucCCBuffer[3] & SENSOR_MULTILEVEL_REPORT_LEVEL_SIZE_MASK_V11) );
     uint8_t lucSize = pgucCCBuffer[3] & SENSOR_MULTILEVEL_REPORT_LEVEL_SIZE_MASK_V11;
-    LOG("%s: Sensor Value \r\n", __FUNCTION__);
-    PrintBytes(&pgucCCBuffer[4], lucSize, false, 0);
+    //LOG("%s: Sensor Value \r\n", __FUNCTION__);
+    //PrintBytes(&pgucCCBuffer[4], lucSize, false, 0);
   }
 
   //  ------------------- SENSOR_MULTILEVEL_SUPPORTED_SCALE_REPORT_V11 -----------------------------------------
@@ -8938,8 +9129,8 @@ void ZWave_Rx_CC_9F_Security_2_V2(void)
     if (lucFromBootstrap) gucIsBootstrapEncryptedMsgReceived = TRUE;
     else                  gucIsEncryptedMsgReceived          = TRUE;
 
-    LOG("%s: Sequence number = 0x%02X \r\n", __FUNCTION__, pgucCCBuffer[2]);
-    LOG("%s: Extensions      = 0x%02X \r\n", __FUNCTION__, pgucCCBuffer[3]);
+    //LOG("%s: Sequence number = 0x%02X \r\n", __FUNCTION__, pgucCCBuffer[2]);
+    //LOG("%s: Extensions      = 0x%02X \r\n", __FUNCTION__, pgucCCBuffer[3]);
     uint8_t lucExtensionsPresent;
     if (pgucCCBuffer[3] & SECURITY_2_MESSAGE_ENCAPSULATION_PROPERTIES1_EXTENSION_BIT_MASK_V2)
     {
@@ -8948,7 +9139,7 @@ void ZWave_Rx_CC_9F_Security_2_V2(void)
     }
     else
     {
-      LOG("%s: - No extensions present \r\n", __FUNCTION__);
+      //LOG("%s: - No extensions present \r\n", __FUNCTION__);
       lucExtensionsPresent = false;
     }
     //uint8_t lucEncryptedExtensionsPresent;
@@ -8959,7 +9150,7 @@ void ZWave_Rx_CC_9F_Security_2_V2(void)
     }
     else
     {
-      LOG("%s: - No encrypted extensions present \r\n", __FUNCTION__);
+      //LOG("%s: - No encrypted extensions present \r\n", __FUNCTION__);
       //lucEncryptedExtensionsPresent = false;
     }
 
@@ -9049,7 +9240,7 @@ void ZWave_Rx_CC_9F_Security_2_V2(void)
     // TODO parse encrypted extensions (if present - and if necessary: the encrypted extensions might follow seamlessly with the unencrypted extensions)
 
     uint8_t lucCCMOffset = 4 + lucExtensionOffset;
-    LOG("%s: CCM Ciphertext... \r\n", __FUNCTION__);
+    //LOG("%s: CCM Ciphertext... \r\n", __FUNCTION__);
     /////////////////////////////////////////////////////////////////////////////////
     //// TEST MAB 2026.09.25
     //// Per Claude suggestion, check against truncated received
@@ -9064,16 +9255,16 @@ void ZWave_Rx_CC_9F_Security_2_V2(void)
     gucReceivedCiphertextLength = gucCCBufferLength - lucCCMOffset - AUTH_TAG_LENGTH;
     memset(gucReceivedCiphertext, 0x00, sizeof(gucReceivedCiphertext));
     memcpy(gucReceivedCiphertext, &pgucCCBuffer[lucCCMOffset], gucReceivedCiphertextLength);
-    PrintBytes(gucReceivedCiphertext, gucReceivedCiphertextLength, false, 0);
-    LOG("%s: - saving ciphertext, length %d bytes \r\n", __FUNCTION__, gucReceivedCiphertextLength);
+    //PrintBytes(gucReceivedCiphertext, gucReceivedCiphertextLength, false, 0);
+    //LOG("%s: - saving ciphertext, length %d bytes \r\n", __FUNCTION__, gucReceivedCiphertextLength);
 
     lucCCMOffset += gucReceivedCiphertextLength;
-    LOG("%s: CCM Auth Tag... \r\n", __FUNCTION__);
+    //LOG("%s: CCM Auth Tag... \r\n", __FUNCTION__);
     gucReceivedAuthTagLength = AUTH_TAG_LENGTH;
     memset(gucReceivedAuthTag, 0x00, sizeof(gucReceivedAuthTag));
     memcpy(gucReceivedAuthTag, &pgucCCBuffer[lucCCMOffset], gucReceivedAuthTagLength);
-    PrintBytes(gucReceivedAuthTag, gucReceivedAuthTagLength, false, 0);
-    LOG("%s: - saving Auth Tag, length %d bytes \r\n", __FUNCTION__, gucReceivedAuthTagLength);
+    //PrintBytes(gucReceivedAuthTag, gucReceivedAuthTagLength, false, 0);
+    //LOG("%s: - saving Auth Tag, length %d bytes \r\n", __FUNCTION__, gucReceivedAuthTagLength);
 
     //
     // TEST MAB 2026.02.20
@@ -9097,8 +9288,8 @@ void ZWave_Rx_CC_9F_Security_2_V2(void)
       gucTemporaryAADLength = ZWave_S2_Build_AAD(gucTemporaryAAD, guiSourceNodeID, guiZWaveNodeID,
                                                  gulZWaveHomeID, gucCCBufferLength,
                                                  &pgucCCBuffer[2], 2 + lucExtensionOffset);
-      LOG("%s: Temporary AAD (%d bytes) \r\n", __FUNCTION__, gucTemporaryAADLength);
-      PrintBytes(gucTemporaryAAD, gucTemporaryAADLength, false, 0);
+      //LOG("%s: Temporary AAD (%d bytes) \r\n", __FUNCTION__, gucTemporaryAADLength);
+      //PrintBytes(gucTemporaryAAD, gucTemporaryAADLength, false, 0);
     }
 
   } // end if (SECURITY_2_MESSAGE_ENCAPSULATION_V2 == pgucCCBuffer[1])
@@ -9798,7 +9989,7 @@ uint8_t ZWave_Scan_ProvisioningList_For_NodeID(uint16_t auiNodeID)
       if (gtNodeProvisioningList[i].NodeID == auiNodeID)
       {
         lucReturnValue = i;
-        LOG("%s: DSK %d appears to be a match! \r\n", __FUNCTION__, i);
+        //LOG("%s: DSK %d appears to be a match! \r\n", __FUNCTION__, i);
         break;
       }
     }
@@ -13267,6 +13458,28 @@ void ZWaveTask(void *argument)
     gtNodeProvisioningList[lucAvailableDSKIndex].lr_capable = ZWAVE_NODE_PROVISIONING_LIST_MESH_ONLY;
     LOG("%s: DSK %d: %s\r\n", __FUNCTION__, lucAvailableDSKIndex, lucDSKString);
   }
+  // ----- Set up a 4th valid DSK for existing End node
+  LOG("%s: Valid DSKs\r\n", __FUNCTION__);
+  lucAvailableDSKIndex = ZWave_DSK_Find_Zeroized();
+  if (lucAvailableDSKIndex != DSK_UNAVAILABLE)
+  {
+    gtNodeProvisioningList[lucAvailableDSKIndex].NodeID = NODE_ID_UNAVAILABLE; // initialize NodeID
+    ZWave_DSK_Write_From_String(lucAvailableDSKIndex, "12772-24569-24423-34638-41530-36081-16222-17305");
+    memset(lucDSKString, 0x00, sizeof(lucDSKString));
+    ZWave_DSK_Write_To_String(lucAvailableDSKIndex, lucDSKString);
+    LOG("%s: DSK %d: %s\r\n", __FUNCTION__, lucAvailableDSKIndex, lucDSKString);
+  }
+  // ----- Set up a 5th valid DSK for existing End node
+  LOG("%s: Valid DSKs\r\n", __FUNCTION__);
+  lucAvailableDSKIndex = ZWave_DSK_Find_Zeroized();
+  if (lucAvailableDSKIndex != DSK_UNAVAILABLE)
+  {
+    gtNodeProvisioningList[lucAvailableDSKIndex].NodeID = NODE_ID_UNAVAILABLE; // initialize NodeID
+    ZWave_DSK_Write_From_String(lucAvailableDSKIndex, "41725-01099-50623-08249-26780-32158-56795-32726");
+    memset(lucDSKString, 0x00, sizeof(lucDSKString));
+    ZWave_DSK_Write_To_String(lucAvailableDSKIndex, lucDSKString);
+    LOG("%s: DSK %d: %s\r\n", __FUNCTION__, lucAvailableDSKIndex, lucDSKString);
+  }
   LOG("%s: --------- END Initializing Node Provisioning list ---------\r\n", __FUNCTION__);
   guiLiveNodeCount = ZWave_DSK_Count_Live_NodeIDs();
 
@@ -13430,7 +13643,7 @@ void ZWaveTask(void *argument)
       switch (luiZWaveQueueEventID)
       {
         case msgid_MAIN_ZWAVE_EXCLUSION:
-          LOG("%s: Entering Exclusion mode (deleting a node)\r\n", __FUNCTION__);
+          //LOG("%s: Entering Exclusion mode (deleting a node)\r\n", __FUNCTION__);
           #if ENABLE_ZWAVE_CONTROLLER_HOST
           // Start exclusion mode
           ZWave_Send_REQ_CMD_4B_Remove_Node_from_Network(REMOVE_NODE_ANY, gucSessionID);
@@ -13594,6 +13807,7 @@ void ZWaveTask(void *argument)
     //// Periodically update the local copy of LR node list
     //// TEST MAB 2026.11.02
     //// Give priority to any DSK being processed or just busy
+    //// Also update the local copy of mesh nodes
     if (0 == lucCountdownToUpdateNodeIDList_minutes && !ZWave_DSK_IsProcessing() && !ZWave_DSK_IsBusy())
     {
       lucCountdownToUpdateNodeIDList_minutes = NODE_PL_UPDATE_INTERVAL_MINUTES;
@@ -13601,6 +13815,8 @@ void ZWaveTask(void *argument)
       #if ENABLE_ZWAVE_CONTROLLER_HOST
       // Fetch latest LR node list
       ZWave_Send_REQ_CMD_DA_Serial_API_Get_LR_Nodes();
+      // Also fetch latest mesh node list
+      ZWave_Send_REQ_CMD_02_Serial_API_Get_Init_Data();
       #endif
     }
     //////////////////////////////////////////////////////////////////////////////
@@ -13612,89 +13828,35 @@ void ZWaveTask(void *argument)
     //// remove the NodeID from the network.
     //// TEST MAB 2026.11.02
     //// Give priority to any DSK being processed or just busy
-    static uint16_t luiAbandonedNodeID = 0;
-    static uint8_t lucSendDataBuffer[10];
-    static uint8_t lucIsAbandonedNodeIDSearchActive;
-    if ( (0 == lulCountdownToCheckAbandonedNodeID_seconds) && (guiActiveNodeCount != guiLiveNodeCount)  && !ZWave_DSK_IsProcessing() && !ZWave_DSK_IsBusy())
+    //// Also periodically check for abandoned mesh NodeIDs
+    static uint8_t lucMeshNodeListNeedsRefresh = TRUE;
+    if ( (10 >= lulCountdownToCheckAbandonedNodeID_seconds) &&
+         lucMeshNodeListNeedsRefresh                        &&
+         (guiActiveNodeCount != guiLiveNodeCount)           &&
+         !ZWave_DSK_IsProcessing()                          &&
+         !ZWave_DSK_IsBusy()                                   )
+    {
+      // Update the mesh node list
+      #if ENABLE_ZWAVE_CONTROLLER_HOST
+      ZWave_Send_REQ_CMD_02_Serial_API_Get_Init_Data();
+      #endif
+
+      lucMeshNodeListNeedsRefresh = FALSE;
+    }
+    if ( (0 == lulCountdownToCheckAbandonedNodeID_seconds) &&
+         (guiActiveNodeCount != guiLiveNodeCount)          &&
+         !ZWave_DSK_IsProcessing()                         &&
+         !ZWave_DSK_IsBusy()                                     )
     {
       //lulCountdownToCheckAbandonedNodeID_seconds = 300 + RandomValue()%60; // 5-6 minutes
       lulCountdownToCheckAbandonedNodeID_seconds = 60 + RandomValue()%60; // 1-2 minutes
       //lulCountdownToCheckAbandonedNodeID_seconds = 30 + RandomValue()%10; // 30-40 seconds
       //lulCountdownToCheckAbandonedNodeID_seconds = 10 + RandomValue()%10; // 10-20 seconds
 
-      // Look for a NodeID in the node list that IS NOT a live NodeID
-      // IF such a NodeID is found, assume it's a "failed" node and
-      // delete it from the node list
-      lucIsAbandonedNodeIDSearchActive = TRUE;
-      while (lucIsAbandonedNodeIDSearchActive)
-      {
-        luiAbandonedNodeID = ZW_NodeMaskGetNextNodeIndex(luiAbandonedNodeID, gucLRNodes);
-        if (0==luiAbandonedNodeID)
-        {
-          // No further NodeIDs found in node list; search is done
-          lucIsAbandonedNodeIDSearchActive = FALSE;
-        }
-        else
-        {
-          // Check if candidate NodeID is actually a live one (i.e. in the node provisioning list)
-          if ( DSK_UNAVAILABLE == ZWave_Scan_ProvisioningList_For_NodeID(luiAbandonedNodeID) )
-          {
-            // Candidate NodeID is NOT in the node provisioning list, so consider it failed. Search is done
-            lucIsAbandonedNodeIDSearchActive = FALSE;
-          }
-        }
-      } // end while lucIsAbandonedNodeIDSearchActive
+      ZWave_Housekeeping_Delete_Abandoned_LR_NodeID();
+      ZWave_Housekeeping_Delete_Abandoned_Mesh_NodeID();
 
-      // Delete the abandoned NodeID
-      if (luiAbandonedNodeID)
-      {
-        // (we've found the next abandoned NodeID in the current LR node list)
-        // "Ping" the node
-        // (Attempt to communicate with the failed node: failure -> failed NodeID added to failed node list)
-        guiNodeID = luiAbandonedNodeID;
-        gucSessionID = ZWave_SessionID_Randomize();
-        lucSendDataBuffer[0] = COMMAND_CLASS_SECURITY_2_V2;
-        lucSendDataBuffer[1] = SECURITY_2_NONCE_GET_V2;
-        lucSendDataBuffer[2] = gucSessionID;
-        #if ENABLE_ZWAVE_CONTROLLER_HOST
-        ZWave_Send_REQ_CMD_13_Send_Data(luiAbandonedNodeID, 3, lucSendDataBuffer, TRANSMIT_OPTION_ACK, gucSessionID);
-        #endif
-
-        // Check if the specified NodeID is in the controller's failed nodes list
-        guiNodeID = luiAbandonedNodeID;
-        #if ENABLE_ZWAVE_CONTROLLER_HOST
-        ZWave_Send_REQ_CMD_62_Is_Node_Failed(luiAbandonedNodeID);
-        #endif
-
-        // Remove the failed node from the network
-        gucSessionID = ZWave_SessionID_Randomize();
-        //gucSessionID = ZWave_SessionID_Update(gucSessionID);
-        guiNodeID = luiAbandonedNodeID;
-        #if ENABLE_ZWAVE_CONTROLLER_HOST
-        ZWave_Send_REQ_CMD_61_Remove_Failed_Node(gucSessionID, luiAbandonedNodeID);
-        #endif
-      }
-      ////////////////////////////////////////
-      // MAB 2026.01.14
-      // During Z-Wave Sentinel development, when abandoned NodeIDs may be plentiful,
-      // will need to update the local copy of the NodeID list more frequently.
-      // In the final deliverable firmware probably don't need this ELSE case,
-      // can rely on the separate periodic update of the local copy of the NodeID list.
-      // MAB 2026.10.29
-      // There is also a need to cleanup abandoned classical mesh NodeIDs. Remember
-      // the Z-Wave Sentinel controller itself has its own NodeID within the list
-      // of classical mesh NodeIDs, so don't delete ourselves.
-      // For now, the hack will be to increment the active node count when a
-      // mesh node gets included, and decrement when excluded.
-      else if (guiActiveNodeCount || (guiActiveNodeCount != guiLiveNodeCount) )
-      {
-        // (no more NodeIDs to check in the current LR node list)
-        // Fetch latest LR node list
-        #if ENABLE_ZWAVE_CONTROLLER_HOST
-        ZWave_Send_REQ_CMD_DA_Serial_API_Get_LR_Nodes();
-        #endif
-      }
-      ////////////////////////////////////////
+      lucMeshNodeListNeedsRefresh = TRUE;
 
     } // endif time to check for abandoned NodeIDs
 
@@ -13826,7 +13988,7 @@ void ZWaveTask(void *argument)
       // Validate NodeID and associated DSK to see if decrypt should proceed
       LOG("%s: Encrypted message received; guiSourceNodeID = 0x%04X \r\n", __FUNCTION__, guiSourceNodeID);
       lucDSKIndex = ZWave_Scan_ProvisioningList_For_NodeID(guiSourceNodeID);
-      LOG("%s: - NodeID 0x%04X associated with DSK %d\r\n", __FUNCTION__, guiSourceNodeID, lucDSKIndex);
+      //LOG("%s: - NodeID 0x%04X associated with DSK %d\r\n", __FUNCTION__, guiSourceNodeID, lucDSKIndex);
       if (lucDSKIndex >= NODE_PROVISIONING_LIST_COUNT)
       {
         LOG("%s: - *** WARNING *** node 0x%04X is NOT associated with any DSK, so will not decrypt \r\n", __FUNCTION__, guiSourceNodeID);
