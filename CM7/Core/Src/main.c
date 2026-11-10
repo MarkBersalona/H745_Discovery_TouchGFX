@@ -7732,11 +7732,11 @@ void ZWave_REQ_CMD_49_ZW_Application_Update(void)
       // Check if any DSKs are currently being processed or busy, if none then change DSK status to DETECTED
       if (ZWave_DSK_IsProcessing())
       {
-        LOG("%s: *** WARNING *** A DSK is already being processed\r\n", __FUNCTION__);
+        LOG("%s: *** WARNING *** A DSK is already being processed, dropping DSK %d NWI HomeID 0x%08X\r\n", __FUNCTION__, lucCandidateDSKIndex, lulNWIHomeID);
       }
       else if (ZWave_DSK_IsBusy())
       {
-        LOG("%s: *** WARNING *** Another DSK is busy\r\n", __FUNCTION__);
+        LOG("%s: *** WARNING *** Another DSK is busy, dropping DSK %d NWI HomeID 0x%08X\r\n", __FUNCTION__, lucCandidateDSKIndex, lulNWIHomeID);
       }
       else if ( (UPDATE_STATE_NODE_INFO_SMARTSTART_HOMEID_RECEIVED==lucEvent     && !gtNodeProvisioningList[lucCandidateDSKIndex].lr_capable)
                                                                                  ||
@@ -13735,6 +13735,7 @@ void ZWaveTask(void *argument)
         }
         ///////////////////////////////////////////////////
         // Sensor Notification
+        // Aeotec aerQ ZWA039-A Temperature and Humidity Sensor
         ///////////////////////////////////////////////////
         if (GENERIC_TYPE_SENSOR_NOTIFICATION == gtNodeConnectionList[gucProcessingDSK].GenericDeviceType &&
             SPECIFIC_TYPE_NOTIFICATION_SENSOR == gtNodeConnectionList[gucProcessingDSK].SpecificDeviceType)
@@ -13755,11 +13756,6 @@ void ZWaveTask(void *argument)
           // Initialize countdown to next battery poll
           gtNodeConnectionList[gucProcessingDSK].BatteryPollCountdown = NODE_BATTERY_POLL_INTERVAL_SECONDS;
         }
-        ///////////////////////////////////////////////////
-        // Node is connected now, clear global "pointers" to it
-        ///////////////////////////////////////////////////
-        //guiSourceNodeID = NODE_ID_UNAVAILABLE;
-        //gucProcessingDSK = DSK_UNAVAILABLE;
         /////////////////////////////////////////////////////////////////
       }
 
@@ -13792,9 +13788,12 @@ void ZWaveTask(void *argument)
     //// Transmit queued CC commands for/to CONNECTED end nodes
     //// TEST MAB 2026.11.02
     //// Give priority to an end node joining (or excluding)
+    //// TEST MAB 2026.11.09
+    //// Allow one more service if no more Tx queued but still awake (to let WNMI go out)
     for (uint8_t lucDSKIndex = 0; lucDSKIndex < NODE_PROVISIONING_LIST_COUNT; ++lucDSKIndex)
     {
-      if (!ZWave_DSK_IsProcessing() && ZWave_DSK_IsConnected(lucDSKIndex) && gtNodeConnectionList[lucDSKIndex].TxQCount)
+      if (!ZWave_DSK_IsProcessing() && ZWave_DSK_IsConnected(lucDSKIndex) &&
+          (gtNodeConnectionList[lucDSKIndex].TxQCount || gtNodeConnectionList[lucDSKIndex].isAwake))
       {
         ZWave_TxQ_Service(lucDSKIndex);
       }

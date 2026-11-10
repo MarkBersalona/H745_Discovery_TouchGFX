@@ -408,10 +408,12 @@ typedef struct {
 #define NODE_TXQ_DEPTH          (10)
 #define NODE_TXQ_REPORT_TMO_MS  (S2_RESEND_WINDOW_MS + 2000)   // must exceed S2_RESEND_WINDOW_MS (SOS + resend round trip)
 #define NODE_TXQ_RETRIES        (2)
-#define NODE_TXQ_SOS_GRACE_MS   (500)
+//// TEST MAB 2026.11.10 #define NODE_TXQ_SOS_GRACE_MS   (500)
+#define NODE_TXQ_SOS_GRACE_MS   (300)
 
 #define NODE_BATTERY_POLL_INTERVAL_SECONDS (60*60)
 #define NODE_WAKEUP_INTERVAL_SECONDS (60)
+//// TEST MAB 2026.11.09 #define NODE_WAKEUP_INTERVAL_SECONDS (20)
 
 typedef enum { TXQ_IDLE, TXQ_WAIT_TX_DONE, TXQ_WAIT_REPORT, TXQ_WAIT_SOS } txq_state_t;
 
