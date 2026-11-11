@@ -6561,6 +6561,8 @@ void ZWave_Process_Command_Class(uint8_t* paucCCBuffer, uint8_t aucCCLength)
   */
 void ZWave_RES_CMD_02_Get_Init_Data(void)
 {
+  uint8_t lucActiveMeshNodeCount = 0;
+
   // Display received frame data
   //ZWave_Display_Received_Frame_Data();
 
@@ -6625,10 +6627,15 @@ void ZWave_RES_CMD_02_Get_Init_Data(void)
         if (gucMeshNodes[i] & (1<<j))
         {
           LOG("%s: - Node %d (0x%04X) is active \r\n", __FUNCTION__, lucActiveNode, lucActiveNode);
+          ++lucActiveMeshNodeCount;
         }
       }
     }
     LOG("%s: -------------------------------------- \r\n", __FUNCTION__);
+
+    gucActiveMeshNodeCount = lucActiveMeshNodeCount - 1; // don't count the controller's NodeID
+    LOG("%s: Active node count: %04d \r\n", __FUNCTION__, guiActiveNodeCount + gucActiveMeshNodeCount);
+
   }
   else
   {
@@ -8342,7 +8349,7 @@ void ZWave_RES_CMD_A8_Application_Command_Handler_Bridge(void)
       ZWave_Process_Command_Class(&ZWaveSerialFrame->payload[6], i);
       LOG("-----------------------  Command data  END  -----------------------\r\n");
     }
-    LOG("%s: Multicast destination node mask length = 0x%02X\r\n", __FUNCTION__, ZWaveSerialFrame->payload[6+i]);
+    //LOG("%s: Multicast destination node mask length = 0x%02X\r\n", __FUNCTION__, ZWaveSerialFrame->payload[6+i]);
     int j = ZWaveSerialFrame->payload[6+i]; // Multicast destination node mask length
     if (j)
     {
@@ -8445,18 +8452,18 @@ void ZWave_RES_CMD_DA_Serial_API_Get_LR_Nodes(void)
   LOG("%s: -------------------------------------- \r\n", __FUNCTION__);
 
   // Adjust guiActiveNodeCount if needed
-  guiActiveNodeCount = luiActiveNodeCount + gucActiveMeshNodeCount;
+  guiActiveNodeCount = luiActiveNodeCount;
 
-  LOG("%s: Active node count: %04d \r\n", __FUNCTION__, guiActiveNodeCount);
+  LOG("%s: Active node count: %04d \r\n", __FUNCTION__, guiActiveNodeCount + gucActiveMeshNodeCount);
 
   // Save the LR nodes bitmask array
   memcpy(gucLRNodes, &ZWaveSerialFrame->payload[3], MAX_LR_NODEMASK_LENGTH);
   //LOG("%s: Copy of BITMASK_ARRAY: \r\n", __FUNCTION__);
   //PrintBytes(gucLRNodes, MAX_LR_NODEMASK_LENGTH, false, 0);
 
-  if (guiActiveNodeCount == guiLiveNodeCount)
+  if (guiActiveNodeCount + gucActiveMeshNodeCount == guiLiveNodeCount)
   {
-    LOG("%s: Live node count == Active node count: %04d \r\n", __FUNCTION__, guiActiveNodeCount);
+    LOG("%s: Live node count == Active node count: %04d \r\n", __FUNCTION__, guiActiveNodeCount + gucActiveMeshNodeCount);
   }
 
   // Display RTC in debug output
@@ -8744,7 +8751,7 @@ void ZWave_Rx_CC_31_Sensor_Multilevel_V11(void)
   //  ------------------- SENSOR_MULTILEVEL_GET_V11 -----------------------------------------
   if (SENSOR_MULTILEVEL_GET_V11             == pgucCCBuffer[1])
   {
-    LOG("%s: Sensor type      = 0x%02X \r\n", __FUNCTION__, pgucCCBuffer[2]);
+    //LOG("%s: Sensor type      = 0x%02X \r\n", __FUNCTION__, pgucCCBuffer[2]);
     ZWave_Identify_Multilevel_Sensor_SensorType(pgucCCBuffer[2]);
     //LOG("%s: Scale bitmask    = 0x%02X \r\n", __FUNCTION__, pgucCCBuffer[3]);
     //LOG("%s: - Scale          = 0x%02X \r\n", __FUNCTION__, (pgucCCBuffer[3] & SENSOR_MULTILEVEL_REPORT_LEVEL_SCALE_MASK_V11) >> SENSOR_MULTILEVEL_REPORT_LEVEL_SCALE_SHIFT_V11);
@@ -11809,18 +11816,6 @@ SmartStartState ZWave_SmartStart_StateMachine(SmartStartStateMachineCommand stat
           leSmartStartState                               = SMARTSTART_READY;
           gtNodeProvisioningList[gucProcessingDSK].status  = SMARTSTART_READY;
 
-          ////////////////////////////////////////////////////////////
-          //// TEST MAB 2026.10.29
-          //// For now, if classical mesh i.e. NodeID < 0xFF,
-          //// decrement active node count
-          if (FALSE == gtNodeProvisioningList[gucProcessingDSK].lr_capable)
-          {
-            if (gucActiveMeshNodeCount) --gucActiveMeshNodeCount;
-            if (guiActiveNodeCount)     --guiActiveNodeCount;
-            LOG("%s: Active node count: %04d \r\n", __FUNCTION__, guiActiveNodeCount);
-          }
-          ////////////////////////////////////////////////////////////
-
           gucProcessingDSK = DSK_UNAVAILABLE;
           guiLiveNodeCount = ZWave_DSK_Count_Live_NodeIDs();
           gucBootstrapDSK = DSK_UNAVAILABLE;
@@ -11913,17 +11908,6 @@ SmartStartState ZWave_SmartStart_StateMachine(SmartStartStateMachineCommand stat
         leSmartStartState                               = SMARTSTART_CONNECTED;
         gtNodeProvisioningList[gucBootstrapDSK].status = SMARTSTART_CONNECTED;
         guiLiveNodeCount = ZWave_DSK_Count_Live_NodeIDs();
-        ////////////////////////////////////////////////////////////
-        //// TEST MAB 2026.10.29
-        //// For now, if classical mesh i.e. NodeID < 0xFF,
-        //// increment active node count
-        if (FALSE == gtNodeProvisioningList[gucBootstrapDSK].lr_capable)
-        {
-          ++gucActiveMeshNodeCount;
-          ++guiActiveNodeCount;
-          LOG("%s: Active node count: %04d \r\n", __FUNCTION__, guiActiveNodeCount);
-        }
-        ////////////////////////////////////////////////////////////
 
         // Display RTC in debug output
         luiMessageQueueBuffer = msgid_MAIN_DISPLAY_RTC;
@@ -13829,9 +13813,12 @@ void ZWaveTask(void *argument)
     //// Give priority to any DSK being processed or just busy
     //// Also periodically check for abandoned mesh NodeIDs
     static uint8_t lucMeshNodeListNeedsRefresh = TRUE;
+
+    // 10 seconds before checking for abandoned NodeIDs,
+    // update the mesh node list
     if ( (10 >= lulCountdownToCheckAbandonedNodeID_seconds) &&
          lucMeshNodeListNeedsRefresh                        &&
-         (guiActiveNodeCount != guiLiveNodeCount)           &&
+         (guiActiveNodeCount+gucActiveMeshNodeCount != guiLiveNodeCount)           &&
          !ZWave_DSK_IsProcessing()                          &&
          !ZWave_DSK_IsBusy()                                   )
     {
@@ -13842,8 +13829,11 @@ void ZWaveTask(void *argument)
 
       lucMeshNodeListNeedsRefresh = FALSE;
     }
+
+    // IF it's time to check for abandoned NodeIDs, active node count and live node count don't match,
+    // AND no other DSK is being processed or busy
     if ( (0 == lulCountdownToCheckAbandonedNodeID_seconds) &&
-         (guiActiveNodeCount != guiLiveNodeCount)          &&
+         (guiActiveNodeCount+gucActiveMeshNodeCount != guiLiveNodeCount)          &&
          !ZWave_DSK_IsProcessing()                         &&
          !ZWave_DSK_IsBusy()                                     )
     {
@@ -13852,9 +13842,11 @@ void ZWaveTask(void *argument)
       //lulCountdownToCheckAbandonedNodeID_seconds = 30 + RandomValue()%10; // 30-40 seconds
       //lulCountdownToCheckAbandonedNodeID_seconds = 10 + RandomValue()%10; // 10-20 seconds
 
+      // Check for and clear an abandoned LR or mesh NodeID, if any
       ZWave_Housekeeping_Delete_Abandoned_LR_NodeID();
       ZWave_Housekeeping_Delete_Abandoned_Mesh_NodeID();
 
+      // Update the mesh node list next time around
       lucMeshNodeListNeedsRefresh = TRUE;
 
     } // endif time to check for abandoned NodeIDs
