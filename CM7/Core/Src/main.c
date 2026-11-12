@@ -946,6 +946,7 @@ static void ZWave_S2_Encapsulate_And_Send_Temporary(uint8_t aucDSKIndex, const u
 uint8_t ZWave_Scan_ProvisioningList_For_DSK(uint8_t* paucDSKBuffer, uint8_t aucNeedExactMatch);
 uint8_t ZWave_Scan_ProvisioningList_For_NodeID(uint16_t auiNodeID);
 uint8_t ZWave_Scan_ProvisioningList_For_NWIHomeID(uint32_t aulNWIHomeID);
+void ZWave_Send_Battery_Get(uint16_t auiNodeID);
 void ZWave_Send_Encrypted_Data_Temporary(uint16_t auiNodeID, uint8_t* paucPlaintextBuffer, uint8_t aucPlaintextLength);
 void ZWave_Send_Multilevel_Sensor_Get(uint16_t auiNodeID, uint8_t aucSensorType, uint8_t aucSensorScale);
 void ZWave_Send_Multilevel_Sensor_Get_Supported_Scale(uint16_t auiNodeID, uint8_t aucSensorType);
@@ -6540,6 +6541,25 @@ void ZWave_Pop_Command_Queue(void)
 // end ZWave_Pop_Command_Queue
 
 /** *****************************************************************************************************************************
+  * @brief  Process Battery Report
+  * @param  aucDSKIndex - index into the Node Provisioning List and/or Node Connection List for the DSK/NodeID being processed
+  * @retval None
+  */
+void ZWave_Process_Battery_Report(uint8_t aucDSKIndex)
+{
+  // Reset countdown to next battery poll
+  gtNodeConnectionList[aucDSKIndex].BatteryPollCountdown = NODE_BATTERY_POLL_INTERVAL_SECONDS;
+
+  LOG("-----------------------  Battery Report START -----------------------\r\n");
+  // Invoke the command class handler
+  ZWave_Process_Command_Class(gucDecryptedPlaintext, gucReceivedCiphertextLength);
+  LOG("-----------------------  Battery Report  END  -----------------------\r\n");
+  uint8_t lucBatteryPercentage = gucDecryptedPlaintext[2];
+  LOG("Reading: Zone=%03d \t Timestamp=%d \t type=%02d \t Value=%d%% \r\n", (10*aucDSKIndex), sUNIXTime, 12, lucBatteryPercentage);
+}
+// end ZWave_Process_Battery_Report
+
+/** *****************************************************************************************************************************
   * @brief  Process Command Class command
   * @param  uint8_t* paucCCBuffer - pointer to buffer containing Command Class command
   * @param  uint8_t aucCCLength   - length (in bytes) of Command Class command
@@ -6553,6 +6573,154 @@ void ZWave_Process_Command_Class(uint8_t* paucCCBuffer, uint8_t aucCCLength)
   gtZWave_CC_Handler[pgucCCBuffer[0]]();
 }
 // end ZWave_Process_Command_Class
+
+/** *****************************************************************************************************************************
+  * @brief  Process Multilevel Sensor Report
+  * @param  aucDSKIndex - index into the Node Provisioning List and/or Node Connection List for the DSK/NodeID being processed
+  * @retval None
+  */
+void ZWave_Process_Multilevel_Sensor_Report(uint8_t aucDSKIndex)
+{
+  static uint8_t lucSensorReadingPrecision;
+  static uint8_t lucSensorReadingScale;
+  static uint8_t lucSensorReadingSize;
+  static int32_t llSensorValue;
+
+  LOG("-----------------------  Multilevel Sensor Report START -----------------------\r\n");
+  // Invoke the command class handler
+  ZWave_Process_Command_Class(gucDecryptedPlaintext, gucReceivedCiphertextLength);
+  LOG("-----------------------  Multilevel Sensor Report  END  -----------------------\r\n");
+  lucSensorReadingPrecision = (gucDecryptedPlaintext[3] & SENSOR_MULTILEVEL_REPORT_LEVEL_PRECISION_MASK_V11) >> SENSOR_MULTILEVEL_REPORT_LEVEL_PRECISION_SHIFT_V11;
+  lucSensorReadingScale     = (gucDecryptedPlaintext[3] & SENSOR_MULTILEVEL_REPORT_LEVEL_SCALE_MASK_V11) >> SENSOR_MULTILEVEL_REPORT_LEVEL_SCALE_SHIFT_V11;
+  lucSensorReadingSize      = (gucDecryptedPlaintext[3] & SENSOR_MULTILEVEL_REPORT_LEVEL_SIZE_MASK_V11);
+  //llSensorValue = (int32_t)Convert_Bytes_uint32(&gucDecryptedPlaintext[4]);
+  if (4 ==lucSensorReadingSize)
+  {
+    llSensorValue = (int32_t)Convert_Bytes_uint32(&gucDecryptedPlaintext[4]);
+  }
+  else if (2 ==lucSensorReadingSize)
+  {
+    llSensorValue = (int32_t)Convert_Bytes_uint16(&gucDecryptedPlaintext[4]);
+  }
+  else if (1 ==lucSensorReadingSize)
+  {
+    llSensorValue = (int32_t)(gucDecryptedPlaintext[4]);
+  }
+  switch (lucSensorReadingPrecision)
+  {
+  case 3:
+    break;
+  case 2:
+    llSensorValue *= 10;
+    break;
+  case 1:
+    llSensorValue *= 100;
+    break;
+  case 0:
+    llSensorValue *= 1000;
+    break;
+  default:
+    LOG("%s: *** WARNING *** unexpected precision value %d \r\n", __FUNCTION__, lucSensorReadingPrecision);
+  }
+  if (SENSOR_MULTILEVEL_GET_TEMPERATURE_VERSION_1_V11 == gucDecryptedPlaintext[2])
+  {
+    LOG("Reading: Zone=%03d \t Timestamp=%d \t type=%02d \t Value=%d \r\n", (10*aucDSKIndex)+1, sUNIXTime,  2, llSensorValue); // Temperature Fahrenheit
+  }
+  if (SENSOR_MULTILEVEL_GET_LUMINANCE_VERSION_1_V11 == gucDecryptedPlaintext[2])
+  {
+    LOG("Reading: Zone=%03d \t Timestamp=%d \t type=%02d \t Value=%d \r\n", (10*aucDSKIndex)+3, sUNIXTime, 36, llSensorValue);
+  }
+  if (SENSOR_MULTILEVEL_GET_DEW_POINT_VERSION_2_V11 == gucDecryptedPlaintext[2])
+  {
+    LOG("Reading: Zone=%03d \t Timestamp=%d \t type=%02d \t Value=%d \r\n", (10*aucDSKIndex)+3, sUNIXTime, 36, llSensorValue);
+  }
+  if (SENSOR_MULTILEVEL_GET_RELATIVE_HUMIDITY_VERSION_2_V11 == gucDecryptedPlaintext[2])
+  {
+    LOG("Reading: Zone=%03d \t Timestamp=%d \t type=%02d \t Value=%d \r\n", (10*aucDSKIndex)+5, sUNIXTime, 10, llSensorValue);
+  }
+}
+// end ZWave_Process_Multilevel_Sensor_Report
+
+/** *****************************************************************************************************************************
+  * @brief  Process Multilevel Sensor Supported Sensor Report
+  * @param  aucDSKIndex - index into the Node Provisioning List and/or Node Connection List for the DSK/NodeID being processed
+  * @retval None
+  */
+void ZWave_Process_Multilevel_Sensor_Supported_Sensor_Report(uint8_t aucDSKIndex)
+{
+  LOG("-----------------------  Multilevel Sensor Supported Sensor Report START -----------------------\r\n");
+  // Invoke the command class handler
+  ZWave_Process_Command_Class(gucDecryptedPlaintext, gucReceivedCiphertextLength);
+  LOG("-----------------------  Multilevel Sensor Supported Sensor Report  END  -----------------------\r\n");
+  LOG("%s: Raw dump of supported sensor types for DSK %d \r\n", __FUNCTION__, aucDSKIndex);
+  PrintBytes(gtNodeConnectionList[aucDSKIndex].SensorTypes, sizeof(gtNodeConnectionList[aucDSKIndex].SensorTypes), false, 0);
+  //// Get some immediate readings from ALL sensor types
+  uint8_t lucSensorTypeIndex = 0;
+  while ((0x00 != gtNodeConnectionList[aucDSKIndex].SensorTypes[lucSensorTypeIndex]) && (lucSensorTypeIndex < sizeof(gtNodeConnectionList[aucDSKIndex].SensorTypes)))
+  {
+    if (SENSOR_MULTILEVEL_GET_TEMPERATURE_VERSION_1_V11 == gtNodeConnectionList[aucDSKIndex].SensorTypes[lucSensorTypeIndex])
+    {
+      ZWave_Send_Multilevel_Sensor_Get(guiSourceNodeID, gtNodeConnectionList[aucDSKIndex].SensorTypes[lucSensorTypeIndex], 1);
+    }
+    else
+    {
+      ZWave_Send_Multilevel_Sensor_Get(guiSourceNodeID, gtNodeConnectionList[aucDSKIndex].SensorTypes[lucSensorTypeIndex], 0);
+    }
+
+    ++lucSensorTypeIndex;
+  } // end while
+}
+// end ZWave_Process_Multilevel_Sensor_Supported_Sensor_Report
+
+/** *****************************************************************************************************************************
+  * @brief  Process Switch Multilevel Report
+  * @param  aucDSKIndex - index into the Node Provisioning List and/or Node Connection List for the DSK/NodeID being processed
+  * @retval None
+  */
+void ZWave_Process_Switch_Multilevel_Report(uint8_t aucDSKIndex)
+{
+  LOG("-----------------------  Switch Multilevel Report START -----------------------\r\n");
+  // Invoke the command class handler
+  ZWave_Process_Command_Class(gucDecryptedPlaintext, gucReceivedCiphertextLength);
+  LOG("-----------------------  Switch Multilevel Report  END  -----------------------\r\n");
+  LOG("Reading: Zone=%03d \t Timestamp=%d \t type=%02d \t Value=%d \r\n", (10*aucDSKIndex)+3, sUNIXTime, 36, gucDecryptedPlaintext[2]);
+}
+// end ZWave_Process_Switch_Multilevel_Report
+
+/** *****************************************************************************************************************************
+  * @brief  Process Wakeup Notification
+  * @param  aucDSKIndex - index into the Node Provisioning List and/or Node Connection List for the DSK/NodeID being processed
+  * @retval None
+  */
+void ZWave_Process_Wakeup_Notification(uint8_t aucDSKIndex)
+{
+  LOG("-----------------------  Wakeup Notification START -----------------------\r\n");
+  // Invoke the command class handler
+  ZWave_Process_Command_Class(gucDecryptedPlaintext, gucReceivedCiphertextLength);
+  LOG("-----------------------  Wakeup Notification  END  -----------------------\r\n");
+
+  if (!ZWave_DSK_IsProcessing())
+  {
+    //
+    // Set the node isAwake to "AWAKE"
+    //
+    gtNodeConnectionList[aucDSKIndex].isAwake = TRUE;
+
+    //
+    // If any messages to the remote sensor are pending,
+    // send them now while the remote sensor is awake
+    //
+    ZWave_Send_Multilevel_Sensor_Get(guiSourceNodeID, SENSOR_MULTILEVEL_GET_TEMPERATURE_VERSION_1_V11,       1); // Fahrenheit
+    ZWave_Send_Multilevel_Sensor_Get(guiSourceNodeID, SENSOR_MULTILEVEL_GET_RELATIVE_HUMIDITY_VERSION_2_V11, 0);
+
+    // Request Battery Report if battery poll countdown = 0
+    if (0 == gtNodeConnectionList[aucDSKIndex].BatteryPollCountdown)
+    {
+      ZWave_Send_Battery_Get(guiSourceNodeID);
+    }
+  } // endif DSK is NOT processing
+}
+// end ZWave_Process_Wakeup_Notification
 
 /** *****************************************************************************************************************************
   * @brief  Command handler for CMD 0x02 FUNC_ID_SERIAL_API_GET_INIT_DATA ZW->HOST: Cmd | ver | capabilities | 29 | nodes[29] | chip_type | chip_version
@@ -13844,11 +14012,7 @@ void ZWaveTask(void *argument)
           if (COMMAND_CLASS_SWITCH_MULTILEVEL_V4 == gucDecryptedPlaintext[0] &&
               SWITCH_MULTILEVEL_REPORT_V4        == gucDecryptedPlaintext[1]     )
           {
-            LOG("-----------------------  Switch Multilevel Report START -----------------------\r\n");
-            // Invoke the command class handler
-            ZWave_Process_Command_Class(gucDecryptedPlaintext, gucReceivedCiphertextLength);
-            LOG("-----------------------  Switch Multilevel Report  END  -----------------------\r\n");
-            LOG("%s: Zone=%03d \t Timestamp=%d \t type=%02d \t Value=%d \r\n", __FUNCTION__, (10*lucDSKIndex)+3, sUNIXTime, 36, gucDecryptedPlaintext[2]);
+            ZWave_Process_Switch_Multilevel_Report(lucDSKIndex);
           }
           /////////////////////////////////////////////////////////////////////
           // Wakeup Notification
@@ -13857,31 +14021,7 @@ void ZWaveTask(void *argument)
           else if (COMMAND_CLASS_WAKE_UP_V3 == gucDecryptedPlaintext[0] &&
               WAKE_UP_NOTIFICATION_V3  == gucDecryptedPlaintext[1]     )
           {
-            LOG("-----------------------  Wakeup Notification START -----------------------\r\n");
-            // Invoke the command class handler
-            ZWave_Process_Command_Class(gucDecryptedPlaintext, gucReceivedCiphertextLength);
-            LOG("-----------------------  Wakeup Notification  END  -----------------------\r\n");
-
-            if (!ZWave_DSK_IsProcessing())
-            {
-              //
-              // Set the node isAwake to "AWAKE"
-              //
-              gtNodeConnectionList[gucProcessingDSK].isAwake = TRUE;
-
-              //
-              // If any messages to the remote sensor are pending,
-              // send them now while the remote sensor is awake
-              //
-              ZWave_Send_Multilevel_Sensor_Get(guiSourceNodeID, SENSOR_MULTILEVEL_GET_TEMPERATURE_VERSION_1_V11,       1); // Fahrenheit
-              ZWave_Send_Multilevel_Sensor_Get(guiSourceNodeID, SENSOR_MULTILEVEL_GET_RELATIVE_HUMIDITY_VERSION_2_V11, 0);
-
-              // Request Battery Report if battery poll countdown = 0
-              if (0 == gtNodeConnectionList[gucProcessingDSK].BatteryPollCountdown)
-              {
-                ZWave_Send_Battery_Get(guiSourceNodeID);
-              }
-            } // endif DSK is NOT processing
+            ZWave_Process_Wakeup_Notification(lucDSKIndex);
           }
           /////////////////////////////////////////////////////////////////////
           // Multilevel Sensor Report
@@ -13890,58 +14030,7 @@ void ZWaveTask(void *argument)
           else if (COMMAND_CLASS_SENSOR_MULTILEVEL_V11 == gucDecryptedPlaintext[0] &&
                     SENSOR_MULTILEVEL_REPORT_V11        == gucDecryptedPlaintext[1]     )
           {
-            LOG("-----------------------  Multilevel Sensor Report START -----------------------\r\n");
-            // Invoke the command class handler
-            ZWave_Process_Command_Class(gucDecryptedPlaintext, gucReceivedCiphertextLength);
-            LOG("-----------------------  Multilevel Sensor Report  END  -----------------------\r\n");
-            lucSensorReadingPrecision = (gucDecryptedPlaintext[3] & SENSOR_MULTILEVEL_REPORT_LEVEL_PRECISION_MASK_V11) >> SENSOR_MULTILEVEL_REPORT_LEVEL_PRECISION_SHIFT_V11;
-            lucSensorReadingScale     = (gucDecryptedPlaintext[3] & SENSOR_MULTILEVEL_REPORT_LEVEL_SCALE_MASK_V11) >> SENSOR_MULTILEVEL_REPORT_LEVEL_SCALE_SHIFT_V11;
-            lucSensorReadingSize      = (gucDecryptedPlaintext[3] & SENSOR_MULTILEVEL_REPORT_LEVEL_SIZE_MASK_V11);
-            //llSensorValue = (int32_t)Convert_Bytes_uint32(&gucDecryptedPlaintext[4]);
-            if (4 ==lucSensorReadingSize)
-            {
-              llSensorValue = (int32_t)Convert_Bytes_uint32(&gucDecryptedPlaintext[4]);
-            }
-            else if (2 ==lucSensorReadingSize)
-            {
-              llSensorValue = (int32_t)Convert_Bytes_uint16(&gucDecryptedPlaintext[4]);
-            }
-            else if (1 ==lucSensorReadingSize)
-            {
-              llSensorValue = (int32_t)(gucDecryptedPlaintext[4]);
-            }
-            switch (lucSensorReadingPrecision)
-            {
-            case 3:
-              break;
-            case 2:
-              llSensorValue *= 10;
-              break;
-            case 1:
-              llSensorValue *= 100;
-              break;
-            case 0:
-              llSensorValue *= 1000;
-              break;
-            default:
-              LOG("%s: *** WARNING *** unexpected precision value %d \r\n", __FUNCTION__, lucSensorReadingPrecision);
-            }
-            if (SENSOR_MULTILEVEL_GET_TEMPERATURE_VERSION_1_V11 == gucDecryptedPlaintext[2])
-            {
-              LOG("%s: Zone=%03d \t Timestamp=%d \t type=%02d \t Value=%d \r\n", __FUNCTION__, (10*lucDSKIndex)+1, sUNIXTime,  2, llSensorValue); // Temperature Fahrenheit
-            }
-            if (SENSOR_MULTILEVEL_GET_LUMINANCE_VERSION_1_V11 == gucDecryptedPlaintext[2])
-            {
-              LOG("%s: Zone=%03d \t Timestamp=%d \t type=%02d \t Value=%d \r\n", __FUNCTION__, (10*lucDSKIndex)+3, sUNIXTime, 36, llSensorValue);
-            }
-            if (SENSOR_MULTILEVEL_GET_DEW_POINT_VERSION_2_V11 == gucDecryptedPlaintext[2])
-            {
-              LOG("%s: Zone=%03d \t Timestamp=%d \t type=%02d \t Value=%d \r\n", __FUNCTION__, (10*lucDSKIndex)+3, sUNIXTime, 36, llSensorValue);
-            }
-            if (SENSOR_MULTILEVEL_GET_RELATIVE_HUMIDITY_VERSION_2_V11 == gucDecryptedPlaintext[2])
-            {
-              LOG("%s: Zone=%03d \t Timestamp=%d \t type=%02d \t Value=%d \r\n", __FUNCTION__, (10*lucDSKIndex)+5, sUNIXTime, 10, llSensorValue);
-            }
+            ZWave_Process_Multilevel_Sensor_Report(lucDSKIndex);
           }
           /////////////////////////////////////////////////////////////////////
           // Multilevel Sensor Supported Sensor Report
@@ -13949,27 +14038,7 @@ void ZWaveTask(void *argument)
           else if (COMMAND_CLASS_SENSOR_MULTILEVEL_V11      == gucDecryptedPlaintext[0] &&
               SENSOR_MULTILEVEL_SUPPORTED_SENSOR_REPORT_V11  == gucDecryptedPlaintext[1]     )
           {
-            LOG("-----------------------  Multilevel Sensor Supported Sensor Report START -----------------------\r\n");
-            // Invoke the command class handler
-            ZWave_Process_Command_Class(gucDecryptedPlaintext, gucReceivedCiphertextLength);
-            LOG("-----------------------  Multilevel Sensor Supported Sensor Report  END  -----------------------\r\n");
-            LOG("%s: Raw dump of supported sensor types for DSK %d \r\n", __FUNCTION__, gucProcessingDSK);
-            PrintBytes(gtNodeConnectionList[gucProcessingDSK].SensorTypes, sizeof(gtNodeConnectionList[gucProcessingDSK].SensorTypes), false, 0);
-            //// Get some immediate readings from ALL sensor types
-            uint8_t lucSensorTypeIndex = 0;
-            while ((0x00 != gtNodeConnectionList[gucProcessingDSK].SensorTypes[lucSensorTypeIndex]) && (lucSensorTypeIndex < sizeof(gtNodeConnectionList[gucProcessingDSK].SensorTypes)))
-            {
-              if (SENSOR_MULTILEVEL_GET_TEMPERATURE_VERSION_1_V11 == gtNodeConnectionList[gucProcessingDSK].SensorTypes[lucSensorTypeIndex])
-              {
-                ZWave_Send_Multilevel_Sensor_Get(guiSourceNodeID, gtNodeConnectionList[gucProcessingDSK].SensorTypes[lucSensorTypeIndex], 1);
-              }
-              else
-              {
-                ZWave_Send_Multilevel_Sensor_Get(guiSourceNodeID, gtNodeConnectionList[gucProcessingDSK].SensorTypes[lucSensorTypeIndex], 0);
-              }
-
-              ++lucSensorTypeIndex;
-            } // end while
+            ZWave_Process_Multilevel_Sensor_Supported_Sensor_Report(lucDSKIndex);
           }
           /////////////////////////////////////////////////////////////////////
           // Wakeup Interval Report
@@ -14000,15 +14069,7 @@ void ZWaveTask(void *argument)
           else if (COMMAND_CLASS_BATTERY_V3 == gucDecryptedPlaintext[0] &&
                     BATTERY_REPORT  == gucDecryptedPlaintext[1]     )
           {
-            // Reset countdown to next battery poll
-            gtNodeConnectionList[lucDSKIndex].BatteryPollCountdown = NODE_BATTERY_POLL_INTERVAL_SECONDS;
-
-            LOG("-----------------------  Battery Report START -----------------------\r\n");
-            // Invoke the command class handler
-            ZWave_Process_Command_Class(gucDecryptedPlaintext, gucReceivedCiphertextLength);
-            LOG("-----------------------  Battery Report  END  -----------------------\r\n");
-            uint8_t lucBatteryPercentage = gucDecryptedPlaintext[2];
-            LOG("%s: Zone=%03d \t Timestamp=%d \t type=%02d \t Value=%d%% \r\n", __FUNCTION__, (10*lucDSKIndex), sUNIXTime, 12, lucBatteryPercentage);
+            ZWave_Process_Battery_Report(lucDSKIndex);
           }
           /////////////////////////////////////////////////////////////////////
           // Unsupported - just display the plaintext bytes
