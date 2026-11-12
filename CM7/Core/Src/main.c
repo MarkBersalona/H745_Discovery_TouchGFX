@@ -733,7 +733,7 @@ uint8_t gucMeshNodes[29];
 // Copy of LR nodes [0x0100, 0x04FF]
 //
 uint8_t gucLRNodes[MAX_LR_NODEMASK_LENGTH];
-uint16_t guiActiveNodeCount=0;
+uint16_t guiActiveLRNodeCount=0;
 uint16_t guiLiveNodeCount=0;
 
 uint8_t gucActiveMeshNodeCount = 0;
@@ -5663,7 +5663,7 @@ void ZWave_Housekeeping_Delete_Abandoned_LR_NodeID(void)
   // of classical mesh NodeIDs, so don't delete ourselves.
   // For now, the hack will be to increment the active node count when a
   // mesh node gets included, and decrement when excluded.
-  else if (guiActiveNodeCount || (guiActiveNodeCount != guiLiveNodeCount) )
+  else if (guiActiveLRNodeCount || (guiActiveLRNodeCount != guiLiveNodeCount) )
   {
     // (no more NodeIDs to check in the current LR node list)
     // Fetch latest LR node list
@@ -6634,7 +6634,7 @@ void ZWave_RES_CMD_02_Get_Init_Data(void)
     LOG("%s: -------------------------------------- \r\n", __FUNCTION__);
 
     gucActiveMeshNodeCount = lucActiveMeshNodeCount - 1; // don't count the controller's NodeID
-    LOG("%s: Active node count: %04d \r\n", __FUNCTION__, guiActiveNodeCount + gucActiveMeshNodeCount);
+    LOG("%s: Active node count: %04d \r\n", __FUNCTION__, guiActiveLRNodeCount + gucActiveMeshNodeCount);
 
   }
   else
@@ -8451,19 +8451,19 @@ void ZWave_RES_CMD_DA_Serial_API_Get_LR_Nodes(void)
   if (!lucIsAnyNodeActive) LOG("%s: No nodes active \r\n", __FUNCTION__);
   LOG("%s: -------------------------------------- \r\n", __FUNCTION__);
 
-  // Adjust guiActiveNodeCount if needed
-  guiActiveNodeCount = luiActiveNodeCount;
+  // Adjust guiActiveLRNodeCount if needed
+  guiActiveLRNodeCount = luiActiveNodeCount;
 
-  LOG("%s: Active node count: %04d \r\n", __FUNCTION__, guiActiveNodeCount + gucActiveMeshNodeCount);
+  LOG("%s: Active node count: %04d \r\n", __FUNCTION__, guiActiveLRNodeCount + gucActiveMeshNodeCount);
 
   // Save the LR nodes bitmask array
   memcpy(gucLRNodes, &ZWaveSerialFrame->payload[3], MAX_LR_NODEMASK_LENGTH);
   //LOG("%s: Copy of BITMASK_ARRAY: \r\n", __FUNCTION__);
   //PrintBytes(gucLRNodes, MAX_LR_NODEMASK_LENGTH, false, 0);
 
-  if (guiActiveNodeCount + gucActiveMeshNodeCount == guiLiveNodeCount)
+  if (guiActiveLRNodeCount + gucActiveMeshNodeCount == guiLiveNodeCount)
   {
-    LOG("%s: Live node count == Active node count: %04d \r\n", __FUNCTION__, guiActiveNodeCount + gucActiveMeshNodeCount);
+    LOG("%s: Live node count == Active node count: %04d \r\n", __FUNCTION__, guiActiveLRNodeCount + gucActiveMeshNodeCount);
   }
 
   // Display RTC in debug output
@@ -13750,30 +13750,15 @@ void ZWaveTask(void *argument)
 
     #if ENABLE_ZWAVE_CONTROLLER_HOST
     //////////////////////////////////////////////////////////////////////////////
-    //// TEST MAB 2025.12.29
-    //// Every N minutes display the node provisioning list
-    //// TEST MAB 2025.12.30
-    //// Also check for the 1st zeroized DSK, if any
-    if (lucCountdownToNodeProvisioningListStatus_minutes == 0)
-    {
-      lucCountdownToNodeProvisioningListStatus_minutes = ZWave_DSK_Count_Live_NodeIDs() ? NODE_PL_DISPLAY_INTERVAL_MINUTES : 60;
-      //lucCountdownToNodeProvisioningListStatus_minutes = ZWave_DSK_Count_Live_NodeIDs() ? NODE_PL_DISPLAY_INTERVAL_MINUTES : 2*NODE_PL_DISPLAY_INTERVAL_MINUTES;
-
-      ZWave_Display_Node_Provisioning_List();
-    }
-    // END display the node provisioning list
+    //
+    // Per Claude AI, call once per ZWaveTask loop, replacing the "retransmit if Nonce Report" block
+    // Transmit queued CC commands for/to CONNECTED end nodes
+    // MAB 2026.11.02
+    // Give priority to an end node joining (or excluding)
+    // MAB 2026.11.09
+    // Allow one more service if no more Tx queued but still awake (to let WNMI go out)
+    //
     //////////////////////////////////////////////////////////////////////////////
-    #endif
-
-    #if ENABLE_ZWAVE_CONTROLLER_HOST
-    //////////////////////////////////////////////////////////////////////////////
-    //// TEST MAB 2026.10.21
-    //// Per Claude AI, call once per ZWaveTask loop, replacing the "retransmit if Nonce Report" block
-    //// Transmit queued CC commands for/to CONNECTED end nodes
-    //// TEST MAB 2026.11.02
-    //// Give priority to an end node joining (or excluding)
-    //// TEST MAB 2026.11.09
-    //// Allow one more service if no more Tx queued but still awake (to let WNMI go out)
     for (uint8_t lucDSKIndex = 0; lucDSKIndex < NODE_PROVISIONING_LIST_COUNT; ++lucDSKIndex)
     {
       if (!ZWave_DSK_IsProcessing() && ZWave_DSK_IsConnected(lucDSKIndex) &&
@@ -13782,169 +13767,15 @@ void ZWaveTask(void *argument)
         ZWave_TxQ_Service(lucDSKIndex);
       }
     }
-    //////////////////////////////////////////////////////////////////////////////
-    #endif
-
-    //////////////////////////////////////////////////////////////////////////////
-    //// TEST MAB 2026.01.08
-    //// Periodically update the local copy of LR node list
-    //// TEST MAB 2026.11.02
-    //// Give priority to any DSK being processed or just busy
-    //// Also update the local copy of mesh nodes
-    if (0 == lucCountdownToUpdateNodeIDList_minutes && !ZWave_DSK_IsProcessing() && !ZWave_DSK_IsBusy())
-    {
-      lucCountdownToUpdateNodeIDList_minutes = NODE_PL_UPDATE_INTERVAL_MINUTES;
-
-      #if ENABLE_ZWAVE_CONTROLLER_HOST
-      // Fetch latest LR node list
-      ZWave_Send_REQ_CMD_DA_Serial_API_Get_LR_Nodes();
-      // Also fetch latest mesh node list
-      ZWave_Send_REQ_CMD_02_Serial_API_Get_Init_Data();
-      #endif
-    }
-    //////////////////////////////////////////////////////////////////////////////
-
-    #if ENABLE_ZWAVE_CONTROLLER_HOST
-    //////////////////////////////////////////////////////////////////////////////
-    //// TEST MAB 2026.01.07
-    //// Periodically check the next active NodeID if it is abandoned and if so,
-    //// remove the NodeID from the network.
-    //// TEST MAB 2026.11.02
-    //// Give priority to any DSK being processed or just busy
-    //// Also periodically check for abandoned mesh NodeIDs
-    static uint8_t lucMeshNodeListNeedsRefresh = TRUE;
-
-    // 10 seconds before checking for abandoned NodeIDs,
-    // update the mesh node list
-    if ( (10 >= lulCountdownToCheckAbandonedNodeID_seconds) &&
-         lucMeshNodeListNeedsRefresh                        &&
-         (guiActiveNodeCount+gucActiveMeshNodeCount != guiLiveNodeCount)           &&
-         !ZWave_DSK_IsProcessing()                          &&
-         !ZWave_DSK_IsBusy()                                   )
-    {
-      // Update the mesh node list
-      #if ENABLE_ZWAVE_CONTROLLER_HOST
-      ZWave_Send_REQ_CMD_02_Serial_API_Get_Init_Data();
-      #endif
-
-      lucMeshNodeListNeedsRefresh = FALSE;
-    }
-
-    // IF it's time to check for abandoned NodeIDs, active node count and live node count don't match,
-    // AND no other DSK is being processed or busy
-    if ( (0 == lulCountdownToCheckAbandonedNodeID_seconds) &&
-         (guiActiveNodeCount+gucActiveMeshNodeCount != guiLiveNodeCount)          &&
-         !ZWave_DSK_IsProcessing()                         &&
-         !ZWave_DSK_IsBusy()                                     )
-    {
-      //lulCountdownToCheckAbandonedNodeID_seconds = 300 + RandomValue()%60; // 5-6 minutes
-      lulCountdownToCheckAbandonedNodeID_seconds = 60 + RandomValue()%60; // 1-2 minutes
-      //lulCountdownToCheckAbandonedNodeID_seconds = 30 + RandomValue()%10; // 30-40 seconds
-      //lulCountdownToCheckAbandonedNodeID_seconds = 10 + RandomValue()%10; // 10-20 seconds
-
-      // Check for and clear an abandoned LR or mesh NodeID, if any
-      ZWave_Housekeeping_Delete_Abandoned_LR_NodeID();
-      ZWave_Housekeeping_Delete_Abandoned_Mesh_NodeID();
-
-      // Update the mesh node list next time around
-      lucMeshNodeListNeedsRefresh = TRUE;
-
-    } // endif time to check for abandoned NodeIDs
-
-    //////////////////////////////////////////////////////////////////////////////
     #endif
 
 
     #if ENABLE_ZWAVE_CONTROLLER_HOST
     //////////////////////////////////////////////////////////////////////////////
-    //// TEST MAB 2026.10.19
-    //// Every N seconds, CONNECTED multilevel switches are toggled
-    //// TEST MAB 2026.11.02
-    //// Give priority to any DSK being processed or just busy
-    if (0 == lulCountdownToSwitchMultilevelSet_seconds && !ZWave_DSK_IsProcessing() && !ZWave_DSK_IsBusy())
-    {
-      lulCountdownToSwitchMultilevelSet_seconds = SWITCH_MULTILEVEL_SET_INTERVAL_SECONDS;
-
-      for (uint8_t lucDSKIndex = 0; lucDSKIndex < NODE_PROVISIONING_LIST_COUNT; ++lucDSKIndex)
-      {
-        if (ZWave_DSK_IsConnected(lucDSKIndex))
-        {
-          ///////////////////////////////////////////////////////////////////
-          // IF node is multilevel switch, toggle its output
-          if (GENERIC_TYPE_SWITCH_MULTILEVEL == gtNodeProvisioningList[lucDSKIndex].generic_device_type)
-          {
-            static uint8_t lucSwitchLevelState = 99;
-
-            // (toggle its output every N minutes)
-            if (lucSwitchLevelState)
-            {
-              // Switch to OFF
-              LOG("%s: Switch to OFF \r\n", __FUNCTION__);
-              lucSwitchLevelState = 0;
-            }
-            else
-            {
-              // Switch to ON
-              LOG("%s: Switch to ON \r\n", __FUNCTION__);
-              lucSwitchLevelState = 99;
-            }
-
-            // Send COMMAND_CLASS_SWITCH_MULTILEVEL, SWITCH_MULTILEVEL_SET, value, duration to NodeID
-            ZWave_Send_Switch_Multilevel_Set(gtNodeProvisioningList[lucDSKIndex].NodeID, lucSwitchLevelState);
-
-            // (read its state)
-            // Send COMMAND_CLASS_SWITCH_MULTILEVEL, SWITCH_MULTILEVEL_GET
-            ZWave_Send_Switch_Multilevel_Get(gtNodeProvisioningList[lucDSKIndex].NodeID);
-
-            // Display RTC in debug output
-            luiMessageQueueBuffer = msgid_MAIN_DISPLAY_RTC;
-            osMessageQueuePut(MainQueueHandle, &luiMessageQueueBuffer, 0, 1);
-          }
-          // ENDIF node is multiswitch, toggle its output
-          ///////////////////////////////////////////////////////////////////
-        }
-      }
-    }
+    //
+    // Process received Nonce Get OUTSIDE S2 Bootstrap. i.e. when CONNECTED
+    //
     //////////////////////////////////////////////////////////////////////////////
-    #endif
-
-
-    #if ENABLE_ZWAVE_CONTROLLER_HOST
-    //////////////////////////////////////////////////////////////////////////////
-    //// TEST MAB 2026.10.09
-    //// Every N seconds, CONNECTED end nodes are triggered to... do something
-    //// (Need to revamp this to having each DSK have its own seconds counter,
-    ////  updating each second, triggering against its own threshold.)
-    //// TEST MAB 2026.11.02
-    //// Give priority to any DSK being processed or just busy
-    if (0 == lulCountdownToConnectedActivity_seconds && !ZWave_DSK_IsProcessing() && !ZWave_DSK_IsBusy())
-    {
-      lulCountdownToConnectedActivity_seconds = CONNECTED_ACTIVITY_INTERVAL_SECONDS;
-
-      for (int lucDSKIndex = 0; lucDSKIndex < NODE_PROVISIONING_LIST_COUNT; ++lucDSKIndex)
-      {
-        if (ZWave_DSK_IsConnected(lucDSKIndex))
-        {
-          ///////////////////////////////////////////////////////////////////
-          // IF node is multilevel switch,read its state
-          if (GENERIC_TYPE_SWITCH_MULTILEVEL == gtNodeProvisioningList[lucDSKIndex].generic_device_type)
-          {
-            // (read its state periodically)
-            // Send COMMAND_CLASS_SWITCH_MULTILEVEL, SWITCH_MULTILEVEL_GET
-            ZWave_Send_Switch_Multilevel_Get(gtNodeProvisioningList[lucDSKIndex].NodeID);
-          }
-          // ENDIF node is multiswitch, toggle its output
-          ///////////////////////////////////////////////////////////////////
-        }
-      }
-    }
-    //////////////////////////////////////////////////////////////////////////////
-    #endif
-
-    #if ENABLE_ZWAVE_CONTROLLER_HOST
-    //////////////////////////////////////////////////////////////////////////////
-    //// TEST MAB 2026.10.09
-    //// Process received Nonce Get OUTSIDE S2 Bootstrap. i.e. when CONNECTED
     if (gucIsNonceGetReceived)
     {
       gucIsNonceGetReceived = FALSE;
@@ -13963,13 +13794,14 @@ void ZWaveTask(void *argument)
         LOG("%s: - node is not yet connected, so no further processing is needed \r\n", __FUNCTION__);
       }
     }
-    //////////////////////////////////////////////////////////////////////////////
     #endif
 
     #if ENABLE_ZWAVE_CONTROLLER_HOST
     //////////////////////////////////////////////////////////////////////////////
-    //// TEST MAB 2026.10.15
-    //// Process received encrypted messages when CONNECTED
+    //
+    // Process received encrypted messages when CONNECTED
+    //
+    //////////////////////////////////////////////////////////////////////////////
     uint8_t lucIsReadyToDecrypt = FALSE;
     int liDecryptMsgSuccessful;
     if (gucIsEncryptedMsgReceived)
@@ -14007,9 +13839,7 @@ void ZWaveTask(void *argument)
           ZWave_TxQ_On_Report(gucProcessingDSK, gucDecryptedPlaintext);
 
           /////////////////////////////////////////////////////////////////////
-          //
           // Switch Multilevel Report
-          //
           /////////////////////////////////////////////////////////////////////
           if (COMMAND_CLASS_SWITCH_MULTILEVEL_V4 == gucDecryptedPlaintext[0] &&
               SWITCH_MULTILEVEL_REPORT_V4        == gucDecryptedPlaintext[1]     )
@@ -14021,10 +13851,8 @@ void ZWaveTask(void *argument)
             LOG("%s: Zone=%03d \t Timestamp=%d \t type=%02d \t Value=%d \r\n", __FUNCTION__, (10*lucDSKIndex)+3, sUNIXTime, 36, gucDecryptedPlaintext[2]);
           }
           /////////////////////////////////////////////////////////////////////
-          //
           // Wakeup Notification
           // (expect this periodically)
-          //
           /////////////////////////////////////////////////////////////////////
           else if (COMMAND_CLASS_WAKE_UP_V3 == gucDecryptedPlaintext[0] &&
               WAKE_UP_NOTIFICATION_V3  == gucDecryptedPlaintext[1]     )
@@ -14056,10 +13884,8 @@ void ZWaveTask(void *argument)
             } // endif DSK is NOT processing
           }
           /////////////////////////////////////////////////////////////////////
-          //
           // Multilevel Sensor Report
           // (expect this periodically)
-          //
           /////////////////////////////////////////////////////////////////////
           else if (COMMAND_CLASS_SENSOR_MULTILEVEL_V11 == gucDecryptedPlaintext[0] &&
                     SENSOR_MULTILEVEL_REPORT_V11        == gucDecryptedPlaintext[1]     )
@@ -14118,9 +13944,7 @@ void ZWaveTask(void *argument)
             }
           }
           /////////////////////////////////////////////////////////////////////
-          //
           // Multilevel Sensor Supported Sensor Report
-          //
           /////////////////////////////////////////////////////////////////////
           else if (COMMAND_CLASS_SENSOR_MULTILEVEL_V11      == gucDecryptedPlaintext[0] &&
               SENSOR_MULTILEVEL_SUPPORTED_SENSOR_REPORT_V11  == gucDecryptedPlaintext[1]     )
@@ -14148,9 +13972,7 @@ void ZWaveTask(void *argument)
             } // end while
           }
           /////////////////////////////////////////////////////////////////////
-          //
           // Wakeup Interval Report
-          //
           /////////////////////////////////////////////////////////////////////
           else if (COMMAND_CLASS_WAKE_UP_V3 == gucDecryptedPlaintext[0] &&
               WAKE_UP_INTERVAL_REPORT_V3  == gucDecryptedPlaintext[1]     )
@@ -14161,9 +13983,7 @@ void ZWaveTask(void *argument)
             LOG("-----------------------  Wakeup Interval Report  END  -----------------------\r\n");
           }
           /////////////////////////////////////////////////////////////////////
-          //
           // Wakeup Interval Capabilities Report
-          //
           /////////////////////////////////////////////////////////////////////
           else if (COMMAND_CLASS_WAKE_UP_V3 == gucDecryptedPlaintext[0] &&
               WAKE_UP_INTERVAL_CAPABILITIES_REPORT_V3  == gucDecryptedPlaintext[1]     )
@@ -14174,10 +13994,8 @@ void ZWaveTask(void *argument)
             LOG("-----------------------  Wakeup Interval Capabilities Report  END  -----------------------\r\n");
           }
           /////////////////////////////////////////////////////////////////////
-          //
           // Battery Report
           // (expect this periodically)
-          //
           /////////////////////////////////////////////////////////////////////
           else if (COMMAND_CLASS_BATTERY_V3 == gucDecryptedPlaintext[0] &&
                     BATTERY_REPORT  == gucDecryptedPlaintext[1]     )
@@ -14193,9 +14011,7 @@ void ZWaveTask(void *argument)
             LOG("%s: Zone=%03d \t Timestamp=%d \t type=%02d \t Value=%d%% \r\n", __FUNCTION__, (10*lucDSKIndex), sUNIXTime, 12, lucBatteryPercentage);
           }
           /////////////////////////////////////////////////////////////////////
-          //
           // Unsupported - just display the plaintext bytes
-          //
           /////////////////////////////////////////////////////////////////////
           else
           {
@@ -14220,7 +14036,184 @@ void ZWaveTask(void *argument)
       } // endif ready to decrypt
 
     } // endif encrypted message received
+    #endif
+
+    #if ENABLE_ZWAVE_CONTROLLER_HOST
     //////////////////////////////////////////////////////////////////////////////
+    //// TEST MAB 2026.10.19
+    //// Every N seconds, CONNECTED multilevel switches are toggled
+    //// TEST MAB 2026.11.02
+    //// Give priority to any DSK being processed or just busy
+    //////////////////////////////////////////////////////////////////////////////
+    if (0 == lulCountdownToSwitchMultilevelSet_seconds && !ZWave_DSK_IsProcessing() && !ZWave_DSK_IsBusy())
+    {
+      lulCountdownToSwitchMultilevelSet_seconds = SWITCH_MULTILEVEL_SET_INTERVAL_SECONDS;
+
+      for (uint8_t lucDSKIndex = 0; lucDSKIndex < NODE_PROVISIONING_LIST_COUNT; ++lucDSKIndex)
+      {
+        if (ZWave_DSK_IsConnected(lucDSKIndex))
+        {
+          // IF node is multilevel switch, toggle its output
+          if (GENERIC_TYPE_SWITCH_MULTILEVEL == gtNodeProvisioningList[lucDSKIndex].generic_device_type)
+          {
+            static uint8_t lucSwitchLevelState = 99;
+
+            // (toggle its output every N minutes)
+            if (lucSwitchLevelState)
+            {
+              // Switch to OFF
+              LOG("%s: Switch to OFF \r\n", __FUNCTION__);
+              lucSwitchLevelState = 0;
+            }
+            else
+            {
+              // Switch to ON
+              LOG("%s: Switch to ON \r\n", __FUNCTION__);
+              lucSwitchLevelState = 99;
+            }
+
+            // Send COMMAND_CLASS_SWITCH_MULTILEVEL, SWITCH_MULTILEVEL_SET, value, duration to NodeID
+            ZWave_Send_Switch_Multilevel_Set(gtNodeProvisioningList[lucDSKIndex].NodeID, lucSwitchLevelState);
+
+            // (read its state)
+            // Send COMMAND_CLASS_SWITCH_MULTILEVEL, SWITCH_MULTILEVEL_GET
+            ZWave_Send_Switch_Multilevel_Get(gtNodeProvisioningList[lucDSKIndex].NodeID);
+
+            // Display RTC in debug output
+            luiMessageQueueBuffer = msgid_MAIN_DISPLAY_RTC;
+            osMessageQueuePut(MainQueueHandle, &luiMessageQueueBuffer, 0, 1);
+          }
+          // ENDIF node is multiswitch, toggle its output
+        }
+      }
+    }
+    #endif
+
+
+    #if ENABLE_ZWAVE_CONTROLLER_HOST
+    //////////////////////////////////////////////////////////////////////////////
+    //// TEST MAB 2026.10.09
+    //// Every N seconds, CONNECTED end nodes are triggered to... do something
+    //// (Need to revamp this to having each DSK have its own seconds counter,
+    ////  updating each second, triggering against its own threshold.)
+    //// TEST MAB 2026.11.02
+    //// Give priority to any DSK being processed or just busy
+    //////////////////////////////////////////////////////////////////////////////
+    if (0 == lulCountdownToConnectedActivity_seconds && !ZWave_DSK_IsProcessing() && !ZWave_DSK_IsBusy())
+    {
+      lulCountdownToConnectedActivity_seconds = CONNECTED_ACTIVITY_INTERVAL_SECONDS;
+
+      for (uint8_t lucDSKIndex = 0; lucDSKIndex < NODE_PROVISIONING_LIST_COUNT; ++lucDSKIndex)
+      {
+        if (ZWave_DSK_IsConnected(lucDSKIndex))
+        {
+          // IF node is multilevel switch,read its state
+          if (GENERIC_TYPE_SWITCH_MULTILEVEL == gtNodeProvisioningList[lucDSKIndex].generic_device_type)
+          {
+            // (read its state periodically)
+            // Send COMMAND_CLASS_SWITCH_MULTILEVEL, SWITCH_MULTILEVEL_GET
+            ZWave_Send_Switch_Multilevel_Get(gtNodeProvisioningList[lucDSKIndex].NodeID);
+          }
+          // ENDIF node is multiswitch, toggle its output
+        }
+      }
+    }
+    #endif
+
+    //////////////////////////////////////////////////////////////////////////////////////////////////////////
+    //////////////////////////////////////////////////////////////////////////////////////////////////////////
+    //
+    // Housekeeping for ZWaveTask below
+    //
+    //////////////////////////////////////////////////////////////////////////////////////////////////////////
+    //////////////////////////////////////////////////////////////////////////////////////////////////////////
+
+
+    #if ENABLE_ZWAVE_CONTROLLER_HOST
+    //////////////////////////////////////////////////////////////////////////////
+    //// TEST MAB 2026.01.07
+    //// Periodically check the next active NodeID if it is abandoned and if so,
+    //// remove the NodeID from the network.
+    //// TEST MAB 2026.11.02
+    //// Give priority to any DSK being processed or just busy
+    //// Also periodically check for abandoned mesh NodeIDs
+    //////////////////////////////////////////////////////////////////////////////
+    static uint8_t lucMeshNodeListNeedsRefresh = TRUE;
+
+    // 10 seconds before checking for abandoned NodeIDs,
+    // update the mesh node list
+    if ( (10 >= lulCountdownToCheckAbandonedNodeID_seconds) &&
+         lucMeshNodeListNeedsRefresh                        &&
+         (guiActiveLRNodeCount+gucActiveMeshNodeCount != guiLiveNodeCount)           &&
+         !ZWave_DSK_IsProcessing()                          &&
+         !ZWave_DSK_IsBusy()                                   )
+    {
+      // Update the mesh node list
+      #if ENABLE_ZWAVE_CONTROLLER_HOST
+      ZWave_Send_REQ_CMD_02_Serial_API_Get_Init_Data();
+      // Also update LR node list
+      ZWave_Send_REQ_CMD_DA_Serial_API_Get_LR_Nodes();
+      #endif
+
+      lucMeshNodeListNeedsRefresh = FALSE;
+    }
+
+    // IF it's time to check for abandoned NodeIDs, active node count and live node count don't match,
+    // AND no other DSK is being processed or busy
+    if ( (0 == lulCountdownToCheckAbandonedNodeID_seconds) &&
+         (guiActiveLRNodeCount+gucActiveMeshNodeCount != guiLiveNodeCount)          &&
+         !ZWave_DSK_IsProcessing()                         &&
+         !ZWave_DSK_IsBusy()                                     )
+    {
+      //lulCountdownToCheckAbandonedNodeID_seconds = 300 + RandomValue()%60; // 5-6 minutes
+      lulCountdownToCheckAbandonedNodeID_seconds = 60 + RandomValue()%60; // 1-2 minutes
+      //lulCountdownToCheckAbandonedNodeID_seconds = 30 + RandomValue()%10; // 30-40 seconds
+      //lulCountdownToCheckAbandonedNodeID_seconds = 10 + RandomValue()%10; // 10-20 seconds
+
+      // Check for and clear an abandoned LR or mesh NodeID, if any
+      ZWave_Housekeeping_Delete_Abandoned_LR_NodeID();
+      ZWave_Housekeeping_Delete_Abandoned_Mesh_NodeID();
+
+      // Update the mesh node list next time around
+      lucMeshNodeListNeedsRefresh = TRUE;
+
+    } // endif time to check for abandoned NodeIDs
+    #endif
+
+    #if ENABLE_ZWAVE_CONTROLLER_HOST
+    //////////////////////////////////////////////////////////////////////////////
+    //// TEST MAB 2025.12.29
+    //// Every N minutes display the node provisioning list
+    //// TEST MAB 2025.12.30
+    //// Also check for the 1st zeroized DSK, if any
+    //////////////////////////////////////////////////////////////////////////////
+    if (lucCountdownToNodeProvisioningListStatus_minutes == 0)
+    {
+      lucCountdownToNodeProvisioningListStatus_minutes = ZWave_DSK_Count_Live_NodeIDs() ? NODE_PL_DISPLAY_INTERVAL_MINUTES : 60;
+      //lucCountdownToNodeProvisioningListStatus_minutes = ZWave_DSK_Count_Live_NodeIDs() ? NODE_PL_DISPLAY_INTERVAL_MINUTES : 2*NODE_PL_DISPLAY_INTERVAL_MINUTES;
+
+      ZWave_Display_Node_Provisioning_List();
+    }
+    // END display the node provisioning list
+    #endif
+
+    #if ENABLE_ZWAVE_CONTROLLER_HOST
+    //////////////////////////////////////////////////////////////////////////////
+    //// TEST MAB 2026.01.08
+    //// Periodically update the local copy of LR node list
+    //// TEST MAB 2026.11.02
+    //// Give priority to any DSK being processed or just busy
+    //// Also update the local copy of mesh nodes
+    //////////////////////////////////////////////////////////////////////////////
+    if (0 == lucCountdownToUpdateNodeIDList_minutes && !ZWave_DSK_IsProcessing() && !ZWave_DSK_IsBusy())
+    {
+      lucCountdownToUpdateNodeIDList_minutes = NODE_PL_UPDATE_INTERVAL_MINUTES;
+
+      // Fetch latest LR node list
+      ZWave_Send_REQ_CMD_DA_Serial_API_Get_LR_Nodes();
+      // Also fetch latest mesh node list
+      ZWave_Send_REQ_CMD_02_Serial_API_Get_Init_Data();
+    }
     #endif
 
 
