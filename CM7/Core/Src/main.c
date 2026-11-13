@@ -4687,6 +4687,35 @@ uint8_t ZWave_DSK_IsBusy(void)
 // end ZWave_DSK_IsBusy
 
 /** *****************************************************************************************************************************
+  * @brief  Test if a specified DSK in the node provisioning list supports a specified Command Class
+  * @param  uint8_t aucDSKIndex - index into node provisioning list  [0, NODE_PROVISIONING_LIST_COUNT-1]
+  * @param  uint8_t aucCommandClass - specified Command Class
+  * @retval TRUE if specified DSK supports the specified CC; FALSE otherwise
+  */
+uint8_t ZWave_DSK_IsCommandClassSupported(uint8_t aucDSKIndex, uint8_t aucCommandClass)
+{
+  uint8_t lucIsCCSupported = FALSE; // Assume Command Class is NOT supported until proven otherwise
+
+  if (aucDSKIndex < NODE_PROVISIONING_LIST_COUNT)
+  {
+    for (uint8_t lucCCIndex = 0; lucCCIndex < gtNodeProvisioningList[aucDSKIndex].CC_list_length; ++lucCCIndex)
+    {
+      if (gtNodeProvisioningList[aucDSKIndex].CC_list_buffer[lucCCIndex] == aucCommandClass)
+      {
+        lucIsCCSupported = TRUE;
+      }
+    }
+  }
+  else
+  {
+    LOG("%s: *** WARNING *** invalid DSK index %d, assume Command Class is NOT supported \r\n", __FUNCTION__, aucDSKIndex);
+  }
+
+  return lucIsCCSupported;
+}
+// end ZWave_DSK_IsCommandClassSupported
+
+/** *****************************************************************************************************************************
   * @brief  Test if a specified DSK in the node provisioning list is SmartStart CONNECTED
   * @param  uint8_t  aucDSKIndex - index into node provisioning list  [0, NODE_PROVISIONING_LIST_COUNT-1]
   * @retval TRUE if specified DSK is CONNECTED; FALSE otherwise
@@ -6710,8 +6739,11 @@ void ZWave_Process_Wakeup_Notification(uint8_t aucDSKIndex)
     // If any messages to the remote sensor are pending,
     // send them now while the remote sensor is awake
     //
-    ZWave_Send_Multilevel_Sensor_Get(guiSourceNodeID, SENSOR_MULTILEVEL_GET_TEMPERATURE_VERSION_1_V11,       1); // Fahrenheit
-    ZWave_Send_Multilevel_Sensor_Get(guiSourceNodeID, SENSOR_MULTILEVEL_GET_RELATIVE_HUMIDITY_VERSION_2_V11, 0);
+    if (ZWave_DSK_IsCommandClassSupported(gucProcessingDSK, COMMAND_CLASS_SENSOR_MULTILEVEL_V11))
+    {
+      ZWave_Send_Multilevel_Sensor_Get(guiSourceNodeID, SENSOR_MULTILEVEL_GET_TEMPERATURE_VERSION_1_V11,       1); // Fahrenheit
+      ZWave_Send_Multilevel_Sensor_Get(guiSourceNodeID, SENSOR_MULTILEVEL_GET_RELATIVE_HUMIDITY_VERSION_2_V11, 0);
+    }
 
     // Request Battery Report if battery poll countdown = 0
     if (0 == gtNodeConnectionList[aucDSKIndex].BatteryPollCountdown)
@@ -13858,6 +13890,7 @@ void ZWaveTask(void *argument)
         ////
         ///////////////////////////////////////////////////
         // Multilevel Sensor
+        // - EFR32ZG23 Multilevel Sensor
         ///////////////////////////////////////////////////
         if (GENERIC_TYPE_SENSOR_MULTILEVEL == gtNodeConnectionList[gucProcessingDSK].GenericDeviceType &&
             SPECIFIC_TYPE_ROUTING_SENSOR_MULTILEVEL == gtNodeConnectionList[gucProcessingDSK].SpecificDeviceType)
@@ -13878,7 +13911,8 @@ void ZWaveTask(void *argument)
           gtNodeConnectionList[gucProcessingDSK].BatteryPollCountdown = NODE_BATTERY_POLL_INTERVAL_SECONDS;
         }
         ///////////////////////////////////////////////////
-        // Switch Multilevel, Color Tunable; LEDBulb
+        // Switch Multilevel, Color Tunable
+        // - EFR32ZG23 LEDBulb
         ///////////////////////////////////////////////////
         if (GENERIC_TYPE_SWITCH_MULTILEVEL == gtNodeConnectionList[gucProcessingDSK].GenericDeviceType &&
             SPECIFIC_TYPE_COLOR_TUNABLE_MULTILEVEL == gtNodeConnectionList[gucProcessingDSK].SpecificDeviceType)
@@ -13887,7 +13921,8 @@ void ZWaveTask(void *argument)
         }
         ///////////////////////////////////////////////////
         // Sensor Notification
-        // Aeotec aerQ ZWA039-A Temperature and Humidity Sensor
+        // - Aeotec aerQ ZWA039-A Temperature and Humidity Sensor
+        // - EFR32ZG23 SensorPIR
         ///////////////////////////////////////////////////
         if (GENERIC_TYPE_SENSOR_NOTIFICATION == gtNodeConnectionList[gucProcessingDSK].GenericDeviceType &&
             SPECIFIC_TYPE_NOTIFICATION_SENSOR == gtNodeConnectionList[gucProcessingDSK].SpecificDeviceType)
@@ -13902,7 +13937,11 @@ void ZWaveTask(void *argument)
           ZWave_Send_Wakeup_Interval_Capabilities_Get(gtNodeProvisioningList[gucProcessingDSK].NodeID);
           ZWave_Send_Wakeup_Interval_Set(gtNodeProvisioningList[gucProcessingDSK].NodeID, NODE_WAKEUP_INTERVAL_SECONDS, (uint8_t)guiDestinationNodeID);
           ZWave_Send_Wakeup_Interval_Get(gtNodeProvisioningList[gucProcessingDSK].NodeID);
-          ZWave_Send_Multilevel_Sensor_Get_Supported_Sensor(gtNodeProvisioningList[gucProcessingDSK].NodeID);
+          if (ZWave_DSK_IsCommandClassSupported(gucProcessingDSK, COMMAND_CLASS_SENSOR_MULTILEVEL_V11))
+          {
+            // (Aeotec ZWA039-A supports Multilevel Sensor; SensorPIR does not)
+            ZWave_Send_Multilevel_Sensor_Get_Supported_Sensor(gtNodeProvisioningList[gucProcessingDSK].NodeID);
+          }
           ZWave_Send_Battery_Get(gtNodeProvisioningList[gucProcessingDSK].NodeID);
 
           // Initialize countdown to next battery poll
